@@ -26,5 +26,5 @@ Option B: polling
 In each connection row:
 - dst_ip links to a host detail page (optional later)
 - show a badge:
-  - NEW if remote_hosts.first_seen_at within last 60s
-  - SEEN if older
+  - NEW if remote_hosts.first_seen_at >= now - 60s
+  - SEEN if remote_hosts exists for that dst_ip (and not NEW)

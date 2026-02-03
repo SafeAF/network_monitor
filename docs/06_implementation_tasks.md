@@ -11,6 +11,7 @@
   - spawn event reader thread (conntrack -E)
   - run snapshot reconcile loop (conntrack -L) every 2s
   - upsert DB rows
+  - on every outbound entry, upsert RemoteHost for orig.dst_ip; do not create per-connection seen markers
   - broadcast Turbo updates (optional at first)
 
 Acceptance:

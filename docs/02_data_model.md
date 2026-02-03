@@ -3,7 +3,7 @@
 ## remote_hosts
 Represents a remote destination host (public dst IP).
 - id (integer)
-- ip (string, unique, NOT NULL)
+- ip (string, unique, NOT NULL) # unique key for orig.dst_ip
 - first_seen_at (datetime, NOT NULL)
 - last_seen_at (datetime, NOT NULL)
 - last_reverse_dns (string, nullable)
@@ -17,6 +17,7 @@ Seen-before logic:
 Represents an active outbound conntrack entry.
 Uniqueness key = (proto, src_ip, src_port, dst_ip, dst_port).
 - id
+- remote_host_id (FK) OR keep dst_ip and join on remote_hosts.ip
 - proto (string: "tcp"/"udp"/"icmp"/etc)
 - src_ip (string)
 - src_port (integer, nullable for icmp)
