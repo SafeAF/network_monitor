@@ -1,0 +1,72 @@
+<h1>Active Connections</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Proto</th>
+      <th>Source</th>
+      <th>Destination</th>
+      <th>State</th>
+      <th>Flags</th>
+      <th>Up (bytes)</th>
+      <th>Down (bytes)</th>
+      <th>Total (bytes)</th>
+      <th>Seen</th>
+    </tr>
+  </thead>
+  <tbody id="connections-body">
+    <% @connections.each do |conn| %>
+      <% host = @hosts_by_ip[conn.dst_ip] %>
+      <% seen_label = host && host.first_seen_at >= @new_threshold ? "NEW" : "SEEN" %>
+      <tr>
+        <td><%= conn.proto %></td>
+        <td><%= conn.src_ip %>:<%= conn.src_port %></td>
+        <td><%= conn.dst_ip %>:<%= conn.dst_port %></td>
+        <td><%= conn.state %></td>
+        <td><%= conn.flags %></td>
+        <td><%= conn.uplink_bytes %></td>
+        <td><%= conn.downlink_bytes %></td>
+        <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
+        <td><%= seen_label %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<script>
+  (function() {
+    const body = document.getElementById("connections-body");
+    if (!body) return;
+
+    function renderRow(conn) {
+      const src = conn.src_port ? `${conn.src_ip}:${conn.src_port}` : conn.src_ip;
+      const dst = conn.dst_port ? `${conn.dst_ip}:${conn.dst_port}` : conn.dst_ip;
+      const seenLabel = conn.seen_before ? "SEEN" : "NEW";
+      return `
+        <tr>
+          <td>${conn.proto}</td>
+          <td>${src}</td>
+          <td>${dst}</td>
+          <td>${conn.state || ""}</td>
+          <td>${conn.flags || ""}</td>
+          <td>${conn.uplink_bytes}</td>
+          <td>${conn.downlink_bytes}</td>
+          <td>${conn.total_bytes}</td>
+          <td>${seenLabel}</td>
+        </tr>
+      `;
+    }
+
+    function refresh() {
+      fetch("/connections.json")
+        .then((resp) => resp.json())
+        .then((data) => {
+          body.innerHTML = data.map(renderRow).join("");
+        })
+        .catch(() => {});
+    }
+
+    refresh();
+    setInterval(refresh, 1000);
+  })();
+</script>
