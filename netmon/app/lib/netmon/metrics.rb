@@ -5,11 +5,12 @@ require "time"
 
 module Netmon
   class Metrics
-    DEFAULT_INTERFACES = ["eth0"].freeze
+    DEFAULT_INTERFACES = ["enp42s0", "enp2s0", "enp3s0"].freeze
 
-    def self.read(now: Time.current, config: nil, file_reader: File)
+    def self.read(now: Time.current, config: nil, file_reader: File, interfaces: nil)
       config ||= load_config
-      interfaces = Array(config["interfaces"].presence || DEFAULT_INTERFACES)
+      interfaces = Array(interfaces.presence || config["interfaces"].presence || DEFAULT_INTERFACES)
+      interfaces = list_interfaces if interfaces.empty?
 
       {
         timestamp: now.iso8601,
@@ -36,6 +37,13 @@ module Netmon
       nil
     end
     private_class_method :read_interface
+
+    def self.list_interfaces
+      Dir.children("/sys/class/net").sort
+    rescue Errno::ENOENT
+      []
+    end
+    private_class_method :list_interfaces
 
     def self.parse_loadavg(text)
       return { one: nil, five: nil, fifteen: nil } if text.nil?

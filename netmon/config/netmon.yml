@@ -9,4 +9,6 @@ exclude_subnets:
   - 169.254.0.0/16
 
 interfaces:
-  - eth0
+  - enp42s0
+  - enp2s0
+  - enp3s0

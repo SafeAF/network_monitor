@@ -22,7 +22,9 @@ class ConnectionsController < ApplicationController
         total_bytes: conn.uplink_bytes + conn.downlink_bytes,
         seen_before: seen_before,
         seen_age: host&.seen_age || "unknown",
-        is_new: host&.new? || false
+        is_new: host&.new? || false,
+        rdns_name: host&.rdns_name,
+        whois_name: host&.whois_name
       }
     end
 

@@ -2,6 +2,7 @@
 
 class MetricsController < ApplicationController
   def index
-    render json: Netmon::Metrics.read
+    interfaces = params[:interfaces].to_s.split(",").map(&:strip).reject(&:empty?)
+    render json: Netmon::Metrics.read(interfaces: interfaces)
   end
 end

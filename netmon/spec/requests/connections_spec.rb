@@ -11,7 +11,13 @@ RSpec.describe "Connections JSON", type: :request do
   end
 
   it "returns connections with seen_before" do
-    RemoteHost.create!(ip: "203.0.113.10", first_seen_at: Time.current - 120, last_seen_at: Time.current)
+    RemoteHost.create!(
+      ip: "203.0.113.10",
+      first_seen_at: Time.current - 120,
+      last_seen_at: Time.current,
+      rdns_name: "cache.example.net",
+      whois_name: "Example Org"
+    )
     Connection.create!(
       proto: "tcp",
       src_ip: "10.0.0.24",
@@ -35,6 +41,8 @@ RSpec.describe "Connections JSON", type: :request do
     expect(payload.length).to eq(1)
     expect(payload[0]["seen_before"]).to eq(true)
     expect(payload[0]["total_bytes"]).to eq(300)
+    expect(payload[0]["rdns_name"]).to eq("cache.example.net")
+    expect(payload[0]["whois_name"]).to eq("Example Org")
   end
 
   it "marks recent hosts as not seen_before" do

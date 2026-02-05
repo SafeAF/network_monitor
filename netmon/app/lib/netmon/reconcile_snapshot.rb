@@ -4,7 +4,7 @@ module Netmon
   class ReconcileSnapshot
     Result = Struct.new(:remote_hosts_upserted, :connections_upserted, :connections_deleted, keyword_init: true)
 
-    def self.run(input_file: ENV["CONNTRACK_INPUT_FILE"], now: Time.current)
+    def self.run(input_file: ENV["CONNTRACK_INPUT_FILE"], now: Time.current, enricher: Netmon::HostEnricher)
       entries = Conntrack::Snapshot.read(input_file:)
       outbound = entries.select { |entry| Netmon::Filter.outbound?(entry) }
 
@@ -22,6 +22,7 @@ module Netmon
           remote_hosts_upserted += 1
         end
         remote_host.last_seen_at = now
+        enricher.apply(remote_host, now:)
         remote_host.save!
 
         connection = Connection.find_or_initialize_by(

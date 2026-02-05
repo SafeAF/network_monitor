@@ -8,6 +8,8 @@ RSpec.describe Netmon::ReconcileSnapshot do
   it "upserts remote hosts and connections from snapshot" do
     now = Time.zone.parse("2026-02-03 12:00:00")
 
+    allow(Netmon::HostEnricher).to receive(:apply)
+
     result = described_class.run(input_file: fixture_path, now: now)
 
     expect(result.remote_hosts_upserted).to be > 0
@@ -18,6 +20,7 @@ RSpec.describe Netmon::ReconcileSnapshot do
   end
 
   it "deletes connections not present in the latest snapshot" do
+    allow(Netmon::HostEnricher).to receive(:apply)
     described_class.run(input_file: fixture_path, now: Time.current)
     expect(Connection.count).to be > 0
 

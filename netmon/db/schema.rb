@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_03_120010) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_120000) do
   create_table "connections", force: :cascade do |t|
     t.string "proto", null: false
     t.string "src_ip", null: false
@@ -32,6 +32,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_03_120010) do
     t.string "ip", null: false
     t.datetime "first_seen_at", null: false
     t.datetime "last_seen_at", null: false
+    t.string "rdns_name"
+    t.string "whois_name"
+    t.datetime "rdns_checked_at"
+    t.datetime "whois_checked_at"
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
   end
 end

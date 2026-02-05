@@ -87,6 +87,15 @@
     <input type="checkbox" name="only_new" value="true" <%= "checked" if params[:only_new].present? %>>
     Only NEW
   </label>
+  <label>
+    Interfaces
+    <input id="metric-interfaces" name="interfaces" value="<%= params[:interfaces].to_s %>" list="interface-options">
+    <datalist id="interface-options">
+      <option value="enp42s0"></option>
+      <option value="enp2s0"></option>
+      <option value="enp3s0"></option>
+    </datalist>
+  </label>
   <button type="submit">Apply</button>
   <a href="/">Clear</a>
   <a href="?only_new=true">Only NEW</a>
@@ -120,6 +129,8 @@
       <th>Down (bytes)</th>
       <th>Total (bytes)</th>
       <th>Age</th>
+      <th>rDNS</th>
+      <th>WHOIS</th>
       <th>Seen</th>
     </tr>
   </thead>
@@ -138,6 +149,8 @@
         <td><%= conn.downlink_bytes %></td>
         <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
         <td><%= seen_age %></td>
+        <td><%= host&.rdns_name || "--" %></td>
+        <td><%= host&.whois_name || "--" %></td>
         <td><span class="netmon-badge <%= seen_label.downcase %>"><%= seen_label %></span></td>
       </tr>
     <% end %>
@@ -165,13 +178,22 @@
           <td>${conn.downlink_bytes}</td>
           <td>${conn.total_bytes}</td>
           <td>${conn.seen_age || "unknown"}</td>
+          <td>${conn.rdns_name || "--"}</td>
+          <td>${conn.whois_name || "--"}</td>
           <td><span class="netmon-badge ${seenClass}">${seenLabel}</span></td>
         </tr>
       `;
     }
 
+    function buildConnectionsQuery() {
+      const params = new URLSearchParams(window.location.search || "");
+      params.delete("interfaces");
+      const query = params.toString();
+      return query ? `?${query}` : "";
+    }
+
     function refresh() {
-      const query = window.location.search || "";
+      const query = buildConnectionsQuery();
       fetch(`/connections.json${query}`)
         .then((resp) => resp.json())
         .then((data) => {
@@ -186,6 +208,7 @@
     const loadavgEl = document.getElementById("metric-loadavg");
     const memEl = document.getElementById("metric-mem");
     const ifacesEl = document.getElementById("metric-ifaces");
+    const interfacesInput = document.getElementById("metric-interfaces");
 
     function renderMetrics(payload) {
       if (loadavgEl && payload.loadavg) {
@@ -207,7 +230,9 @@
     }
 
     function refreshMetrics() {
-      fetch("/metrics.json")
+      const interfaces = interfacesInput ? interfacesInput.value.trim() : "";
+      const query = interfaces ? `?interfaces=${encodeURIComponent(interfaces)}` : "";
+      fetch(`/metrics.json${query}`)
         .then((resp) => resp.json())
         .then(renderMetrics)
         .catch(() => {});
@@ -215,5 +240,13 @@
 
     refreshMetrics();
     setInterval(refreshMetrics, 2000);
+
+    if (interfacesInput) {
+      let metricsTimer = null;
+      interfacesInput.addEventListener("input", () => {
+        clearTimeout(metricsTimer);
+        metricsTimer = setTimeout(refreshMetrics, 200);
+      });
+    }
   })();
 </script>
