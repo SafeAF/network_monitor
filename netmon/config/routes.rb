@@ -13,4 +13,5 @@ Rails.application.routes.draw do
   root "dashboard#index"
 
   get "connections" => "connections#index", defaults: { format: :json }
+  get "metrics" => "metrics#index", defaults: { format: :json }
 end

@@ -58,4 +58,81 @@ RSpec.describe "Connections JSON", type: :request do
     payload = JSON.parse(response.body)
     expect(payload[0]["seen_before"]).to eq(false)
   end
+
+  it "filters out TIME_WAIT when requested" do
+    RemoteHost.create!(ip: "203.0.113.50", first_seen_at: Time.current - 120, last_seen_at: Time.current)
+    Connection.create!(
+      proto: "tcp",
+      src_ip: "10.0.0.24",
+      src_port: 2222,
+      dst_ip: "203.0.113.50",
+      dst_port: 443,
+      state: "TIME_WAIT",
+      uplink_packets: 1,
+      uplink_bytes: 10,
+      downlink_packets: 1,
+      downlink_bytes: 20,
+      first_seen_at: Time.current - 30,
+      last_seen_at: Time.current
+    )
+    Connection.create!(
+      proto: "tcp",
+      src_ip: "10.0.0.24",
+      src_port: 3333,
+      dst_ip: "203.0.113.51",
+      dst_port: 443,
+      state: "ESTABLISHED",
+      uplink_packets: 1,
+      uplink_bytes: 10,
+      downlink_packets: 1,
+      downlink_bytes: 20,
+      first_seen_at: Time.current - 30,
+      last_seen_at: Time.current
+    )
+
+    get "/connections.json", params: { hide_time_wait: "true" }
+
+    payload = JSON.parse(response.body)
+    expect(payload.length).to eq(1)
+    expect(payload[0]["state"]).to eq("ESTABLISHED")
+  end
+
+  it "filters to only new hosts" do
+    RemoteHost.create!(ip: "198.51.100.7", first_seen_at: Time.current - 30, last_seen_at: Time.current)
+    RemoteHost.create!(ip: "203.0.113.9", first_seen_at: Time.current - 300, last_seen_at: Time.current)
+
+    Connection.create!(
+      proto: "tcp",
+      src_ip: "10.0.0.24",
+      src_port: 1111,
+      dst_ip: "198.51.100.7",
+      dst_port: 443,
+      uplink_packets: 1,
+      uplink_bytes: 10,
+      downlink_packets: 1,
+      downlink_bytes: 20,
+      first_seen_at: Time.current - 30,
+      last_seen_at: Time.current
+    )
+    Connection.create!(
+      proto: "tcp",
+      src_ip: "10.0.0.24",
+      src_port: 2222,
+      dst_ip: "203.0.113.9",
+      dst_port: 443,
+      uplink_packets: 1,
+      uplink_bytes: 10,
+      downlink_packets: 1,
+      downlink_bytes: 20,
+      first_seen_at: Time.current - 300,
+      last_seen_at: Time.current
+    )
+
+    get "/connections.json", params: { only_new: "true" }
+
+    payload = JSON.parse(response.body)
+    expect(payload.length).to eq(1)
+    expect(payload[0]["dst_ip"]).to eq("198.51.100.7")
+    expect(payload[0]["is_new"]).to eq(true)
+  end
 end

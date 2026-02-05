@@ -96,116 +96,27 @@ Constraints:
 - Only change files required for steps 9–10.
 - Add/extend tests for daemon loop and JSON endpoint.
 
-# CODEX_NEXT.md (Steps 9–12)
+# Next Steps (11–13)
 
-## Step 11: Continuous ingest loop (daemon)
-Goal: keep DB updated continuously.
+## Step 11: Seen age + NEW window
+- Add helper methods for remote host:
+  - seen_age (human readable)
+  - new? (first_seen_at within 60s)
+- Update UI to show age and NEW/SEEN badge.
 
-Deliverables:
-- app/lib/netmon/daemon.rb
-- lib/tasks/netmon.rake updated with task: netmon:ingest_loop
+## Step 12: Filters and sorting
+- Add query params:
+  - src_ip, dst_ip, dport, proto
+  - hide_time_wait=true
+  - only_new=true
+- Default sort: total_bytes desc
+- Add links/buttons in UI to apply filters.
 
-Requirements:
-- Implement `Netmon::Daemon.run(interval: 1.0)`:
-  - calls `Netmon::ReconcileSnapshot.run_once` (or existing reconciler entrypoint) every loop
-  - sleeps `interval` seconds
-  - logs exceptions but keeps running
-- Rake task `netmon:ingest_loop` runs the daemon.
-- Must support `CONNTRACK_INPUT_FILE` (fixture replay) the same way ingest_once does.
-- Add tests for the daemon loop logic (at least: it calls reconciler; it sleeps; it continues after exception).
-
-Acceptance:
-- `CONNTRACK_INPUT_FILE=spec/fixtures/conntrack/router_extended.txt bin/rails netmon:ingest_loop`
-  runs without crashing and updates DB repeatedly.
-
-Constraints:
-- Do not add ActionCable/WebSockets yet.
-- Do not modify unrelated files.
-
-
-## Step 12: Live dashboard updates via polling (no websockets)
-Goal: dashboard updates without manual reload.
-
-Deliverables:
-- app/controllers/connections_controller.rb
-- app/views/dashboard/index.html.erb updated with small JS poller
-- config/routes.rb updated with:
-  - GET /connections.json -> connections#index (JSON)
-
-Requirements:
-- `/connections.json` returns JSON array of current active connections sorted by total bytes desc.
-- Each connection JSON must include:
-  - proto, src_ip, src_port, dst_ip, dst_port
-  - state, flags
-  - uplink_bytes, downlink_bytes, total_bytes
-  - last_seen_at
-  - seen_before boolean:
-    - true if RemoteHost.first_seen_at < (Time.now - 60 seconds)
-    - false otherwise
-- Dashboard page:
-  - polls `/connections.json` every 1000ms
-  - replaces only the `<tbody>` content (do not full-page reload)
-  - keeps the page simple and fast
-
-Acceptance:
-- With ingest_loop running, open `/` and watch rows update live.
-
-Constraints:
-- No Stimulus required (plain JS is fine).
-- No ActionCable yet.
-- Do not modify unrelated files.
-
-
-## Step 13: System metrics endpoint + UI tiles
-Goal: show system health and interface counters.
-
-Deliverables:
-- app/lib/netmon/metrics.rb
-- app/controllers/metrics_controller.rb
-- GET /metrics.json route
-- dashboard view updated to show tiles for:
-  - loadavg (1/5/15)
-  - memory used/total
-  - interface stats for configured interfaces
-
-Requirements:
-- Metrics sources:
+## Step 13: System metrics tiles
+- Implement Netmon::Metrics reading:
   - /proc/loadavg
   - /proc/meminfo
-  - /sys/class/net/<iface>/statistics/rx_bytes, tx_bytes, rx_packets, tx_packets
-- Config:
-  - config/netmon.yml must include:
-    - monitor_interfaces: ["enp2s0", "enp3s0"]  # router default
-- In dev, allow overriding interfaces via env var:
-  - NETMON_INTERFACES=enp42s0
-
-Acceptance:
-- `curl http://localhost:3000/metrics.json` returns valid JSON.
-- Dashboard updates metrics every 2000ms (polling ok).
-
-
-## Step 14: Router deployment scaffolding (systemd + binding)
-Goal: run on router reliably and safely.
-
-Deliverables:
-- deploy/systemd/netmon-ingest.service
-- deploy/systemd/netmon-web.service (optional)
-- deploy/README.md
-
-Requirements:
-- netmon-ingest.service runs:
-  - `bin/rails netmon:ingest_loop`
-- Web service binds to LAN only (10.0.0.1) OR documents how to do so.
-- Document required router settings:
-  - net.netfilter.nf_conntrack_acct=1
-  - conntrack-tools installed
-
-Constraints:
-- Do not attempt privilege separation yet unless easy.
-- Keep deployment docs minimal and accurate.
-
-
-## Global Guardrails
-- Before committing, show `git diff --stat`.
-- Revert any changes outside the listed deliverables unless explicitly justified.
-- Do NOT change Gemfile/Gemfile.lock unless explicitly required.
+  - /sys/class/net/<iface>/statistics/*
+- Add /metrics.json endpoint
+- Update dashboard to poll metrics every 2s and display tiles.
+- Interfaces configured in config/netmon.yml

@@ -2,9 +2,7 @@
 
 class ConnectionsController < ApplicationController
   def index
-    threshold = Time.current - 60.seconds
-
-    connections = Connection.order(Arel.sql("uplink_bytes + downlink_bytes DESC"))
+    connections, threshold = Netmon::ConnectionsQuery.call(params)
     hosts = RemoteHost.where(ip: connections.map(&:dst_ip)).index_by(&:ip)
 
     payload = connections.map do |conn|
@@ -22,7 +20,9 @@ class ConnectionsController < ApplicationController
         uplink_bytes: conn.uplink_bytes,
         downlink_bytes: conn.downlink_bytes,
         total_bytes: conn.uplink_bytes + conn.downlink_bytes,
-        seen_before: seen_before
+        seen_before: seen_before,
+        seen_age: host&.seen_age || "unknown",
+        is_new: host&.new? || false
       }
     end
 

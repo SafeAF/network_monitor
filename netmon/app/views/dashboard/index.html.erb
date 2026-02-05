@@ -12,9 +12,101 @@
   table.netmon-table thead th {
     border-bottom: 1px solid #ddd;
   }
+  .netmon-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .netmon-badge.new {
+    background: #e6f4ff;
+    color: #0a4a8a;
+  }
+  .netmon-badge.seen {
+    background: #f2f2f2;
+    color: #333;
+  }
+  .netmon-filters {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 8px 0 16px;
+    align-items: center;
+  }
+  .netmon-filters label {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .netmon-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 12px 0 16px;
+  }
+  .netmon-tile {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .netmon-tile h3 {
+    margin: 0 0 6px;
+    font-size: 14px;
+  }
+  .netmon-tile .value {
+    font-size: 16px;
+    font-weight: 600;
+  }
 </style>
 
 <h1>Active Connections</h1>
+
+<form class="netmon-filters" method="get">
+  <label>
+    Src IP
+    <input name="src_ip" value="<%= params[:src_ip].to_s %>">
+  </label>
+  <label>
+    Dst IP
+    <input name="dst_ip" value="<%= params[:dst_ip].to_s %>">
+  </label>
+  <label>
+    Dst Port
+    <input name="dport" value="<%= params[:dport].to_s %>">
+  </label>
+  <label>
+    Proto
+    <input name="proto" value="<%= params[:proto].to_s %>">
+  </label>
+  <label>
+    <input type="checkbox" name="hide_time_wait" value="true" <%= "checked" if params[:hide_time_wait].present? %>>
+    Hide TIME_WAIT
+  </label>
+  <label>
+    <input type="checkbox" name="only_new" value="true" <%= "checked" if params[:only_new].present? %>>
+    Only NEW
+  </label>
+  <button type="submit">Apply</button>
+  <a href="/">Clear</a>
+  <a href="?only_new=true">Only NEW</a>
+  <a href="?hide_time_wait=true">Hide TIME_WAIT</a>
+</form>
+
+<section class="netmon-tiles">
+  <div class="netmon-tile">
+    <h3>Load Avg</h3>
+    <div class="value" id="metric-loadavg">--</div>
+  </div>
+  <div class="netmon-tile">
+    <h3>Memory</h3>
+    <div class="value" id="metric-mem">--</div>
+  </div>
+  <div class="netmon-tile">
+    <h3>Interfaces</h3>
+    <div class="value" id="metric-ifaces">--</div>
+  </div>
+</section>
 
 <table class="netmon-table">
   <thead>
@@ -27,13 +119,15 @@
       <th>Up (bytes)</th>
       <th>Down (bytes)</th>
       <th>Total (bytes)</th>
+      <th>Age</th>
       <th>Seen</th>
     </tr>
   </thead>
   <tbody id="connections-body">
     <% @connections.each do |conn| %>
       <% host = @hosts_by_ip[conn.dst_ip] %>
-      <% seen_label = host && host.first_seen_at >= @new_threshold ? "NEW" : "SEEN" %>
+      <% seen_label = host&.new? ? "NEW" : "SEEN" %>
+      <% seen_age = host&.seen_age || "unknown" %>
       <tr>
         <td><%= conn.proto %></td>
         <td><%= conn.src_ip %>:<%= conn.src_port %></td>
@@ -43,7 +137,8 @@
         <td><%= conn.uplink_bytes %></td>
         <td><%= conn.downlink_bytes %></td>
         <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
-        <td><%= seen_label %></td>
+        <td><%= seen_age %></td>
+        <td><span class="netmon-badge <%= seen_label.downcase %>"><%= seen_label %></span></td>
       </tr>
     <% end %>
   </tbody>
@@ -57,7 +152,8 @@
     function renderRow(conn) {
       const src = conn.src_port ? `${conn.src_ip}:${conn.src_port}` : conn.src_ip;
       const dst = conn.dst_port ? `${conn.dst_ip}:${conn.dst_port}` : conn.dst_ip;
-      const seenLabel = conn.seen_before ? "SEEN" : "NEW";
+      const seenLabel = conn.is_new ? "NEW" : "SEEN";
+      const seenClass = conn.is_new ? "new" : "seen";
       return `
         <tr>
           <td>${conn.proto}</td>
@@ -68,13 +164,15 @@
           <td>${conn.uplink_bytes}</td>
           <td>${conn.downlink_bytes}</td>
           <td>${conn.total_bytes}</td>
-          <td>${seenLabel}</td>
+          <td>${conn.seen_age || "unknown"}</td>
+          <td><span class="netmon-badge ${seenClass}">${seenLabel}</span></td>
         </tr>
       `;
     }
 
     function refresh() {
-      fetch("/connections.json")
+      const query = window.location.search || "";
+      fetch(`/connections.json${query}`)
         .then((resp) => resp.json())
         .then((data) => {
           body.innerHTML = data.map(renderRow).join("");
@@ -84,5 +182,38 @@
 
     refresh();
     setInterval(refresh, 1000);
+
+    const loadavgEl = document.getElementById("metric-loadavg");
+    const memEl = document.getElementById("metric-mem");
+    const ifacesEl = document.getElementById("metric-ifaces");
+
+    function renderMetrics(payload) {
+      if (loadavgEl && payload.loadavg) {
+        const { one, five, fifteen } = payload.loadavg;
+        loadavgEl.textContent = `${one ?? "--"} / ${five ?? "--"} / ${fifteen ?? "--"}`;
+      }
+      if (memEl && payload.meminfo) {
+        const total = payload.meminfo.total_kb || 0;
+        const avail = payload.meminfo.available_kb || 0;
+        const used = total - avail;
+        memEl.textContent = `${used}k / ${total}k`;
+      }
+      if (ifacesEl) {
+        const lines = (payload.interfaces || []).map((iface) => {
+          return `${iface.name}: rx ${iface.rx_bytes ?? 0}, tx ${iface.tx_bytes ?? 0}`;
+        });
+        ifacesEl.textContent = lines.length > 0 ? lines.join(" | ") : "--";
+      }
+    }
+
+    function refreshMetrics() {
+      fetch("/metrics.json")
+        .then((resp) => resp.json())
+        .then(renderMetrics)
+        .catch(() => {});
+    }
+
+    refreshMetrics();
+    setInterval(refreshMetrics, 2000);
   })();
 </script>
