@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_123500) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_124600) do
   create_table "connections", force: :cascade do |t|
     t.string "proto", null: false
     t.string "src_ip", null: false
@@ -33,6 +33,27 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_123500) do
     t.integer "anomaly_score", default: 0, null: false
     t.text "anomaly_reasons_json", default: "[]", null: false
     t.index ["proto", "src_ip", "src_port", "dst_ip", "dst_port"], name: "index_connections_on_5_tuple", unique: true
+  end
+
+  create_table "device_minutes", force: :cascade do |t|
+    t.integer "device_id", null: false
+    t.datetime "bucket_ts", null: false
+    t.integer "conn_count", default: 0, null: false
+    t.bigint "uplink_bytes", default: 0, null: false
+    t.bigint "downlink_bytes", default: 0, null: false
+    t.bigint "uplink_packets", default: 0, null: false
+    t.bigint "downlink_packets", default: 0, null: false
+    t.integer "new_dst_ips", default: 0, null: false
+    t.integer "unique_dst_ips", default: 0, null: false
+    t.integer "unique_dst_ports", default: 0, null: false
+    t.integer "unique_dst_asns", default: 0, null: false
+    t.integer "unique_protos", default: 0, null: false
+    t.integer "rare_ports", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bucket_ts"], name: "index_device_minutes_on_bucket_ts"
+    t.index ["device_id", "bucket_ts"], name: "index_device_minutes_on_device_id_and_bucket_ts", unique: true
+    t.index ["device_id"], name: "index_device_minutes_on_device_id"
   end
 
   create_table "devices", force: :cascade do |t|
@@ -58,6 +79,21 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_123500) do
     t.index ["captured_at"], name: "index_metric_samples_on_captured_at"
   end
 
+  create_table "remote_host_minutes", force: :cascade do |t|
+    t.integer "remote_host_id", null: false
+    t.datetime "bucket_ts", null: false
+    t.integer "conn_count", default: 0, null: false
+    t.bigint "uplink_bytes", default: 0, null: false
+    t.bigint "downlink_bytes", default: 0, null: false
+    t.bigint "uplink_packets", default: 0, null: false
+    t.bigint "downlink_packets", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bucket_ts"], name: "index_remote_host_minutes_on_bucket_ts"
+    t.index ["remote_host_id", "bucket_ts"], name: "index_remote_host_minutes_on_remote_host_id_and_bucket_ts", unique: true
+    t.index ["remote_host_id"], name: "index_remote_host_minutes_on_remote_host_id"
+  end
+
   create_table "remote_hosts", force: :cascade do |t|
     t.string "ip", null: false
     t.datetime "first_seen_at", null: false
@@ -69,4 +105,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_123500) do
     t.string "whois_asn"
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
   end
+
+  add_foreign_key "device_minutes", "devices"
+  add_foreign_key "remote_host_minutes", "remote_hosts"
 end

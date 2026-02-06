@@ -1,6 +1,14 @@
 local_subnets:
   - 10.0.0.0/24
 
+common_ports:
+  - 53
+  - 80
+  - 123
+  - 443
+
+new_window_seconds: 600
+
 exclude_subnets:
   - 10.0.0.0/8
   - 172.16.0.0/12

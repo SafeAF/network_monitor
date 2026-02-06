@@ -4,6 +4,23 @@ require "rails_helper"
 
 RSpec.describe Netmon::ReconcileSnapshot do
   let(:fixture_path) { "spec/fixtures/conntrack/router_extended.txt" }
+  let(:entry_proto) { "tcp" }
+
+  def build_entry(src:, dst:, sport:, dport:, up_bytes:, up_packets:, dn_bytes:, dn_packets:)
+    orig = Conntrack::Tuple.new(src:, dst:, sport:, dport:, bytes: up_bytes, packets: up_packets)
+    reply = Conntrack::Tuple.new(src: dst, dst: src, sport: dport, dport: sport, bytes: dn_bytes, packets: dn_packets)
+    Conntrack::Entry.new(
+      family: "ipv4",
+      proto: entry_proto,
+      timeout: 60,
+      state: "ESTABLISHED",
+      orig:,
+      reply:,
+      flags: [],
+      mark: 0,
+      use: 0
+    )
+  end
 
   it "upserts remote hosts and connections from snapshot" do
     now = Time.zone.parse("2026-02-03 12:00:00")
@@ -17,6 +34,62 @@ RSpec.describe Netmon::ReconcileSnapshot do
     expect(RemoteHost.exists?(ip: "192.82.242.219")).to eq(true)
     expect(RemoteHost.exists?(ip: "10.0.0.1")).to eq(false)
     expect(Connection.count).to be > 0
+  end
+
+  it "creates and updates minute buckets with delta attribution" do
+    now = Time.zone.parse("2026-02-03 12:00:10")
+    later = now + 20
+
+    allow(Netmon::HostEnricher).to receive(:apply)
+
+    first_entry = build_entry(
+      src: "10.0.0.24",
+      dst: "203.0.113.10",
+      sport: 4000,
+      dport: 443,
+      up_bytes: 100,
+      up_packets: 10,
+      dn_bytes: 50,
+      dn_packets: 5
+    )
+    second_entry = build_entry(
+      src: "10.0.0.24",
+      dst: "203.0.113.10",
+      sport: 4000,
+      dport: 443,
+      up_bytes: 160,
+      up_packets: 18,
+      dn_bytes: 90,
+      dn_packets: 9
+    )
+
+    allow(Conntrack::Snapshot).to receive(:read).and_return([first_entry], [second_entry])
+
+    described_class.run(input_file: nil, now: now)
+    described_class.run(input_file: nil, now: later)
+
+    device = Device.find_by(ip: "10.0.0.24")
+    remote_host = RemoteHost.find_by(ip: "203.0.113.10")
+    bucket_ts = now.utc.change(sec: 0)
+
+    device_minute = DeviceMinute.find_by(device_id: device.id, bucket_ts:)
+    remote_minute = RemoteHostMinute.find_by(remote_host_id: remote_host.id, bucket_ts:)
+
+    expect(device_minute).not_to be_nil
+    expect(remote_minute).not_to be_nil
+    expect(device_minute.conn_count).to eq(2)
+    expect(remote_minute.conn_count).to eq(2)
+
+    expect(device_minute.uplink_bytes).to eq(60)
+    expect(device_minute.downlink_bytes).to eq(40)
+    expect(device_minute.uplink_packets).to eq(8)
+    expect(device_minute.downlink_packets).to eq(4)
+
+    expect(device_minute.unique_dst_ips).to eq(1)
+    expect(device_minute.unique_dst_ports).to eq(1)
+    expect(device_minute.unique_protos).to eq(1)
+    expect(device_minute.rare_ports).to eq(0)
+    expect(device_minute.new_dst_ips).to eq(1)
   end
 
   describe ".compute_deltas" do
