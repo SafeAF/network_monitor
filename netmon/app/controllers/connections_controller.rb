@@ -13,6 +13,7 @@ class ConnectionsController < ApplicationController
 
       whois_raw_line = host&.respond_to?(:whois_raw_line) ? host.whois_raw_line : nil
       {
+        device_id: device&.id,
         device_name: device&.name.presence || conn.src_ip,
         proto: conn.proto,
         src_ip: conn.src_ip,

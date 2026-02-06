@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_123000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_123500) do
   create_table "connections", force: :cascade do |t|
     t.string "proto", null: false
     t.string "src_ip", null: false
@@ -25,6 +25,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_123000) do
     t.bigint "downlink_bytes", default: 0, null: false
     t.datetime "first_seen_at", null: false
     t.datetime "last_seen_at", null: false
+    t.bigint "last_uplink_bytes", default: 0, null: false
+    t.bigint "last_downlink_bytes", default: 0, null: false
+    t.bigint "last_uplink_packets", default: 0, null: false
+    t.bigint "last_downlink_packets", default: 0, null: false
+    t.datetime "last_delta_at"
+    t.integer "anomaly_score", default: 0, null: false
+    t.text "anomaly_reasons_json", default: "[]", null: false
     t.index ["proto", "src_ip", "src_port", "dst_ip", "dst_port"], name: "index_connections_on_5_tuple", unique: true
   end
 

@@ -207,7 +207,13 @@
       <% device_label = device&.name.presence || conn.src_ip %>
       <tr>
         <td><%= conn.proto %></td>
-        <td><%= device_label %></td>
+        <td>
+          <% if device %>
+            <input class="device-name-input" data-device-id="<%= device.id %>" value="<%= device.name %>" size="14">
+          <% else %>
+            <%= device_label %>
+          <% end %>
+        </td>
         <td><%= conn.src_ip %>:<%= conn.src_port %></td>
         <td><%= conn.dst_ip %>:<%= conn.dst_port %></td>
         <td><%= conn.state %></td>
@@ -234,10 +240,13 @@
       const dst = conn.dst_port ? `${conn.dst_ip}:${conn.dst_port}` : conn.dst_ip;
       const seenLabel = conn.is_new ? "NEW" : "SEEN";
       const seenClass = conn.is_new ? "new" : "seen";
+      const deviceCell = conn.device_id
+        ? `<input class="device-name-input" data-device-id="${conn.device_id}" value="${conn.device_name || ""}" size="14">`
+        : `<span>${conn.device_name || conn.src_ip}</span>`;
       return `
         <tr>
           <td>${conn.proto}</td>
-          <td>${conn.device_name || conn.src_ip}</td>
+          <td>${deviceCell}</td>
           <td>${src}</td>
           <td>${dst}</td>
           <td>${conn.state || ""}</td>
@@ -261,6 +270,9 @@
     }
 
     function refresh() {
+      if (document.activeElement && document.activeElement.classList.contains("device-name-input")) {
+        return;
+      }
       const query = buildConnectionsQuery();
       fetch(`/connections.json${query}`)
         .then((resp) => resp.json())
@@ -272,6 +284,45 @@
 
     refresh();
     setInterval(refresh, 1000);
+
+    const csrfToken = document.querySelector("meta[name='csrf-token']")?.content;
+    let pendingSave = null;
+
+    function saveDeviceName(input) {
+      const deviceId = input.dataset.deviceId;
+      if (!deviceId) return;
+      if (!csrfToken) return;
+
+      const name = input.value.trim();
+      if (pendingSave) clearTimeout(pendingSave);
+      pendingSave = setTimeout(() => {
+        fetch(`/devices/${deviceId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken,
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({ device: { name } })
+        }).catch(() => {});
+      }, 200);
+    }
+
+    body.addEventListener("change", (event) => {
+      const target = event.target;
+      if (target && target.classList.contains("device-name-input")) {
+        saveDeviceName(target);
+      }
+    });
+
+    body.addEventListener("keydown", (event) => {
+      const target = event.target;
+      if (!target || !target.classList.contains("device-name-input")) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        target.blur();
+      }
+    });
 
     const loadavgEl = document.getElementById("metric-loadavg");
     const memEl = document.getElementById("metric-mem");

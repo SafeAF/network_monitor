@@ -46,12 +46,24 @@ module Netmon
           connections_upserted += 1
         end
 
+        cur_up_b = orig.bytes.to_i
+        cur_dn_b = reply&.bytes.to_i
+        cur_up_p = orig.packets.to_i
+        cur_dn_p = reply&.packets.to_i
+
+        deltas = compute_deltas(connection, cur_up_b:, cur_dn_b:, cur_up_p:, cur_dn_p:)
+
         connection.state = entry.state
         connection.flags = Array(entry.flags).join(",")
-        connection.uplink_packets = orig.packets.to_i
-        connection.uplink_bytes = orig.bytes.to_i
-        connection.downlink_packets = reply&.packets.to_i
-        connection.downlink_bytes = reply&.bytes.to_i
+        connection.uplink_packets = cur_up_p
+        connection.uplink_bytes = cur_up_b
+        connection.downlink_packets = cur_dn_p
+        connection.downlink_bytes = cur_dn_b
+        connection.last_uplink_packets = cur_up_p
+        connection.last_uplink_bytes = cur_up_b
+        connection.last_downlink_packets = cur_dn_p
+        connection.last_downlink_bytes = cur_dn_b
+        connection.last_delta_at = now
         connection.last_seen_at = now
         connection.save!
 
@@ -70,5 +82,19 @@ module Netmon
         connections_deleted:
       )
     end
+
+    def self.compute_deltas(connection, cur_up_b:, cur_dn_b:, cur_up_p:, cur_dn_p:)
+      if connection.new_record?
+        return { d_up_b: 0, d_dn_b: 0, d_up_p: 0, d_dn_p: 0 }
+      end
+
+      {
+        d_up_b: [cur_up_b - connection.last_uplink_bytes.to_i, 0].max,
+        d_dn_b: [cur_dn_b - connection.last_downlink_bytes.to_i, 0].max,
+        d_up_p: [cur_up_p - connection.last_uplink_packets.to_i, 0].max,
+        d_dn_p: [cur_dn_p - connection.last_downlink_packets.to_i, 0].max
+      }
+    end
+    private_class_method :compute_deltas
   end
 end

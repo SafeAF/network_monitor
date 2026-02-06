@@ -7,8 +7,14 @@ class DevicesController < ApplicationController
 
   def update
     device = Device.find(params[:id])
-    device.update!(device_params)
-    redirect_to devices_path
+    attrs = device_params.to_h
+    name = attrs.fetch("name", "").to_s.strip
+    attrs["name"] = device.ip if name.empty?
+    device.update!(attrs)
+    respond_to do |format|
+      format.html { redirect_to devices_path }
+      format.json { render json: { id: device.id, name: device.name } }
+    end
   end
 
   private
