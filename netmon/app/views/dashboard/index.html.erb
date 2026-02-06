@@ -122,6 +122,7 @@
   <a href="/">Clear</a>
   <a href="?only_new=true">Only NEW</a>
   <a href="?hide_time_wait=true">Hide TIME_WAIT</a>
+  <a href="/devices">Edit Devices</a>
 </form>
 
 <section class="netmon-tiles">
@@ -183,6 +184,7 @@
   <thead>
     <tr>
       <th>Proto</th>
+      <th>Device</th>
       <th>Source</th>
       <th>Destination</th>
       <th>State</th>
@@ -199,10 +201,13 @@
   <tbody id="connections-body">
     <% @connections.each do |conn| %>
       <% host = @hosts_by_ip[conn.dst_ip] %>
+      <% device = @devices_by_ip[conn.src_ip] %>
       <% seen_label = host&.new? ? "NEW" : "SEEN" %>
       <% seen_age = host&.seen_age || "unknown" %>
+      <% device_label = device&.name.presence || conn.src_ip %>
       <tr>
         <td><%= conn.proto %></td>
+        <td><%= device_label %></td>
         <td><%= conn.src_ip %>:<%= conn.src_port %></td>
         <td><%= conn.dst_ip %>:<%= conn.dst_port %></td>
         <td><%= conn.state %></td>
@@ -232,6 +237,7 @@
       return `
         <tr>
           <td>${conn.proto}</td>
+          <td>${conn.device_name || conn.src_ip}</td>
           <td>${src}</td>
           <td>${dst}</td>
           <td>${conn.state || ""}</td>

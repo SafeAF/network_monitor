@@ -19,6 +19,12 @@ RSpec.describe "Connections JSON", type: :request do
       whois_name: "Example Org",
       whois_raw_line: "OrgName: Example Org"
     )
+    Device.create!(
+      ip: "10.0.0.24",
+      name: "Desktop",
+      first_seen_at: Time.current - 120,
+      last_seen_at: Time.current
+    )
     Connection.create!(
       proto: "tcp",
       src_ip: "10.0.0.24",
@@ -45,6 +51,7 @@ RSpec.describe "Connections JSON", type: :request do
     expect(payload[0]["rdns_name"]).to eq("cache.example.net")
     expect(payload[0]["whois_name"]).to eq("Example Org")
     expect(payload[0]["whois_raw_line"]).to eq("OrgName: Example Org")
+    expect(payload[0]["device_name"]).to eq("Desktop")
   end
 
   it "marks recent hosts as not seen_before" do

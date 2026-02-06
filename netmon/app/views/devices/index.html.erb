@@ -1,0 +1,32 @@
+<h1>Devices</h1>
+
+<table class="netmon-table">
+  <thead>
+    <tr>
+      <th>IP</th>
+      <th>Name</th>
+      <th>Notes</th>
+      <th>First Seen</th>
+      <th>Last Seen</th>
+      <th>Save</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @devices.each do |device| %>
+      <tr>
+        <td><%= device.ip %></td>
+        <td>
+          <%= form_with model: device, url: device_path(device), method: :patch, local: true do |form| %>
+            <%= form.text_field :name, value: device.name %>
+        </td>
+        <td>
+            <%= form.text_field :notes, value: device.notes %>
+        </td>
+        <td><%= device.first_seen_at %></td>
+        <td><%= device.last_seen_at %></td>
+        <td><%= form.submit "Save" %></td>
+          <% end %>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

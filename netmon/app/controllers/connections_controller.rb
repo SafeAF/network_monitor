@@ -4,13 +4,16 @@ class ConnectionsController < ApplicationController
   def index
     connections, threshold = Netmon::ConnectionsQuery.call(params)
     hosts = RemoteHost.where(ip: connections.map(&:dst_ip)).index_by(&:ip)
+    devices = Device.where(ip: connections.map(&:src_ip)).index_by(&:ip)
 
     payload = connections.map do |conn|
       host = hosts[conn.dst_ip]
+      device = devices[conn.src_ip]
       seen_before = host.present? && host.first_seen_at < threshold
 
       whois_raw_line = host&.respond_to?(:whois_raw_line) ? host.whois_raw_line : nil
       {
+        device_name: device&.name.presence || conn.src_ip,
         proto: conn.proto,
         src_ip: conn.src_ip,
         src_port: conn.src_port,

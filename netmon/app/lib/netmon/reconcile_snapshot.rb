@@ -16,6 +16,14 @@ module Netmon
         orig = entry.orig
         reply = entry.reply
 
+        device = Device.find_or_initialize_by(ip: orig.src)
+        if device.new_record?
+          device.first_seen_at = now
+          device.name = orig.src if device.name.to_s.strip.empty?
+        end
+        device.last_seen_at = now
+        device.save!
+
         remote_host = RemoteHost.find_or_initialize_by(ip: orig.dst)
         if remote_host.new_record?
           remote_host.first_seen_at = now

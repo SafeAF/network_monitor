@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_122000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_123000) do
   create_table "connections", force: :cascade do |t|
     t.string "proto", null: false
     t.string "src_ip", null: false
@@ -26,6 +26,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_122000) do
     t.datetime "first_seen_at", null: false
     t.datetime "last_seen_at", null: false
     t.index ["proto", "src_ip", "src_port", "dst_ip", "dst_port"], name: "index_connections_on_5_tuple", unique: true
+  end
+
+  create_table "devices", force: :cascade do |t|
+    t.string "ip", null: false
+    t.string "name", default: "", null: false
+    t.string "notes"
+    t.datetime "first_seen_at", null: false
+    t.datetime "last_seen_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ip"], name: "index_devices_on_ip", unique: true
   end
 
   create_table "metric_samples", force: :cascade do |t|

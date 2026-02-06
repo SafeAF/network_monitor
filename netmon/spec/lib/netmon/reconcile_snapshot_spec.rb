@@ -19,6 +19,24 @@ RSpec.describe Netmon::ReconcileSnapshot do
     expect(Connection.count).to be > 0
   end
 
+  it "upserts devices from snapshot and updates last_seen_at" do
+    now = Time.zone.parse("2026-02-03 12:00:00")
+    later = now + 60
+
+    allow(Netmon::HostEnricher).to receive(:apply)
+
+    described_class.run(input_file: fixture_path, now: now)
+    device = Device.find_by(ip: "10.0.0.24")
+    expect(device).not_to be_nil
+    expect(device.first_seen_at).to eq(now)
+    expect(device.last_seen_at).to eq(now)
+
+    described_class.run(input_file: fixture_path, now: later)
+    device.reload
+    expect(device.first_seen_at).to eq(now)
+    expect(device.last_seen_at).to eq(later)
+  end
+
   it "deletes connections not present in the latest snapshot" do
     allow(Netmon::HostEnricher).to receive(:apply)
     described_class.run(input_file: fixture_path, now: Time.current)
