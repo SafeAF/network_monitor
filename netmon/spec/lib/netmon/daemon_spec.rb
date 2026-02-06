@@ -5,11 +5,13 @@ require "rails_helper"
 RSpec.describe Netmon::Daemon do
   it "runs reconcile in a loop and sleeps between iterations" do
     allow(Netmon::ReconcileSnapshot).to receive(:run)
+    allow(Netmon::MetricsRecorder).to receive(:record_if_due)
     allow(described_class).to receive(:sleep)
 
     described_class.run(interval: 0.0, max_iterations: 2)
 
     expect(Netmon::ReconcileSnapshot).to have_received(:run).twice
+    expect(Netmon::MetricsRecorder).to have_received(:record_if_due).twice
     expect(described_class).to have_received(:sleep).once
   end
 
@@ -22,6 +24,7 @@ RSpec.describe Netmon::Daemon do
       calls += 1
       raise "boom" if calls == 1
     end
+    allow(Netmon::MetricsRecorder).to receive(:record_if_due)
     allow(described_class).to receive(:sleep)
 
     described_class.run(interval: 0.0, max_iterations: 2)

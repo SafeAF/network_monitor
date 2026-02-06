@@ -9,6 +9,7 @@ class ConnectionsController < ApplicationController
       host = hosts[conn.dst_ip]
       seen_before = host.present? && host.first_seen_at < threshold
 
+      whois_raw_line = host&.respond_to?(:whois_raw_line) ? host.whois_raw_line : nil
       {
         proto: conn.proto,
         src_ip: conn.src_ip,
@@ -25,7 +26,7 @@ class ConnectionsController < ApplicationController
         is_new: host&.new? || false,
         rdns_name: host&.rdns_name,
         whois_name: host&.whois_name,
-        whois_raw_line: host&.whois_raw_line
+        whois_raw_line: whois_raw_line
       }
     end
 

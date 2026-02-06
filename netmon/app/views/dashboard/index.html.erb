@@ -58,6 +58,28 @@
     font-size: 16px;
     font-weight: 600;
   }
+  .netmon-graphs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    margin: 12px 0 16px;
+  }
+  .netmon-graph {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .netmon-graph canvas {
+    width: 100%;
+    height: 120px;
+  }
+  .netmon-anomalies {
+    border: 1px solid #f0c36d;
+    background: #fff7e0;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin: 12px 0 16px;
+  }
 </style>
 
 <h1>Active Connections</h1>
@@ -115,6 +137,46 @@
     <h3>Interfaces</h3>
     <div class="value" id="metric-ifaces">--</div>
   </div>
+  <div class="netmon-tile">
+    <h3>New DST IPs (10m)</h3>
+    <div class="value" id="metric-new-dst">--</div>
+  </div>
+  <div class="netmon-tile">
+    <h3>Unique DPorts (10m)</h3>
+    <div class="value" id="metric-unique-dports">--</div>
+  </div>
+  <div class="netmon-tile">
+    <h3>Uplink Bytes (10m)</h3>
+    <div class="value" id="metric-uplink-bytes">--</div>
+  </div>
+  <div class="netmon-tile">
+    <h3>New ASNs (1h)</h3>
+    <div class="value" id="metric-new-asns">--</div>
+  </div>
+</section>
+
+<section class="netmon-graphs">
+  <div class="netmon-graph">
+    <h3>New DST IPs (10m)</h3>
+    <canvas id="graph-new-dst"></canvas>
+  </div>
+  <div class="netmon-graph">
+    <h3>Unique DPorts (10m)</h3>
+    <canvas id="graph-unique-dports"></canvas>
+  </div>
+  <div class="netmon-graph">
+    <h3>Uplink Bytes (10m)</h3>
+    <canvas id="graph-uplink-bytes"></canvas>
+  </div>
+  <div class="netmon-graph">
+    <h3>New ASNs (1h)</h3>
+    <canvas id="graph-new-asns"></canvas>
+  </div>
+</section>
+
+<section class="netmon-anomalies">
+  <strong>Anomalies:</strong>
+  <span id="metric-anomalies">None</span>
 </section>
 
 <table class="netmon-table">
@@ -209,6 +271,47 @@
     const memEl = document.getElementById("metric-mem");
     const ifacesEl = document.getElementById("metric-ifaces");
     const interfacesInput = document.getElementById("metric-interfaces");
+    const newDstEl = document.getElementById("metric-new-dst");
+    const uniqueDportsEl = document.getElementById("metric-unique-dports");
+    const uplinkBytesEl = document.getElementById("metric-uplink-bytes");
+    const newAsnsEl = document.getElementById("metric-new-asns");
+    const anomaliesEl = document.getElementById("metric-anomalies");
+
+    const graphs = {
+      newDst: document.getElementById("graph-new-dst"),
+      uniqueDports: document.getElementById("graph-unique-dports"),
+      uplinkBytes: document.getElementById("graph-uplink-bytes"),
+      newAsns: document.getElementById("graph-new-asns")
+    };
+
+    function drawLine(canvas, points, color) {
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const width = canvas.width = canvas.clientWidth;
+      const height = canvas.height = canvas.clientHeight;
+      ctx.clearRect(0, 0, width, height);
+
+      if (!points || points.length === 0) {
+        ctx.fillStyle = "#666";
+        ctx.font = "12px sans-serif";
+        ctx.fillText("No data yet", 10, 20);
+        return;
+      }
+
+      const min = Math.min(...points);
+      const max = Math.max(...points);
+      const range = max - min || 1;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      points.forEach((val, idx) => {
+        const x = (idx / (points.length - 1 || 1)) * (width - 10) + 5;
+        const y = height - ((val - min) / range) * (height - 10) - 5;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
 
     function renderMetrics(payload) {
       if (loadavgEl && payload.loadavg) {
@@ -226,6 +329,27 @@
           return `${iface.name}: rx ${iface.rx_bytes ?? 0}, tx ${iface.tx_bytes ?? 0}`;
         });
         ifacesEl.textContent = lines.length > 0 ? lines.join(" | ") : "--";
+      }
+
+      if (payload.analytics) {
+        if (newDstEl) newDstEl.textContent = payload.analytics.new_dst_ips_last_10m ?? "--";
+        if (uniqueDportsEl) uniqueDportsEl.textContent = payload.analytics.unique_dports_last_10m ?? "--";
+        if (uplinkBytesEl) uplinkBytesEl.textContent = payload.analytics.uplink_bytes_last_10m ?? "--";
+        if (newAsnsEl) newAsnsEl.textContent = payload.analytics.new_asns_last_1h ?? "--";
+
+        if (anomaliesEl) {
+          const list = (payload.analytics.anomalies || []).map((a) => a.rule);
+          const asns = payload.analytics.new_asns_list || [];
+          const extra = asns.length > 0 ? ` | ASNs: ${asns.join(", ")}` : "";
+          anomaliesEl.textContent = list.length > 0 ? `${list.join("; ")}${extra}` : "None";
+        }
+      }
+
+      if (payload.series) {
+        drawLine(graphs.newDst, payload.series.new_dst_ips_last_10m || [], "#2a7");
+        drawLine(graphs.uniqueDports, payload.series.unique_dports_last_10m || [], "#b55");
+        drawLine(graphs.uplinkBytes, payload.series.uplink_bytes_last_10m || [], "#36c");
+        drawLine(graphs.newAsns, payload.series.new_asns_last_1h || [], "#884");
       }
     }
 

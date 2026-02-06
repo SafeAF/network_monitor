@@ -12,11 +12,17 @@ module Netmon
       interfaces = Array(interfaces.presence || config["interfaces"].presence || DEFAULT_INTERFACES)
       interfaces = list_interfaces if interfaces.empty?
 
+      Netmon::MetricsRecorder.record_if_due(now:)
+      analytics = Netmon::MetricsReporter.current(now:)
+      series = Netmon::MetricsReporter.series
+
       {
         timestamp: now.iso8601,
         loadavg: parse_loadavg(read_text("/proc/loadavg", file_reader)),
         meminfo: parse_meminfo(read_text("/proc/meminfo", file_reader)),
-        interfaces: interfaces.filter_map { |iface| read_interface(iface, file_reader) }
+        interfaces: interfaces.filter_map { |iface| read_interface(iface, file_reader) },
+        analytics: analytics,
+        series: series
       }
     end
 
