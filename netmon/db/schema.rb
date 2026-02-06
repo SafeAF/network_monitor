@@ -34,6 +34,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_120000) do
     t.datetime "last_seen_at", null: false
     t.string "rdns_name"
     t.string "whois_name"
+    t.string "whois_raw_line"
     t.datetime "rdns_checked_at"
     t.datetime "whois_checked_at"
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true

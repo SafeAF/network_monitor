@@ -28,7 +28,9 @@ module Netmon
       end
 
       if needs_whois?(remote_host, now)
-        remote_host.whois_name = whois(remote_host.ip, runner)
+        whois_name, whois_raw_line = whois(remote_host.ip, runner)
+        remote_host.whois_name = whois_name
+        remote_host.whois_raw_line = whois_raw_line
         remote_host.whois_checked_at = now
       end
     end
@@ -56,11 +58,11 @@ module Netmon
 
     def self.whois(ip, runner)
       stdout, status = runner.capture2e("whois", ip.to_s)
-      return nil unless status.success?
+      return [nil, nil] unless status.success?
 
       parse_whois(stdout)
     rescue Errno::ENOENT
-      nil
+      [nil, nil]
     end
     private_class_method :whois
 
@@ -71,9 +73,9 @@ module Netmon
         key, value = line.split(":", 2).map(&:strip)
         next if value.to_s.empty?
 
-        return value if WHOIS_KEYS.include?(key)
+        return [value, "#{key}: #{value}"] if WHOIS_KEYS.include?(key)
       end
-      nil
+      [nil, nil]
     end
     private_class_method :parse_whois
   end

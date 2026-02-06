@@ -24,7 +24,8 @@ class ConnectionsController < ApplicationController
         seen_age: host&.seen_age || "unknown",
         is_new: host&.new? || false,
         rdns_name: host&.rdns_name,
-        whois_name: host&.whois_name
+        whois_name: host&.whois_name,
+        whois_raw_line: host&.whois_raw_line
       }
     end
 

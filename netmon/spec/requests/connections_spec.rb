@@ -16,7 +16,8 @@ RSpec.describe "Connections JSON", type: :request do
       first_seen_at: Time.current - 120,
       last_seen_at: Time.current,
       rdns_name: "cache.example.net",
-      whois_name: "Example Org"
+      whois_name: "Example Org",
+      whois_raw_line: "OrgName: Example Org"
     )
     Connection.create!(
       proto: "tcp",
@@ -43,6 +44,7 @@ RSpec.describe "Connections JSON", type: :request do
     expect(payload[0]["total_bytes"]).to eq(300)
     expect(payload[0]["rdns_name"]).to eq("cache.example.net")
     expect(payload[0]["whois_name"]).to eq("Example Org")
+    expect(payload[0]["whois_raw_line"]).to eq("OrgName: Example Org")
   end
 
   it "marks recent hosts as not seen_before" do

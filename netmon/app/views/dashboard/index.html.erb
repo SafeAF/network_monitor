@@ -150,7 +150,7 @@
         <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
         <td><%= seen_age %></td>
         <td><%= host&.rdns_name || "--" %></td>
-        <td><%= host&.whois_name || "--" %></td>
+        <td title="<%= host&.try(:whois_raw_line).to_s %>"><%= host&.whois_name || "--" %></td>
         <td><span class="netmon-badge <%= seen_label.downcase %>"><%= seen_label %></span></td>
       </tr>
     <% end %>
@@ -179,7 +179,7 @@
           <td>${conn.total_bytes}</td>
           <td>${conn.seen_age || "unknown"}</td>
           <td>${conn.rdns_name || "--"}</td>
-          <td>${conn.whois_name || "--"}</td>
+          <td title="${conn.whois_raw_line || ""}">${conn.whois_name || "--"}</td>
           <td><span class="netmon-badge ${seenClass}">${seenLabel}</span></td>
         </tr>
       `;
