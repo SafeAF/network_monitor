@@ -14,4 +14,9 @@ namespace :netmon do
   task ingest_loop: :environment do
     Netmon::Daemon.run
   end
+
+  desc "Recompute per-device baselines"
+  task recompute_baselines: :environment do
+    Netmon::Baseline::Recompute.run
+  end
 end

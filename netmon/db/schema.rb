@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_124600) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_125500) do
   create_table "connections", force: :cascade do |t|
     t.string "proto", null: false
     t.string "src_ip", null: false
@@ -33,6 +33,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_124600) do
     t.integer "anomaly_score", default: 0, null: false
     t.text "anomaly_reasons_json", default: "[]", null: false
     t.index ["proto", "src_ip", "src_port", "dst_ip", "dst_port"], name: "index_connections_on_5_tuple", unique: true
+  end
+
+  create_table "device_baselines", force: :cascade do |t|
+    t.integer "device_id", null: false
+    t.integer "window_minutes", default: 60, null: false
+    t.bigint "p95_uplink_bytes_per_min", default: 0, null: false
+    t.integer "p95_conn_count_per_min", default: 0, null: false
+    t.integer "p95_new_dst_ips_per_10m", default: 0, null: false
+    t.integer "p95_unique_ports_per_10m", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["device_id"], name: "index_device_baselines_on_device_id", unique: true
   end
 
   create_table "device_minutes", force: :cascade do |t|
@@ -106,6 +117,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_124600) do
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
   end
 
+  add_foreign_key "device_baselines", "devices"
   add_foreign_key "device_minutes", "devices"
   add_foreign_key "remote_host_minutes", "remote_hosts"
 end
