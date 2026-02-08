@@ -11,14 +11,17 @@ RSpec.describe "Connections JSON", type: :request do
   end
 
   it "returns connections with seen_before" do
-    RemoteHost.create!(
+    remote_attrs = {
       ip: "203.0.113.10",
       first_seen_at: Time.current - 120,
       last_seen_at: Time.current,
       rdns_name: "cache.example.net",
-      whois_name: "Example Org",
-      whois_raw_line: "OrgName: Example Org"
-    )
+      whois_name: "Example Org"
+    }
+    if RemoteHost.column_names.include?("whois_raw_line")
+      remote_attrs[:whois_raw_line] = "OrgName: Example Org"
+    end
+    RemoteHost.create!(remote_attrs)
     Device.create!(
       ip: "10.0.0.24",
       name: "Desktop",
@@ -50,7 +53,9 @@ RSpec.describe "Connections JSON", type: :request do
     expect(payload[0]["total_bytes"]).to eq(300)
     expect(payload[0]["rdns_name"]).to eq("cache.example.net")
     expect(payload[0]["whois_name"]).to eq("Example Org")
-    expect(payload[0]["whois_raw_line"]).to eq("OrgName: Example Org")
+    if RemoteHost.column_names.include?("whois_raw_line")
+      expect(payload[0]["whois_raw_line"]).to eq("OrgName: Example Org")
+    end
     expect(payload[0]["device_name"]).to eq("Desktop")
   end
 

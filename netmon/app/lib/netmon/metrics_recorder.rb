@@ -14,8 +14,8 @@ module Netmon
 
     def self.record!(now: Time.current)
       sample = build_sample(now:)
-      MetricSample.create!(sample)
-      sample
+      record = MetricSample.create!(sample)
+      record
     end
 
     def self.build_sample(now: Time.current)
