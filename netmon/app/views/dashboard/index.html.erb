@@ -81,6 +81,11 @@
     font-size: 16px;
     font-weight: 600;
   }
+  .netmon-tile button {
+    all: unset;
+    cursor: pointer;
+    display: inline-block;
+  }
   .netmon-graphs {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -102,6 +107,19 @@
     padding: 10px 12px;
     border-radius: 6px;
     margin: 12px 0 16px;
+  }
+  .netmon-detail {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 12px 0 16px;
+  }
+  .netmon-detail h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+  }
+  .netmon-detail .item {
+    margin: 4px 0;
   }
   .netmon-top-panels {
     display: grid;
@@ -191,11 +209,11 @@
   </div>
   <div class="netmon-tile">
     <h3>New DST IPs (10m)</h3>
-    <div class="value" id="metric-new-dst">--</div>
+    <div class="value"><button type="button" id="metric-new-dst">--</button></div>
   </div>
   <div class="netmon-tile">
     <h3>Unique DPorts (10m)</h3>
-    <div class="value" id="metric-unique-dports">--</div>
+    <div class="value"><button type="button" id="metric-unique-dports">--</button></div>
   </div>
   <div class="netmon-tile">
     <h3>Uplink Bytes (10m)</h3>
@@ -203,8 +221,13 @@
   </div>
   <div class="netmon-tile">
     <h3>New ASNs (1h)</h3>
-    <div class="value" id="metric-new-asns">--</div>
+    <div class="value"><button type="button" id="metric-new-asns">--</button></div>
   </div>
+</section>
+
+<section class="netmon-detail" id="metric-detail" style="display: none;">
+  <h3 id="metric-detail-title"></h3>
+  <div id="metric-detail-body"></div>
 </section>
 
 <section class="netmon-graphs">
@@ -437,6 +460,28 @@
     const uplinkBytesEl = document.getElementById("metric-uplink-bytes");
     const newAsnsEl = document.getElementById("metric-new-asns");
     const anomaliesEl = document.getElementById("metric-anomalies");
+    const detailEl = document.getElementById("metric-detail");
+    const detailTitleEl = document.getElementById("metric-detail-title");
+    const detailBodyEl = document.getElementById("metric-detail-body");
+
+    let lastAnalytics = null;
+
+    function renderHostList(hosts) {
+      if (!hosts || hosts.length === 0) return "<div class=\"item\">None</div>";
+      return hosts.map((host) => {
+        const whois = host.whois || "--";
+        const rdns = host.rdns || "--";
+        const title = host.whois_raw || "";
+        return `<div class="item" title="${title}">${host.ip} — rDNS: ${rdns} — WHOIS: ${whois}</div>`;
+      }).join("");
+    }
+
+    function showDetail(title, html) {
+      if (!detailEl) return;
+      detailTitleEl.textContent = title;
+      detailBodyEl.innerHTML = html;
+      detailEl.style.display = "block";
+    }
 
     const graphs = {
       newDst: document.getElementById("graph-new-dst"),
@@ -493,6 +538,7 @@
       }
 
       if (payload.analytics) {
+        lastAnalytics = payload.analytics;
         if (newDstEl) newDstEl.textContent = payload.analytics.new_dst_ips_last_10m ?? "--";
         if (uniqueDportsEl) uniqueDportsEl.textContent = payload.analytics.unique_dports_last_10m ?? "--";
         if (uplinkBytesEl) uplinkBytesEl.textContent = payload.analytics.uplink_bytes_last_10m ?? "--";
@@ -512,6 +558,33 @@
         drawLine(graphs.uplinkBytes, payload.series.uplink_bytes_last_10m || [], "#36c");
         drawLine(graphs.newAsns, payload.series.new_asns_last_1h || [], "#884");
       }
+    }
+
+    if (newDstEl) {
+      newDstEl.addEventListener("click", () => {
+        const hosts = lastAnalytics?.new_dst_hosts || [];
+        showDetail("New DST IPs (10m)", renderHostList(hosts));
+      });
+    }
+
+    if (uniqueDportsEl) {
+      uniqueDportsEl.addEventListener("click", () => {
+        const ports = lastAnalytics?.unique_dports_hosts || [];
+        const html = ports.map((row) => {
+          return `<div class="item"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
+        }).join("");
+        showDetail("Unique DPorts (10m)", html || "<div class=\"item\">None</div>");
+      });
+    }
+
+    if (newAsnsEl) {
+      newAsnsEl.addEventListener("click", () => {
+        const asns = lastAnalytics?.new_asns_hosts || [];
+        const html = asns.map((row) => {
+          return `<div class="item"><strong>${row.asn}</strong></div>${renderHostList(row.hosts)}`;
+        }).join("");
+        showDetail("New ASNs (1h)", html || "<div class=\"item\">None</div>");
+      });
     }
 
     function refreshMetrics() {

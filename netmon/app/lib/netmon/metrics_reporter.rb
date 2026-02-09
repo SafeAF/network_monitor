@@ -28,6 +28,47 @@ module Netmon
         new_asns_list = []
       end
 
+      new_dst_hosts = RemoteHost.where("first_seen_at >= ?", window_10m)
+                                .order(first_seen_at: :desc)
+                                .limit(50)
+                                .map { |host| host_payload(host) }
+
+      top_ports = Connection.where("last_seen_at >= ?", window_10m)
+                            .where.not(dst_port: nil)
+                            .group(:dst_port)
+                            .order(Arel.sql("COUNT(*) DESC"))
+                            .limit(10)
+                            .count
+
+      unique_dports_hosts = top_ports.map do |port, count|
+        ips = Connection.where("last_seen_at >= ?", window_10m)
+                        .where(dst_port: port)
+                        .distinct
+                        .limit(50)
+                        .pluck(:dst_ip)
+        hosts = RemoteHost.where(ip: ips).map { |host| host_payload(host) }
+        { port: port, count: count, hosts: hosts }
+      end
+
+      new_asns_hosts = if RemoteHost.column_names.include?("whois_asn")
+                         RemoteHost.where("first_seen_at >= ?", window_1h)
+                                   .where.not(whois_asn: nil)
+                                   .group(:whois_asn)
+                                   .order(Arel.sql("MAX(first_seen_at) DESC"))
+                                   .limit(10)
+                                   .pluck(:whois_asn)
+                                   .map do |asn|
+                                     hosts = RemoteHost.where("first_seen_at >= ?", window_1h)
+                                                       .where(whois_asn: asn)
+                                                       .order(first_seen_at: :desc)
+                                                       .limit(50)
+                                                       .map { |host| host_payload(host) }
+                                     { asn: asn, hosts: hosts }
+                                   end
+                       else
+                         []
+                       end
+
       anomalies = []
       if new_dst_ips_last_10m > 50
         anomalies << { rule: "new_dst_ips_last_10m > 50", level: "suspicious" }
@@ -49,9 +90,22 @@ module Netmon
         baseline_p95_uplink_bytes_last_10m: baseline_p95,
         new_asns_last_1h:,
         new_asns_list:,
+        new_dst_hosts:,
+        unique_dports_hosts:,
+        new_asns_hosts:,
         anomalies:
       }
     end
+
+    def self.host_payload(host)
+      {
+        ip: host.ip,
+        rdns: host.rdns_name,
+        whois: host.whois_name,
+        whois_raw: host.respond_to?(:whois_raw_line) ? host.whois_raw_line : nil
+      }
+    end
+    private_class_method :host_payload
 
     def self.series(limit: 120)
       samples = MetricSample.order(captured_at: :desc).limit(limit).reverse
