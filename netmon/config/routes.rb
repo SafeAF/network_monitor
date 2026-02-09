@@ -11,6 +11,7 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   root "dashboard#index"
+  get "dashboard/top_panels" => "dashboard#top_panels", defaults: { format: :json }
 
   get "connections" => "connections#index", defaults: { format: :json }
   get "metrics" => "metrics#index", defaults: { format: :json }

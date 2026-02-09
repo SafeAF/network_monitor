@@ -234,7 +234,7 @@
 <section class="netmon-top-panels">
   <div class="netmon-panel">
     <h3>Top Remote Hosts (10m)</h3>
-    <ol>
+    <ol id="panel-top-remote-hosts">
       <% @top_remote_hosts.each do |row| %>
         <li><%= row[:ip] %> (<%= row[:total_bytes].to_i %> bytes)</li>
       <% end %>
@@ -242,7 +242,7 @@
   </div>
   <div class="netmon-panel">
     <h3>Newest Remote Hosts (10m)</h3>
-    <ol>
+    <ol id="panel-newest-remote-hosts">
       <% @newest_remote_hosts.each do |host| %>
         <li><%= host.ip %></li>
       <% end %>
@@ -250,7 +250,7 @@
   </div>
   <div class="netmon-panel">
     <h3>Rare Ports (24h)</h3>
-    <ol>
+    <ol id="panel-rare-ports">
       <% @rare_ports.each do |port, count| %>
         <li><%= port %> (<%= count %>)</li>
       <% end %>
@@ -258,7 +258,7 @@
   </div>
   <div class="netmon-panel">
     <h3>Devices by Egress (10m)</h3>
-    <ol>
+    <ol id="panel-top-devices-egress">
       <% @top_devices_egress.each do |row| %>
         <li><%= row[:label] %> (<%= row[:total_uplink].to_i %> bytes)</li>
       <% end %>
@@ -533,5 +533,34 @@
         metricsTimer = setTimeout(refreshMetrics, 200);
       });
     }
+
+    const topRemoteHostsEl = document.getElementById("panel-top-remote-hosts");
+    const newestRemoteHostsEl = document.getElementById("panel-newest-remote-hosts");
+    const rarePortsEl = document.getElementById("panel-rare-ports");
+    const topDevicesEgressEl = document.getElementById("panel-top-devices-egress");
+
+    function renderPanelList(el, items) {
+      if (!el) return;
+      el.innerHTML = items.map((item) => `<li>${item}</li>`).join("");
+    }
+
+    function refreshTopPanels() {
+      fetch("/dashboard/top_panels.json")
+        .then((resp) => resp.json())
+        .then((data) => {
+          const topRemote = (data.top_remote_hosts || []).map((row) => `${row.ip} (${row.total_bytes} bytes)`);
+          const newest = (data.newest_remote_hosts || []).map((ip) => ip);
+          const rare = (data.rare_ports || []).map((row) => `${row.port} (${row.count})`);
+          const topDevices = (data.top_devices_egress || []).map((row) => `${row.label} (${row.total_uplink} bytes)`);
+          renderPanelList(topRemoteHostsEl, topRemote);
+          renderPanelList(newestRemoteHostsEl, newest);
+          renderPanelList(rarePortsEl, rare);
+          renderPanelList(topDevicesEgressEl, topDevices);
+        })
+        .catch(() => {});
+    }
+
+    refreshTopPanels();
+    setInterval(refreshTopPanels, 2000);
   })();
 </script>
