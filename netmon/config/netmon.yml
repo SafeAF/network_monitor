@@ -9,6 +9,17 @@ common_ports:
 
 new_window_seconds: 600
 
+common_protos:
+  - tcp
+  - udp
+
+anomaly_threshold: 50
+dedup_suppress_seconds: 600
+baseline_window_minutes: 60
+dormant_remote_days: 30
+high_fanout_threshold: 30
+high_unique_ports_threshold: 20
+
 exclude_subnets:
   - 10.0.0.0/8
   - 172.16.0.0/12

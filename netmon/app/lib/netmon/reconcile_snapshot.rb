@@ -2,6 +2,7 @@
 
 require "set"
 require "yaml"
+require "json"
 
 module Netmon
   class ReconcileSnapshot
@@ -114,6 +115,19 @@ module Netmon
         connection.last_downlink_bytes = cur_dn_b
         connection.last_delta_at = now
         connection.last_seen_at = now
+
+        baseline = DeviceBaseline.find_by(device_id: device.id)
+        stats = Netmon::Anomaly::DeviceStats.current(device.id, now:)
+        anomaly = Netmon::Anomaly::Scorer.score_connection(
+          connection:,
+          device:,
+          remote_host: remote_host,
+          baseline:,
+          device_stats: stats,
+          now: now
+        )
+        connection.anomaly_score = anomaly[:score]
+        connection.anomaly_reasons_json = anomaly[:reasons].to_json
         connection.save!
 
         seen_connection_ids << connection.id
