@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "json"
+
 class ConnectionsController < ApplicationController
   def index
     connections, threshold = Netmon::ConnectionsQuery.call(params)
@@ -12,6 +14,12 @@ class ConnectionsController < ApplicationController
       seen_before = host.present? && host.first_seen_at < threshold
 
       whois_raw_line = host&.respond_to?(:whois_raw_line) ? host.whois_raw_line : nil
+      reasons = begin
+        JSON.parse(conn.anomaly_reasons_json || "[]")
+      rescue JSON::ParserError
+        []
+      end
+      reason_codes = reasons.map { |reason| reason["code"] }.compact
       {
         device_id: device&.id,
         device_name: device&.name.presence || conn.src_ip,
@@ -30,7 +38,9 @@ class ConnectionsController < ApplicationController
         is_new: host&.new? || false,
         rdns_name: host&.rdns_name,
         whois_name: host&.whois_name,
-        whois_raw_line: whois_raw_line
+        whois_raw_line: whois_raw_line,
+        anomaly_score: conn.anomaly_score.to_i,
+        anomaly_reasons: reason_codes
       }
     end
 

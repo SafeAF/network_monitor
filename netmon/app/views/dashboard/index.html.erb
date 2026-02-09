@@ -12,6 +12,29 @@
   table.netmon-table thead th {
     border-bottom: 1px solid #ddd;
   }
+  .netmon-score {
+    display: inline-block;
+    min-width: 32px;
+    text-align: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #f2f2f2;
+    color: #333;
+  }
+  .netmon-score.high {
+    background: #ffebe8;
+    color: #8a0a0a;
+  }
+  .netmon-score.med {
+    background: #fff7e0;
+    color: #8a5b0a;
+  }
+  .netmon-score.low {
+    background: #e6f4ff;
+    color: #0a4a8a;
+  }
   .netmon-badge {
     display: inline-block;
     padding: 2px 6px;
@@ -80,6 +103,21 @@
     border-radius: 6px;
     margin: 12px 0 16px;
   }
+  .netmon-top-panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin: 12px 0 16px;
+  }
+  .netmon-panel {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .netmon-panel h3 {
+    margin: 0 0 6px;
+    font-size: 14px;
+  }
 </style>
 
 <h1>Active Connections</h1>
@@ -110,6 +148,15 @@
     Only NEW
   </label>
   <label>
+    Min Score
+    <select name="min_score">
+      <option value="" <%= "selected" if params[:min_score].to_s.empty? %>>All</option>
+      <option value="0" <%= "selected" if params[:min_score] == "0" %>>0</option>
+      <option value="20" <%= "selected" if params[:min_score] == "20" %>>20</option>
+      <option value="50" <%= "selected" if params[:min_score] == "50" %>>50</option>
+    </select>
+  </label>
+  <label>
     Interfaces
     <input id="metric-interfaces" name="interfaces" value="<%= params[:interfaces].to_s %>" list="interface-options">
     <datalist id="interface-options">
@@ -122,6 +169,9 @@
   <a href="/">Clear</a>
   <a href="?only_new=true">Only NEW</a>
   <a href="?hide_time_wait=true">Hide TIME_WAIT</a>
+  <a href="?min_score=0">Score 0+</a>
+  <a href="?min_score=20">Score 20+</a>
+  <a href="?min_score=50">Score 50+</a>
   <a href="/devices">Edit Devices</a>
   <a href="/anomalies">Anomalies</a>
 </form>
@@ -181,6 +231,41 @@
   <span id="metric-anomalies">None</span>
 </section>
 
+<section class="netmon-top-panels">
+  <div class="netmon-panel">
+    <h3>Top Remote Hosts (10m)</h3>
+    <ol>
+      <% @top_remote_hosts.each do |row| %>
+        <li><%= row[:ip] %> (<%= row[:total_bytes].to_i %> bytes)</li>
+      <% end %>
+    </ol>
+  </div>
+  <div class="netmon-panel">
+    <h3>Newest Remote Hosts (10m)</h3>
+    <ol>
+      <% @newest_remote_hosts.each do |host| %>
+        <li><%= host.ip %></li>
+      <% end %>
+    </ol>
+  </div>
+  <div class="netmon-panel">
+    <h3>Rare Ports (24h)</h3>
+    <ol>
+      <% @rare_ports.each do |port, count| %>
+        <li><%= port %> (<%= count %>)</li>
+      <% end %>
+    </ol>
+  </div>
+  <div class="netmon-panel">
+    <h3>Devices by Egress (10m)</h3>
+    <ol>
+      <% @top_devices_egress.each do |row| %>
+        <li><%= row[:label] %> (<%= row[:total_uplink].to_i %> bytes)</li>
+      <% end %>
+    </ol>
+  </div>
+</section>
+
 <table class="netmon-table">
   <thead>
     <tr>
@@ -193,6 +278,8 @@
       <th>Up (bytes)</th>
       <th>Down (bytes)</th>
       <th>Total (bytes)</th>
+      <th>Score</th>
+      <th>Reasons</th>
       <th>Age</th>
       <th>rDNS</th>
       <th>WHOIS</th>
@@ -206,6 +293,12 @@
       <% seen_label = host&.new? ? "NEW" : "SEEN" %>
       <% seen_age = host&.seen_age || "unknown" %>
       <% device_label = device&.name.presence || conn.src_ip %>
+      <% reasons = begin
+           JSON.parse(conn.anomaly_reasons_json || "[]")
+         rescue JSON::ParserError
+           []
+         end %>
+      <% reason_codes = reasons.map { |reason| reason["code"] }.compact %>
       <tr>
         <td><%= conn.proto %></td>
         <td>
@@ -222,6 +315,11 @@
         <td><%= conn.uplink_bytes %></td>
         <td><%= conn.downlink_bytes %></td>
         <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
+        <td>
+          <% score_class = conn.anomaly_score.to_i >= 50 ? "high" : (conn.anomaly_score.to_i >= 20 ? "med" : "low") %>
+          <span class="netmon-score <%= score_class %>"><%= conn.anomaly_score.to_i %></span>
+        </td>
+        <td><%= reason_codes.join(",") %></td>
         <td><%= seen_age %></td>
         <td><%= host&.rdns_name || "--" %></td>
         <td title="<%= host&.try(:whois_raw_line).to_s %>"><%= host&.whois_name || "--" %></td>
@@ -241,6 +339,9 @@
       const dst = conn.dst_port ? `${conn.dst_ip}:${conn.dst_port}` : conn.dst_ip;
       const seenLabel = conn.is_new ? "NEW" : "SEEN";
       const seenClass = conn.is_new ? "new" : "seen";
+      const score = Number(conn.anomaly_score || 0);
+      const scoreClass = score >= 50 ? "high" : (score >= 20 ? "med" : "low");
+      const reasons = (conn.anomaly_reasons || []).join(",");
       const deviceCell = conn.device_id
         ? `<input class="device-name-input" data-device-id="${conn.device_id}" value="${conn.device_name || ""}" size="14">`
         : `<span>${conn.device_name || conn.src_ip}</span>`;
@@ -255,6 +356,8 @@
           <td>${conn.uplink_bytes}</td>
           <td>${conn.downlink_bytes}</td>
           <td>${conn.total_bytes}</td>
+          <td><span class="netmon-score ${scoreClass}">${score}</span></td>
+          <td>${reasons}</td>
           <td>${conn.seen_age || "unknown"}</td>
           <td>${conn.rdns_name || "--"}</td>
           <td title="${conn.whois_raw_line || ""}">${conn.whois_name || "--"}</td>
