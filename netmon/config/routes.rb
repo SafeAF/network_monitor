@@ -15,4 +15,5 @@ Rails.application.routes.draw do
   get "connections" => "connections#index", defaults: { format: :json }
   get "metrics" => "metrics#index", defaults: { format: :json }
   resources :devices, only: [:index, :update]
+  get "anomalies" => "anomalies#index"
 end

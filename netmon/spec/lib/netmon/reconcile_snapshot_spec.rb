@@ -92,6 +92,80 @@ RSpec.describe Netmon::ReconcileSnapshot do
     expect(device_minute.new_dst_ips).to eq(1)
   end
 
+  it "dedups anomaly hits within suppression window" do
+    now = Time.zone.parse("2026-02-03 12:00:10")
+    later = now + 60
+
+    allow(Netmon::HostEnricher).to receive(:apply)
+
+    entry = build_entry(
+      src: "10.0.0.24",
+      dst: "203.0.113.10",
+      sport: 4000,
+      dport: 443,
+      up_bytes: 100,
+      up_packets: 10,
+      dn_bytes: 50,
+      dn_packets: 5
+    )
+
+    allow(Conntrack::Snapshot).to receive(:read).and_return([entry], [entry])
+    allow(Netmon::Anomaly::Scorer).to receive(:score_connection).and_return(
+      score: 80,
+      reasons: [{ code: "NEW_DST", weight: 30 }]
+    )
+    allow(Netmon::Anomaly::DeviceStats).to receive(:current).and_return(
+      Netmon::Anomaly::DeviceStats::Result.new(
+        uplink_bytes_last_10m: 0,
+        new_dst_ips_last_10m: 0,
+        unique_ports_last_10m: 0
+      )
+    )
+
+    described_class.run(input_file: nil, now: now)
+    described_class.run(input_file: nil, now: later)
+
+    expect(AnomalyHit.count).to eq(1)
+  end
+
+  it "emits device-level hits for fanout and port scan rules" do
+    now = Time.zone.parse("2026-02-03 12:00:10")
+
+    allow(Netmon::HostEnricher).to receive(:apply)
+
+    entry = build_entry(
+      src: "10.0.0.24",
+      dst: "203.0.113.10",
+      sport: 4000,
+      dport: 443,
+      up_bytes: 100,
+      up_packets: 10,
+      dn_bytes: 50,
+      dn_packets: 5
+    )
+
+    allow(Conntrack::Snapshot).to receive(:read).and_return([entry])
+    allow(Netmon::Anomaly::Scorer).to receive(:score_connection).and_return(
+      score: 10,
+      reasons: [
+        { code: "HIGH_FANOUT", weight: 25 },
+        { code: "PORT_SCAN_LIKE", weight: 25 }
+      ]
+    )
+    allow(Netmon::Anomaly::DeviceStats).to receive(:current).and_return(
+      Netmon::Anomaly::DeviceStats::Result.new(
+        uplink_bytes_last_10m: 0,
+        new_dst_ips_last_10m: 0,
+        unique_ports_last_10m: 0
+      )
+    )
+
+    described_class.run(input_file: nil, now: now)
+
+    summaries = AnomalyHit.pluck(:summary)
+    expect(summaries).to include("HIGH_FANOUT", "PORT_SCAN_LIKE")
+  end
+
   describe ".compute_deltas" do
     it "returns zero deltas for new connections" do
       connection = Connection.new

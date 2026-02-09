@@ -12,6 +12,8 @@ module Netmon
       config = load_config
       common_ports = Array(config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
       new_window_seconds = (config["new_window_seconds"].presence || 600).to_i
+      anomaly_threshold = (config["anomaly_threshold"].presence || 50).to_i
+      dedup_suppress_seconds = (config["dedup_suppress_seconds"].presence || 600).to_i
       bucket_ts = now.utc.change(sec: 0)
 
       entries = Conntrack::Snapshot.read(input_file:)
@@ -130,6 +132,24 @@ module Netmon
         connection.anomaly_reasons_json = anomaly[:reasons].to_json
         connection.save!
 
+        emit_device_level_hits(
+          device: device,
+          reasons: anomaly[:reasons],
+          now: now,
+          dedup_seconds: dedup_suppress_seconds
+        )
+
+        if connection.anomaly_score >= anomaly_threshold
+          emit_anomaly_hit(
+            connection: connection,
+            device: device,
+            remote_host: remote_host,
+            reasons: anomaly[:reasons],
+            now: now,
+            dedup_seconds: dedup_suppress_seconds
+          )
+        end
+
         seen_connection_ids << connection.id
       end
 
@@ -166,6 +186,70 @@ module Netmon
       {}
     end
     private_class_method :load_config
+
+    def self.emit_anomaly_hit(connection:, device:, remote_host:, reasons:, now:, dedup_seconds:)
+      codes = Array(reasons).map { |reason| reason[:code] || reason["code"] }.compact.sort
+      fingerprint = [
+        device.id,
+        connection.dst_ip,
+        connection.dst_port,
+        connection.proto,
+        codes.join(",")
+      ].join("|")
+
+      recent = AnomalyHit.where(fingerprint: fingerprint)
+                         .where("occurred_at >= ?", now - dedup_seconds)
+                         .exists?
+      return if recent
+
+      total_bytes = connection.uplink_bytes.to_i + connection.downlink_bytes.to_i
+      summary = codes.join(",")
+
+      AnomalyHit.create!(
+        occurred_at: now,
+        device_id: device.id,
+        remote_host_id: remote_host&.id,
+        proto: connection.proto,
+        src_ip: connection.src_ip,
+        dst_ip: connection.dst_ip,
+        dst_port: connection.dst_port,
+        score: connection.anomaly_score,
+        total_bytes: total_bytes,
+        summary: summary,
+        reasons_json: reasons.to_json,
+        fingerprint: fingerprint,
+        suppressed_until: now + dedup_seconds
+      )
+    end
+    private_class_method :emit_anomaly_hit
+
+    def self.emit_device_level_hits(device:, reasons:, now:, dedup_seconds:)
+      trigger_codes = %w[HIGH_FANOUT PORT_SCAN_LIKE]
+      codes = Array(reasons).map { |reason| reason[:code] || reason["code"] }.compact
+      (codes & trigger_codes).each do |code|
+        fingerprint = ["DEVICE", device.id, code].join("|")
+        recent = AnomalyHit.where(fingerprint: fingerprint)
+                           .where("occurred_at >= ?", now - dedup_seconds)
+                           .exists?
+        next if recent
+
+        AnomalyHit.create!(
+          occurred_at: now,
+          device_id: device.id,
+          proto: nil,
+          src_ip: device.ip,
+          dst_ip: nil,
+          dst_port: nil,
+          score: 0,
+          total_bytes: 0,
+          summary: code,
+          reasons_json: [{ code: code, weight: 25, detail: "device-level" }].to_json,
+          fingerprint: fingerprint,
+          suppressed_until: now + dedup_seconds
+        )
+      end
+    end
+    private_class_method :emit_device_level_hits
 
     def self.compute_deltas(connection, cur_up_b:, cur_dn_b:, cur_up_p:, cur_dn_p:)
       if connection.new_record?

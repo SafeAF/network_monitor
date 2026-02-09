@@ -10,7 +10,31 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_125500) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_130000) do
+  create_table "anomaly_hits", force: :cascade do |t|
+    t.datetime "occurred_at", null: false
+    t.integer "device_id", null: false
+    t.integer "remote_host_id"
+    t.string "proto"
+    t.string "src_ip"
+    t.string "dst_ip"
+    t.integer "dst_port"
+    t.integer "score"
+    t.bigint "total_bytes", default: 0, null: false
+    t.string "summary"
+    t.text "reasons_json", default: "[]", null: false
+    t.string "fingerprint"
+    t.datetime "suppressed_until"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["device_id", "occurred_at"], name: "index_anomaly_hits_on_device_id_and_occurred_at"
+    t.index ["device_id"], name: "index_anomaly_hits_on_device_id"
+    t.index ["dst_ip", "occurred_at"], name: "index_anomaly_hits_on_dst_ip_and_occurred_at"
+    t.index ["fingerprint"], name: "index_anomaly_hits_on_fingerprint"
+    t.index ["occurred_at"], name: "index_anomaly_hits_on_occurred_at"
+    t.index ["remote_host_id"], name: "index_anomaly_hits_on_remote_host_id"
+  end
+
   create_table "connections", force: :cascade do |t|
     t.string "proto", null: false
     t.string "src_ip", null: false
@@ -117,6 +141,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_125500) do
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
   end
 
+  add_foreign_key "anomaly_hits", "devices"
+  add_foreign_key "anomaly_hits", "remote_hosts"
   add_foreign_key "device_baselines", "devices"
   add_foreign_key "device_minutes", "devices"
   add_foreign_key "remote_host_minutes", "remote_hosts"

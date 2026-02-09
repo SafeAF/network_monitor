@@ -1,0 +1,52 @@
+# frozen_string_literal: true
+
+class AnomaliesController < ApplicationController
+  def index
+    @filters = filter_params
+    scope = AnomalyHit.includes(:device, :remote_host).order(occurred_at: :desc)
+
+    if @filters[:min_score].present?
+      scope = scope.where("score >= ?", @filters[:min_score].to_i)
+    end
+
+    if @filters[:dst_ip].present?
+      scope = scope.where(dst_ip: @filters[:dst_ip])
+    end
+
+    if @filters[:dst_port].present? && @filters[:dst_port].to_s.match?(/\A\d+\z/)
+      scope = scope.where(dst_port: @filters[:dst_port].to_i)
+    end
+
+    if @filters[:device].present?
+      scope = scope.joins(:device).where("devices.id = ? OR devices.ip = ? OR devices.name = ?",
+                                         @filters[:device],
+                                         @filters[:device],
+                                         @filters[:device])
+    end
+
+    if @filters[:code].present?
+      scope = scope.where("reasons_json LIKE ?", "%#{@filters[:code]}%")
+    end
+
+    if @filters[:window].present?
+      scope = scope.where("occurred_at >= ?", window_start(@filters[:window]))
+    end
+
+    @hits = scope.limit(500)
+  end
+
+  private
+
+  def filter_params
+    params.permit(:min_score, :device, :code, :dst_ip, :dst_port, :window)
+  end
+
+  def window_start(value)
+    case value
+    when "1h" then Time.current - 1.hour
+    when "24h" then Time.current - 24.hours
+    when "7d" then Time.current - 7.days
+    else Time.current - 24.hours
+    end
+  end
+end

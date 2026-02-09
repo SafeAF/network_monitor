@@ -1,0 +1,67 @@
+<h1>Anomalies</h1>
+
+<form class="netmon-filters" method="get">
+  <label>
+    Min Score
+    <input name="min_score" value="<%= @filters[:min_score].to_s %>">
+  </label>
+  <label>
+    Device (id/ip/name)
+    <input name="device" value="<%= @filters[:device].to_s %>">
+  </label>
+  <label>
+    Code
+    <input name="code" value="<%= @filters[:code].to_s %>">
+  </label>
+  <label>
+    Dst IP
+    <input name="dst_ip" value="<%= @filters[:dst_ip].to_s %>">
+  </label>
+  <label>
+    Dst Port
+    <input name="dst_port" value="<%= @filters[:dst_port].to_s %>">
+  </label>
+  <label>
+    Window
+    <select name="window">
+      <option value="" <%= "selected" if @filters[:window].to_s.empty? %>>All</option>
+      <option value="1h" <%= "selected" if @filters[:window] == "1h" %>>1h</option>
+      <option value="24h" <%= "selected" if @filters[:window] == "24h" %>>24h</option>
+      <option value="7d" <%= "selected" if @filters[:window] == "7d" %>>7d</option>
+    </select>
+  </label>
+  <button type="submit">Apply</button>
+  <a href="/anomalies">Clear</a>
+</form>
+
+<table class="netmon-table">
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Device</th>
+      <th>Dst</th>
+      <th>Proto</th>
+      <th>Score</th>
+      <th>Summary</th>
+      <th>Reasons</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @hits.each do |hit| %>
+      <tr>
+        <td><%= hit.occurred_at %></td>
+        <td><%= hit.device&.name.presence || hit.device&.ip %></td>
+        <td><%= hit.dst_ip %><%= hit.dst_port ? ":#{hit.dst_port}" : "" %></td>
+        <td><%= hit.proto %></td>
+        <td><%= hit.score %></td>
+        <td><%= hit.summary %></td>
+        <td>
+          <details>
+            <summary><%= hit.reason_codes.join(",") %></summary>
+            <pre><%= hit.reasons_json %></pre>
+          </details>
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
