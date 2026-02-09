@@ -149,5 +149,29 @@ module Netmon
         new_asns_last_1h: samples.map(&:new_asns_last_1h)
       }
     end
+
+    def self.series_for_window(window:, now: Time.current)
+      start_time = window_start(window, now)
+      samples = MetricSample.where("captured_at >= ?", start_time).order(:captured_at)
+      {
+        timestamps: samples.map { |s| s.captured_at.iso8601 },
+        new_dst_ips_last_10m: samples.map(&:new_dst_ips_last_10m),
+        unique_dports_last_10m: samples.map(&:unique_dports_last_10m),
+        uplink_bytes_last_10m: samples.map(&:uplink_bytes_last_10m),
+        baseline_p95_uplink_bytes_last_10m: samples.map(&:baseline_p95_uplink_bytes_last_10m),
+        new_asns_last_1h: samples.map(&:new_asns_last_1h)
+      }
+    end
+
+    def self.window_start(window, now)
+      case window
+      when "10m" then now - 10.minutes
+      when "1h" then now - 1.hour
+      when "24h" then now - 24.hours
+      when "1w" then now - 7.days
+      else now - 10.minutes
+      end
+    end
+    private_class_method :window_start
   end
 end

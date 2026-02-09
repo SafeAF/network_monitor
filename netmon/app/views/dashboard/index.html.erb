@@ -101,6 +101,15 @@
     width: 100%;
     height: 120px;
   }
+  .netmon-graph .graph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .netmon-graph select {
+    font-size: 12px;
+  }
   .netmon-anomalies {
     border: 1px solid #f0c36d;
     background: #fff7e0;
@@ -242,20 +251,52 @@
 
 <section class="netmon-graphs">
   <div class="netmon-graph">
-    <h3>New DST IPs (10m)</h3>
-    <canvas id="graph-new-dst"></canvas>
+    <div class="graph-header">
+      <h3>New DST IPs</h3>
+      <select class="graph-window" data-series="new_dst_ips_last_10m">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <canvas id="graph-new-dst" data-series="new_dst_ips_last_10m"></canvas>
   </div>
   <div class="netmon-graph">
-    <h3>Unique DPorts (10m)</h3>
-    <canvas id="graph-unique-dports"></canvas>
+    <div class="graph-header">
+      <h3>Unique DPorts</h3>
+      <select class="graph-window" data-series="unique_dports_last_10m">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <canvas id="graph-unique-dports" data-series="unique_dports_last_10m"></canvas>
   </div>
   <div class="netmon-graph">
-    <h3>Uplink Bytes (10m)</h3>
-    <canvas id="graph-uplink-bytes"></canvas>
+    <div class="graph-header">
+      <h3>Uplink Bytes</h3>
+      <select class="graph-window" data-series="uplink_bytes_last_10m">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <canvas id="graph-uplink-bytes" data-series="uplink_bytes_last_10m"></canvas>
   </div>
   <div class="netmon-graph">
-    <h3>New ASNs (1h)</h3>
-    <canvas id="graph-new-asns"></canvas>
+    <div class="graph-header">
+      <h3>New ASNs</h3>
+      <select class="graph-window" data-series="new_asns_last_1h">
+        <option value="10m">10m</option>
+        <option value="1h" selected>1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <canvas id="graph-new-asns" data-series="new_asns_last_1h"></canvas>
   </div>
 </section>
 
@@ -496,13 +537,15 @@
     }
 
     const graphs = {
-      newDst: document.getElementById("graph-new-dst"),
-      uniqueDports: document.getElementById("graph-unique-dports"),
-      uplinkBytes: document.getElementById("graph-uplink-bytes"),
-      newAsns: document.getElementById("graph-new-asns")
+      newDst: { canvas: document.getElementById("graph-new-dst"), color: "#2a7" },
+      uniqueDports: { canvas: document.getElementById("graph-unique-dports"), color: "#b55" },
+      uplinkBytes: { canvas: document.getElementById("graph-uplink-bytes"), color: "#36c" },
+      newAsns: { canvas: document.getElementById("graph-new-asns"), color: "#884" }
     };
 
-    function drawLine(canvas, points, color) {
+    const graphSeriesState = {};
+
+    function drawLineWithScale(canvas, points, color) {
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
       const width = canvas.width = canvas.clientWidth;
@@ -519,12 +562,33 @@
       const min = Math.min(...points);
       const max = Math.max(...points);
       const range = max - min || 1;
+
+      const leftPad = 28;
+      const rightPad = 6;
+      const topPad = 6;
+      const bottomPad = 12;
+      const plotWidth = width - leftPad - rightPad;
+      const plotHeight = height - topPad - bottomPad;
+
+      ctx.strokeStyle = "#e0e0e0";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(leftPad, topPad);
+      ctx.lineTo(leftPad, topPad + plotHeight);
+      ctx.lineTo(leftPad + plotWidth, topPad + plotHeight);
+      ctx.stroke();
+
+      ctx.fillStyle = "#555";
+      ctx.font = "10px sans-serif";
+      ctx.fillText(String(max), 2, topPad + 8);
+      ctx.fillText(String(min), 2, topPad + plotHeight);
+
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.beginPath();
       points.forEach((val, idx) => {
-        const x = (idx / (points.length - 1 || 1)) * (width - 10) + 5;
-        const y = height - ((val - min) / range) * (height - 10) - 5;
+        const x = leftPad + (idx / (points.length - 1 || 1)) * plotWidth;
+        const y = topPad + plotHeight - ((val - min) / range) * plotHeight;
         if (idx === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
@@ -564,12 +628,7 @@
         }
       }
 
-      if (payload.series) {
-        drawLine(graphs.newDst, payload.series.new_dst_ips_last_10m || [], "#2a7");
-        drawLine(graphs.uniqueDports, payload.series.unique_dports_last_10m || [], "#b55");
-        drawLine(graphs.uplinkBytes, payload.series.uplink_bytes_last_10m || [], "#36c");
-        drawLine(graphs.newAsns, payload.series.new_asns_last_1h || [], "#884");
-      }
+      // Graphs are updated via /metrics/series to respect per-graph time windows.
     }
 
     if (newDstEl) {
@@ -638,6 +697,74 @@
         metricsTimer = setTimeout(refreshMetrics, 200);
       });
     }
+
+    function refreshGraphSeries() {
+      document.querySelectorAll(".graph-window").forEach((select) => {
+        const seriesKey = select.dataset.series;
+        const window = select.value;
+        fetchSeries(window).then((series) => {
+          const points = series[seriesKey] || [];
+          const canvas = document.querySelector(`canvas[data-series="${seriesKey}"]`);
+          updateGraph(canvas, seriesKey, points, window);
+        }).catch(() => {});
+      });
+    }
+
+    refreshGraphSeries();
+    setInterval(refreshGraphSeries, 10000);
+
+
+    function seriesKeyFromCanvas(canvas) {
+      return canvas?.dataset.series;
+    }
+
+    function fetchSeries(window) {
+      return fetch(`/metrics/series.json?window=${encodeURIComponent(window)}`)
+        .then((resp) => resp.json());
+    }
+
+    function updateGraph(canvas, seriesKey, points, windowLabel) {
+      const color = Object.values(graphs).find((g) => g.canvas === canvas)?.color || "#36c";
+      drawLineWithScale(canvas, points || [], color);
+      graphSeriesState[seriesKey] = { points: points || [], window: windowLabel };
+    }
+
+    document.querySelectorAll(".graph-window").forEach((select) => {
+      select.addEventListener("change", () => {
+        const window = select.value;
+        const seriesKey = select.dataset.series;
+        if (graphSeriesState[seriesKey]) {
+          graphSeriesState[seriesKey].window = window;
+        } else {
+          graphSeriesState[seriesKey] = { points: [], window: window };
+        }
+        fetchSeries(window).then((series) => {
+          const points = series[seriesKey] || [];
+          const canvas = document.querySelector(`canvas[data-series="${seriesKey}"]`);
+          const color = Object.values(graphs).find((g) => g.canvas === canvas)?.color || "#36c";
+          if (canvas) canvas.dataset.color = color;
+          updateGraph(canvas, seriesKey, points, window);
+        }).catch(() => {});
+      });
+    });
+
+    window.addEventListener("popstate", refreshGraphSeries);
+
+    Object.values(graphs).forEach((graph) => {
+      if (!graph.canvas) return;
+      graph.canvas.addEventListener("click", () => {
+        const seriesKey = seriesKeyFromCanvas(graph.canvas);
+        const state = graphSeriesState[seriesKey];
+        if (!state || state.points.length === 0) return;
+        const points = state.points;
+        const min = Math.min(...points);
+        const max = Math.max(...points);
+        const last = points[points.length - 1];
+        const title = `${seriesKey.replace(/_/g, " ")} (${state.window || "10m"})`;
+        const html = `<div class="item">Min: ${min}</div><div class="item">Max: ${max}</div><div class="item">Last: ${last}</div><div class="item">Points: ${points.length}</div>`;
+        showDetail(title, html);
+      });
+    });
 
     const topRemoteHostsEl = document.getElementById("panel-top-remote-hosts");
     const newestRemoteHostsEl = document.getElementById("panel-newest-remote-hosts");
