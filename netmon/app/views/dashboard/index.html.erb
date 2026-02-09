@@ -136,6 +136,16 @@
     margin: 0 0 6px;
     font-size: 14px;
   }
+  .netmon-panel .rare-port-item {
+    all: unset;
+    cursor: pointer;
+    color: inherit;
+    display: inline-block;
+  }
+  .netmon-panel .rare-port-item:focus {
+    outline: 2px solid #9ec3ff;
+    outline-offset: 2px;
+  }
 </style>
 
 <h1>Active Connections</h1>
@@ -274,8 +284,9 @@
   <div class="netmon-panel">
     <h3>Rare Ports (24h)</h3>
     <ol id="panel-rare-ports">
+      <li><button type="button" class="rare-port-item" data-port="all">View All</button></li>
       <% @rare_ports.each do |port, count| %>
-        <li><%= port %> (<%= count %>)</li>
+        <li><button type="button" class="rare-port-item" data-port="<%= port %>"><%= port %> (<%= count %>)</button></li>
       <% end %>
     </ol>
   </div>
@@ -463,6 +474,7 @@
     const detailEl = document.getElementById("metric-detail");
     const detailTitleEl = document.getElementById("metric-detail-title");
     const detailBodyEl = document.getElementById("metric-detail-body");
+    const rarePortsList = document.getElementById("panel-rare-ports");
 
     let lastAnalytics = null;
 
@@ -587,6 +599,26 @@
       });
     }
 
+    if (rarePortsList) {
+      rarePortsList.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!target || !target.classList.contains("rare-port-item")) return;
+        const port = target.dataset.port;
+        const ports = lastAnalytics?.rare_ports_hosts || [];
+        if (port === "all") {
+          const html = ports.map((row) => {
+            return `<div class="item"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
+          }).join("");
+          showDetail("Rare Ports (24h)", html || "<div class=\"item\">None</div>");
+          return;
+        }
+        const row = ports.find((item) => String(item.port) === port);
+        if (!row) return;
+        const html = `<div class="item"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
+        showDetail(`Rare Port ${row.port} (24h)`, html);
+      });
+    }
+
     function refreshMetrics() {
       const interfaces = interfacesInput ? interfacesInput.value.trim() : "";
       const query = interfaces ? `?interfaces=${encodeURIComponent(interfaces)}` : "";
@@ -623,12 +655,19 @@
         .then((data) => {
           const topRemote = (data.top_remote_hosts || []).map((row) => `${row.ip} (${row.total_bytes} bytes)`);
           const newest = (data.newest_remote_hosts || []).map((ip) => ip);
-          const rare = (data.rare_ports || []).map((row) => `${row.port} (${row.count})`);
           const topDevices = (data.top_devices_egress || []).map((row) => `${row.label} (${row.total_uplink} bytes)`);
           renderPanelList(topRemoteHostsEl, topRemote);
           renderPanelList(newestRemoteHostsEl, newest);
-          renderPanelList(rarePortsEl, rare);
           renderPanelList(topDevicesEgressEl, topDevices);
+
+          if (rarePortsEl) {
+            const rows = (data.rare_ports || []).filter((row) => row && row.port != null);
+            const items = rows.map((row) => {
+              return `<button type="button" class="rare-port-item" data-port="${row.port}">${row.port} (${row.count})</button>`;
+            });
+            const allItem = `<button type="button" class="rare-port-item" data-port="all">View All</button>`;
+            rarePortsEl.innerHTML = [allItem, ...items].map((item) => `<li>${item}</li>`).join("");
+          }
         })
         .catch(() => {});
     }

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "yaml"
+
 module Netmon
   class MetricsReporter
     def self.current(now: Time.current)
@@ -33,6 +35,8 @@ module Netmon
                                 .limit(50)
                                 .map { |host| host_payload(host) }
 
+      config = load_config
+      common_ports = Array(config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
       top_ports = Connection.where("last_seen_at >= ?", window_10m)
                             .where.not(dst_port: nil)
                             .group(:dst_port)
@@ -42,6 +46,24 @@ module Netmon
 
       unique_dports_hosts = top_ports.map do |port, count|
         ips = Connection.where("last_seen_at >= ?", window_10m)
+                        .where(dst_port: port)
+                        .distinct
+                        .limit(50)
+                        .pluck(:dst_ip)
+        hosts = RemoteHost.where(ip: ips).map { |host| host_payload(host) }
+        { port: port, count: count, hosts: hosts }
+      end
+
+      rare_ports_24h = Connection.where("last_seen_at >= ?", now - 24.hours)
+                                 .where.not(dst_port: nil)
+                                 .where.not(dst_port: common_ports)
+                                 .group(:dst_port)
+                                 .order(Arel.sql("COUNT(*) DESC"))
+                                 .limit(10)
+                                 .count
+
+      rare_ports_hosts = rare_ports_24h.map do |port, count|
+        ips = Connection.where("last_seen_at >= ?", now - 24.hours)
                         .where(dst_port: port)
                         .distinct
                         .limit(50)
@@ -93,6 +115,7 @@ module Netmon
         new_dst_hosts:,
         unique_dports_hosts:,
         new_asns_hosts:,
+        rare_ports_hosts:,
         anomalies:
       }
     end
@@ -106,6 +129,14 @@ module Netmon
       }
     end
     private_class_method :host_payload
+
+    def self.load_config
+      path = Rails.root.join("config/netmon.yml")
+      YAML.safe_load(File.read(path), permitted_classes: [], permitted_symbols: [], aliases: false) || {}
+    rescue Errno::ENOENT
+      {}
+    end
+    private_class_method :load_config
 
     def self.series(limit: 120)
       samples = MetricSample.order(captured_at: :desc).limit(limit).reverse
