@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_132500) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_133500) do
   create_table "anomaly_hits", force: :cascade do |t|
     t.datetime "occurred_at", null: false
     t.integer "device_id", null: false
@@ -131,12 +131,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_132500) do
 
   create_table "remote_host_ports", force: :cascade do |t|
     t.integer "remote_host_id", null: false
-    t.integer "port", null: false
+    t.integer "dst_port", null: false
     t.datetime "first_seen_at", null: false
     t.datetime "last_seen_at", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["remote_host_id", "port"], name: "index_remote_host_ports_on_remote_host_id_and_port", unique: true
+    t.integer "seen_count", default: 0, null: false
+    t.index ["remote_host_id", "dst_port"], name: "index_remote_host_ports_on_remote_host_id_and_dst_port", unique: true
     t.index ["remote_host_id"], name: "index_remote_host_ports_on_remote_host_id"
   end
 

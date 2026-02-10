@@ -19,6 +19,11 @@ class RemoteHostsController < ApplicationController
     @host = RemoteHost.find_by(ip: @ip)
     @connections = Connection.where(dst_ip: @ip)
     @ports = @connections.where.not(dst_port: nil).distinct.order(:dst_port).pluck(:dst_port)
+    @port_history = if @host
+                      RemoteHostPort.where(remote_host_id: @host.id).order(:dst_port)
+                    else
+                      []
+                    end
     @traffic = @connections.sum("uplink_bytes + downlink_bytes")
     @first_seen = @host&.first_seen_at || @connections.minimum(:first_seen_at)
     @last_seen = @host&.last_seen_at || @connections.maximum(:last_seen_at)

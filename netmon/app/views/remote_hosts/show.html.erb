@@ -10,6 +10,28 @@
   <div class="item"><strong>Geo:</strong> <%= @geo || "--" %></div>
 </div>
 
+<h2>Port History</h2>
+<table class="netmon-table">
+  <thead>
+    <tr>
+      <th>Port</th>
+      <th>First Seen</th>
+      <th>Last Seen</th>
+      <th>Seen Count</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @port_history.each do |row| %>
+      <tr>
+        <td><%= row.dst_port %></td>
+        <td><%= row.first_seen_at %></td>
+        <td><%= row.last_seen_at %></td>
+        <td><%= row.seen_count %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
 <div class="netmon-detail">
   <button type="button" id="traceroute-run">Run Traceroute</button>
   <button type="button" id="traceroute-cancel" disabled>Cancel</button>

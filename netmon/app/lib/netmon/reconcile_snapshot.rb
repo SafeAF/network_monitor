@@ -56,13 +56,6 @@ module Netmon
         enricher.apply(remote_host, now:)
         remote_host.save!
 
-        if orig.dport
-          host_port = RemoteHostPort.find_or_initialize_by(remote_host_id: remote_host.id, port: orig.dport.to_i)
-          host_port.first_seen_at ||= now
-          host_port.last_seen_at = now
-          host_port.save!
-        end
-
         connection = Connection.find_or_initialize_by(
           proto: entry.proto,
           src_ip: orig.src,
@@ -81,6 +74,7 @@ module Netmon
         cur_up_p = orig.packets.to_i
         cur_dn_p = reply&.packets.to_i
 
+        is_new_connection = connection.new_record?
         deltas = compute_deltas(connection, cur_up_b:, cur_dn_b:, cur_up_p:, cur_dn_p:)
 
         device_minute = device_minutes[device.id] ||=
@@ -138,6 +132,16 @@ module Netmon
         connection.anomaly_score = anomaly[:score]
         connection.anomaly_reasons_json = anomaly[:reasons].to_json
         connection.save!
+
+        if orig.dport
+          host_port = RemoteHostPort.find_or_initialize_by(remote_host_id: remote_host.id, dst_port: orig.dport.to_i)
+          host_port.first_seen_at ||= now
+          host_port.last_seen_at = now
+          if is_new_connection || deltas.values.any?(&:positive?)
+            host_port.seen_count = host_port.seen_count.to_i + 1
+          end
+          host_port.save!
+        end
 
         emit_device_level_hits(
           device: device,

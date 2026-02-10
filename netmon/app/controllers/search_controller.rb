@@ -60,7 +60,7 @@ class SearchController < ApplicationController
     end
 
     if @filters[:seen_port].to_s.match?(/\A\d+\z/)
-      base = base.joins(:remote_host_ports).where(remote_host_ports: { port: @filters[:seen_port].to_i })
+      base = base.joins(:remote_host_ports).where(remote_host_ports: { dst_port: @filters[:seen_port].to_i })
     end
 
     conn_stats = Connection.select("dst_ip, SUM(uplink_bytes + downlink_bytes) AS total_bytes, MAX(anomaly_score) AS max_score")

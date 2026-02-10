@@ -166,6 +166,36 @@ RSpec.describe Netmon::ReconcileSnapshot do
     expect(summaries).to include("HIGH_FANOUT", "PORT_SCAN_LIKE")
   end
 
+  it "upserts port history and increments seen_count" do
+    now = Time.zone.parse("2026-02-03 12:00:10")
+    later = now + 60
+
+    allow(Netmon::HostEnricher).to receive(:apply)
+
+    entry = build_entry(
+      src: "10.0.0.24",
+      dst: "203.0.113.10",
+      sport: 4000,
+      dport: 443,
+      up_bytes: 100,
+      up_packets: 10,
+      dn_bytes: 50,
+      dn_packets: 5
+    )
+
+    allow(Conntrack::Snapshot).to receive(:read).and_return([entry], [entry])
+
+    described_class.run(input_file: nil, now: now)
+    described_class.run(input_file: nil, now: later)
+
+    host = RemoteHost.find_by(ip: "203.0.113.10")
+    port = RemoteHostPort.find_by(remote_host_id: host.id, dst_port: 443)
+    expect(port).not_to be_nil
+    expect(port.first_seen_at).to eq(now)
+    expect(port.last_seen_at).to eq(later)
+    expect(port.seen_count).to eq(2)
+  end
+
   describe ".compute_deltas" do
     it "returns zero deltas for new connections" do
       connection = Connection.new
