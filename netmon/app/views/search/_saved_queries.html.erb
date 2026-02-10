@@ -1,12 +1,13 @@
 <div class="netmon-detail">
-  <%= form_with url: "/saved_queries", method: :post, local: true do |form| %>
+  <%= form_with url: "/saved_queries", method: :post, local: true, id: "saved-query-form" do |form| %>
     <label>
       Save Query
       <%= form.text_field :name, value: "", placeholder: "Name" %>
     </label>
     <%= form.hidden_field :path, value: request.path %>
+    <%= form.hidden_field :kind, value: @saved_query_kind %>
     <%= form.hidden_field :params_json, value: request.query_parameters.to_json %>
-    <%= form.submit "Save" %>
+    <%= form.submit "Save", id: "saved-query-submit" %>
   <% end %>
 
   <label>
@@ -28,5 +29,15 @@
     select.addEventListener("change", () => {
       if (select.value) window.location = select.value;
     });
+    const submit = document.getElementById("saved-query-submit");
+    const nameField = document.querySelector("#saved-query-form input[name='name']");
+    if (submit && nameField) {
+      submit.addEventListener("click", (event) => {
+        if (nameField.value.trim() === "") {
+          const name = window.prompt("Saved query name?");
+          if (name) nameField.value = name;
+        }
+      });
+    }
   })();
 </script>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_131500) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_132500) do
   create_table "anomaly_hits", force: :cascade do |t|
     t.datetime "occurred_at", null: false
     t.integer "device_id", null: false
@@ -158,6 +158,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_131500) do
     t.text "params_json", default: "{}", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "kind", default: "hosts", null: false
+    t.index ["kind"], name: "index_saved_queries_on_kind"
     t.index ["path"], name: "index_saved_queries_on_path"
   end
 

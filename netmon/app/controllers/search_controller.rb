@@ -83,7 +83,8 @@ class SearchController < ApplicationController
              else base.order(last_seen_at: :desc)
              end.limit(RESULTS_LIMIT)
 
-    @saved_queries = SavedQuery.where(path: request.path).order(created_at: :desc)
+    @saved_query_kind = "hosts"
+    @saved_queries = SavedQuery.where(kind: @saved_query_kind).order(created_at: :desc)
   end
 
   def connections
@@ -138,7 +139,8 @@ class SearchController < ApplicationController
                      scope.order(anomaly_score: :desc)
                    end.limit(RESULTS_LIMIT)
 
-    @saved_queries = SavedQuery.where(path: request.path).order(created_at: :desc)
+    @saved_query_kind = "connections"
+    @saved_queries = SavedQuery.where(kind: @saved_query_kind).order(created_at: :desc)
   end
 
   def anomalies
@@ -156,7 +158,8 @@ class SearchController < ApplicationController
     scope = scope.where("occurred_at >= ?", window_start(@filters[:window])) if @filters[:window].present?
 
     @hits = scope.order(occurred_at: :desc).limit(RESULTS_LIMIT)
-    @saved_queries = SavedQuery.where(path: request.path).order(created_at: :desc)
+    @saved_query_kind = "anomalies"
+    @saved_queries = SavedQuery.where(kind: @saved_query_kind).order(created_at: :desc)
   end
 
   private
