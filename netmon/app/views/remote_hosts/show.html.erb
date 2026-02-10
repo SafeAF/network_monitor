@@ -1,0 +1,102 @@
+<h1>Remote Host: <%= @ip %></h1>
+
+<div class="netmon-detail">
+  <div class="item"><strong>First Seen:</strong> <%= @first_seen || "--" %></div>
+  <div class="item"><strong>Last Seen:</strong> <%= @last_seen || "--" %></div>
+  <div class="item"><strong>Ports:</strong> <%= @ports.any? ? @ports.join(", ") : "--" %></div>
+  <div class="item"><strong>Total Traffic:</strong> <%= @traffic.to_i %> bytes</div>
+  <div class="item"><strong>rDNS:</strong> <%= @rdns || "--" %></div>
+  <div class="item"><strong>WHOIS:</strong> <span title="<%= @whois_raw.to_s %>"><%= @whois || "--" %></span></div>
+  <div class="item"><strong>Geo:</strong> <%= @geo || "--" %></div>
+</div>
+
+<div class="netmon-detail">
+  <button type="button" id="traceroute-run">Run Traceroute</button>
+  <button type="button" id="traceroute-cancel" disabled>Cancel</button>
+  <span id="traceroute-status"></span>
+  <span id="traceroute-timeout"></span>
+  <pre id="traceroute-output" style="display: none;"></pre>
+</div>
+
+<script>
+  (function() {
+    const runButton = document.getElementById("traceroute-run");
+    const statusEl = document.getElementById("traceroute-status");
+    const cancelButton = document.getElementById("traceroute-cancel");
+    const timeoutEl = document.getElementById("traceroute-timeout");
+    const outputEl = document.getElementById("traceroute-output");
+    if (!runButton) return;
+
+    const url = "/remote_hosts/<%= @ip %>/traceroute.json";
+    let startTime = null;
+    const timeoutMs = 15000;
+
+    function poll() {
+      fetch(url)
+        .then((resp) => resp.json())
+        .then((data) => {
+          statusEl.textContent = data.status;
+          if (data.status === "done" || data.status === "error") {
+            outputEl.style.display = "block";
+            outputEl.textContent = data.output || "";
+            cancelButton.disabled = true;
+            return;
+          }
+          if (startTime && Date.now() - startTime > timeoutMs) {
+            timeoutEl.textContent = "Timed out";
+            cancelButton.disabled = true;
+            return;
+          }
+          setTimeout(poll, 1500);
+        })
+        .catch(() => {});
+    }
+
+    runButton.addEventListener("click", () => {
+      statusEl.textContent = "queued";
+      timeoutEl.textContent = "";
+      startTime = Date.now();
+      outputEl.style.display = "none";
+      cancelButton.disabled = false;
+      fetch(`${url}?start=1`)
+        .then(() => poll())
+        .catch(() => {});
+    });
+
+    cancelButton.addEventListener("click", () => {
+      cancelButton.disabled = true;
+      timeoutEl.textContent = "Cancelled";
+      fetch(`${url}?cancel=1`).catch(() => {});
+    });
+  })();
+</script>
+
+<h2>Connections</h2>
+<table class="netmon-table">
+  <thead>
+    <tr>
+      <th>Proto</th>
+      <th>Source</th>
+      <th>Port</th>
+      <th>State</th>
+      <th>Up</th>
+      <th>Down</th>
+      <th>Total</th>
+      <th>Last Seen</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @connections.each do |conn| %>
+      <tr>
+        <td><%= conn.proto %></td>
+        <td><%= conn.src_ip %></td>
+        <td><%= conn.dst_port %></td>
+        <td><%= conn.state %></td>
+        <td><%= conn.uplink_bytes %></td>
+        <td><%= conn.downlink_bytes %></td>
+        <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
+        <td><%= conn.last_seen_at %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

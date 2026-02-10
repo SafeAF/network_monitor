@@ -19,4 +19,6 @@ Rails.application.routes.draw do
   resources :devices, only: [:index, :update]
   get "anomalies" => "anomalies#index"
   get "remote_hosts" => "remote_hosts#index"
+  get "remote_hosts/:ip" => "remote_hosts#show", constraints: { ip: /[^\/]+/ }
+  get "remote_hosts/:ip/traceroute" => "remote_hosts#traceroute", constraints: { ip: /[^\/]+/ }, defaults: { format: :json }
 end

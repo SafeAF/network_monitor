@@ -320,7 +320,7 @@
     </select>
     <ol id="panel-top-remote-hosts">
       <% @top_remote_hosts.each do |row| %>
-        <li><%= row[:ip] %> (<%= row[:total_bytes].to_i %> bytes)</li>
+        <li><a href="/remote_hosts/<%= row[:ip] %>"><%= row[:ip] %></a> (<%= row[:total_bytes].to_i %> bytes)</li>
       <% end %>
     </ol>
   </div>
@@ -334,7 +334,7 @@
     </select>
     <ol id="panel-newest-remote-hosts">
       <% @newest_remote_hosts.each do |host| %>
-        <li><a href="/remote_hosts?window=10m"><%= host[:ip] %><%= host[:port] ? ":#{host[:port]}" : "" %></a></li>
+        <li><a href="/remote_hosts/<%= host[:ip] %>"><%= host[:ip] %><%= host[:port] ? ":#{host[:port]}" : "" %></a></li>
       <% end %>
     </ol>
   </div>
@@ -824,10 +824,12 @@
       fetch(url)
         .then((resp) => resp.json())
         .then((data) => {
-          const topRemote = (data.top_remote_hosts || []).map((row) => `${row.ip} (${row.total_bytes} bytes)`);
+          const topRemote = (data.top_remote_hosts || []).map((row) => {
+            return `<a href="/remote_hosts/${row.ip}">${row.ip}</a> (${row.total_bytes} bytes)`;
+          });
           const newest = (data.newest_remote_hosts || []).map((row) => {
             const label = `${row.ip}${row.port ? `:${row.port}` : ""}`;
-            return `<a href="/remote_hosts?window=${encodeURIComponent(newestWindow)}">${label}</a>`;
+            return `<a href="/remote_hosts/${row.ip}">${label}</a>`;
           });
           const topDevices = (data.top_devices_egress || []).map((row) => `${row.label} (${row.total_uplink} bytes)`);
           renderPanelList(topRemoteHostsEl, topRemote);

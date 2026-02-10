@@ -29,7 +29,7 @@
     <% @hosts.each do |host| %>
       <% port = Connection.where(dst_ip: host.ip).order(last_seen_at: :desc).limit(1).pick(:dst_port) %>
       <tr>
-        <td><%= host.ip %></td>
+        <td><a href="/remote_hosts/<%= host.ip %>"><%= host.ip %></a></td>
         <td><%= port || "--" %></td>
         <td><%= host.rdns_name || "--" %></td>
         <td title="<%= host.try(:whois_raw_line).to_s %>"><%= host.whois_name || "--" %></td>
