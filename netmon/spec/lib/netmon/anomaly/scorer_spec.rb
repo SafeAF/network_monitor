@@ -59,7 +59,9 @@ RSpec.describe Netmon::Anomaly::Scorer do
     stats = Netmon::Anomaly::DeviceStats::Result.new(
       uplink_bytes_last_10m: 1_000,
       new_dst_ips_last_10m: 100,
-      unique_ports_last_10m: 100
+      unique_ports_last_10m: 100,
+      unique_dst_ips_last_10m: 100,
+      top_port_share_10m: 0.2
     )
 
     score = described_class.score_connection(
@@ -88,7 +90,9 @@ RSpec.describe Netmon::Anomaly::Scorer do
     stats = Netmon::Anomaly::DeviceStats::Result.new(
       uplink_bytes_last_10m: 0,
       new_dst_ips_last_10m: 0,
-      unique_ports_last_10m: 0
+      unique_ports_last_10m: 0,
+      unique_dst_ips_last_10m: 0,
+      top_port_share_10m: 1.0
     )
 
     result = described_class.score_connection(
@@ -110,5 +114,65 @@ RSpec.describe Netmon::Anomaly::Scorer do
 
     rare_port = result[:reasons].find { |r| r[:code] == "RARE_PORT" }
     expect(rare_port[:weight]).to eq(5)
+  end
+
+  it "does not trigger PORT_SCAN_LIKE for 443-heavy browsing" do
+    stats = Netmon::Anomaly::DeviceStats::Result.new(
+      uplink_bytes_last_10m: 0,
+      new_dst_ips_last_10m: 30,
+      unique_ports_last_10m: 1,
+      unique_dst_ips_last_10m: 30,
+      top_port_share_10m: 0.95
+    )
+
+    result = described_class.score_connection(
+      connection:,
+      device:,
+      remote_host:,
+      baseline: nil,
+      device_stats: stats,
+      now: Time.current,
+      config: {
+        "common_ports" => [53, 80, 123, 443],
+        "common_protos" => ["tcp", "udp"],
+        "new_window_seconds" => 600,
+        "dormant_remote_days" => 30,
+        "high_fanout_threshold" => 30,
+        "high_unique_ports_threshold" => 20
+      }
+    )
+
+    codes = result[:reasons].map { |r| r[:code] }
+    expect(codes).not_to include("PORT_SCAN_LIKE")
+  end
+
+  it "triggers PORT_SCAN_LIKE for broad scan pattern" do
+    stats = Netmon::Anomaly::DeviceStats::Result.new(
+      uplink_bytes_last_10m: 0,
+      new_dst_ips_last_10m: 50,
+      unique_ports_last_10m: 25,
+      unique_dst_ips_last_10m: 25,
+      top_port_share_10m: 0.5
+    )
+
+    result = described_class.score_connection(
+      connection:,
+      device:,
+      remote_host:,
+      baseline: nil,
+      device_stats: stats,
+      now: Time.current,
+      config: {
+        "common_ports" => [53, 80, 123, 443],
+        "common_protos" => ["tcp", "udp"],
+        "new_window_seconds" => 600,
+        "dormant_remote_days" => 30,
+        "high_fanout_threshold" => 30,
+        "high_unique_ports_threshold" => 20
+      }
+    )
+
+    codes = result[:reasons].map { |r| r[:code] }
+    expect(codes).to include("PORT_SCAN_LIKE")
   end
 end

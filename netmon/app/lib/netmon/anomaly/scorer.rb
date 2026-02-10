@@ -43,7 +43,8 @@ module Netmon
         end
 
         if remote_host && remote_host.rdns_name.to_s.strip.empty?
-          reasons << Reason.new(code: "NO_RDNS", weight: 10, detail: remote_host.ip)
+          cdn_weight = cdn_rdn_weight(remote_host)
+          reasons << Reason.new(code: "NO_RDNS", weight: cdn_weight, detail: remote_host.ip) if cdn_weight.positive?
         end
 
         if baseline && baseline.p95_uplink_bytes_per_min.to_i > 0
@@ -59,8 +60,14 @@ module Netmon
         end
 
         ports_threshold = [baseline&.p95_unique_ports_per_10m.to_i * 3, high_unique_ports_threshold].max
-        if device_stats.unique_ports_last_10m.to_i > ports_threshold
-          reasons << Reason.new(code: "PORT_SCAN_LIKE", weight: 25, detail: device_stats.unique_ports_last_10m)
+        if device_stats.unique_ports_last_10m.to_i >= ports_threshold &&
+           device_stats.unique_dst_ips_last_10m.to_i >= high_unique_ports_threshold &&
+           device_stats.top_port_share_10m.to_f <= 0.80
+          reasons << Reason.new(
+            code: "PORT_SCAN_LIKE",
+            weight: 25,
+            detail: "#{device_stats.unique_ports_last_10m}/#{device_stats.unique_dst_ips_last_10m} share=#{device_stats.top_port_share_10m.round(2)}"
+          )
         end
 
         score = reasons.sum(&:weight)
@@ -87,6 +94,25 @@ module Netmon
         !seen
       end
       private_class_method :new_asn?
+
+      def self.cdn_rdn_weight(remote_host)
+        org = remote_host.whois_name.to_s.downcase
+        return 0 if org.empty?
+
+        cdn_keywords = [
+          "cloudflare",
+          "fastly",
+          "amazon",
+          "aws",
+          "google",
+          "microsoft",
+          "akamai"
+        ]
+        return 2 if cdn_keywords.any? { |word| org.include?(word) }
+
+        10
+      end
+      private_class_method :cdn_rdn_weight
 
       def self.load_config
         path = Rails.root.join("config/netmon.yml")
