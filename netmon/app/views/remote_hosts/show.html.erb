@@ -10,6 +10,30 @@
   <div class="item"><strong>Geo:</strong> <%= @geo || "--" %></div>
 </div>
 
+<div class="netmon-detail">
+  <% if @host&.whois_asn.present? %>
+    <%= form_with url: "/allowlist_rules", method: :post, local: true do |form| %>
+      <input type="hidden" name="allowlist_rule[kind]" value="asn">
+      <input type="hidden" name="allowlist_rule[value]" value="<%= @host.whois_asn %>">
+      <button type="submit">Allowlist this ASN</button>
+    <% end %>
+  <% end %>
+
+  <% if @host&.whois_name.present? %>
+    <%= form_with url: "/allowlist_rules", method: :post, local: true do |form| %>
+      <input type="hidden" name="allowlist_rule[kind]" value="org">
+      <input type="hidden" name="allowlist_rule[value]" value="<%= @host.whois_name %>">
+      <button type="submit">Allowlist this org</button>
+    <% end %>
+    <%= form_with url: "/suppression_rules", method: :post, local: true do |form| %>
+      <input type="hidden" name="suppression_rule[code]" value="NO_RDNS">
+      <input type="hidden" name="suppression_rule[kind]" value="org">
+      <input type="hidden" name="suppression_rule[value]" value="<%= @host.whois_name %>">
+      <button type="submit">Suppress NO_RDNS for this org</button>
+    <% end %>
+  <% end %>
+</div>
+
 <h2>Port History</h2>
 <table class="netmon-table">
   <thead>

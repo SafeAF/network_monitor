@@ -26,4 +26,6 @@ Rails.application.routes.draw do
   get "search/connections" => "search#connections"
   get "search/anomalies" => "search#anomalies"
   post "saved_queries" => "saved_queries#create"
+  resources :allowlist_rules, only: [:create]
+  resources :suppression_rules, only: [:create]
 end

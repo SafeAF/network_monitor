@@ -387,6 +387,7 @@
       <th>Total (bytes)</th>
       <th>Score</th>
       <th>Reasons</th>
+      <th>Allow</th>
       <th>Age</th>
       <th>rDNS</th>
       <th>WHOIS</th>
@@ -427,6 +428,16 @@
           <span class="netmon-score <%= score_class %>"><%= conn.anomaly_score.to_i %></span>
         </td>
         <td><%= reason_codes.join(",") %></td>
+        <td>
+          <% if device && conn.dst_port %>
+            <%= form_with url: "/allowlist_rules", method: :post, local: true do |form| %>
+              <input type="hidden" name="allowlist_rule[kind]" value="device_port">
+              <input type="hidden" name="allowlist_rule[value]" value="<%= conn.dst_port %>">
+              <input type="hidden" name="allowlist_rule[device_id]" value="<%= device.id %>">
+              <button type="submit">Allow port</button>
+            <% end %>
+          <% end %>
+        </td>
         <td><%= seen_age %></td>
         <td><%= host&.rdns_name || "--" %></td>
         <td title="<%= host&.try(:whois_raw_line).to_s %>"><%= host&.whois_name || "--" %></td>
@@ -453,6 +464,9 @@
       const score = Number(conn.anomaly_score || 0);
       const scoreClass = score >= 50 ? "high" : (score >= 20 ? "med" : "low");
       const reasons = (conn.anomaly_reasons || []).join(",");
+      const allowButton = (conn.device_id && conn.dst_port)
+        ? `<button type="button" class="allow-port-btn" data-device-id="${conn.device_id}" data-port="${conn.dst_port}">Allow port</button>`
+        : "";
       const deviceCell = conn.device_id
         ? `<input class="device-name-input" data-device-id="${conn.device_id}" value="${conn.device_name || ""}" size="14">`
         : `<span>${conn.device_name || conn.src_ip}</span>`;
@@ -469,6 +483,7 @@
           <td>${conn.total_bytes}</td>
           <td><span class="netmon-score ${scoreClass}">${score}</span></td>
           <td>${reasons}</td>
+          <td>${allowButton}</td>
           <td>${conn.seen_age || "unknown"}</td>
           <td>${conn.rdns_name || "--"}</td>
           <td title="${conn.whois_raw_line || ""}">${conn.whois_name || "--"}</td>
@@ -537,6 +552,23 @@
         event.preventDefault();
         target.blur();
       }
+    });
+
+    body.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!target || !target.classList.contains("allow-port-btn")) return;
+      const deviceId = target.dataset.deviceId;
+      const port = target.dataset.port;
+      if (!deviceId || !port || !csrfToken) return;
+      fetch("/allowlist_rules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({ allowlist_rule: { kind: "device_port", value: port, device_id: deviceId } })
+      }).catch(() => {});
     });
 
     const loadavgEl = document.getElementById("metric-loadavg");

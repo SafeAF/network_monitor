@@ -16,10 +16,16 @@ module Netmon
         high_fanout_threshold = (config["high_fanout_threshold"].presence || 30).to_i
         high_unique_ports_threshold = (config["high_unique_ports_threshold"].presence || 20).to_i
 
+        return { score: 0, reasons: [] } if allowlisted_ip?(remote_host)
+
         reasons = []
+        allowlisted_org = allowlisted_org?(remote_host)
+        allowlisted_asn = allowlisted_asn?(remote_host)
+        org_asn_allowlisted = allowlisted_org || allowlisted_asn
 
         if remote_host&.first_seen_at && remote_host.first_seen_at >= now - new_window_seconds
-          reasons << Reason.new(code: "NEW_DST", weight: 30, detail: remote_host.ip)
+          weight = org_asn_allowlisted ? 10 : 30
+          reasons << Reason.new(code: "NEW_DST", weight: weight, detail: remote_host.ip)
         end
 
         if remote_host&.last_seen_at && remote_host.last_seen_at < now - dormant_days.days
@@ -30,7 +36,7 @@ module Netmon
           reasons << Reason.new(code: "NEW_ASN", weight: 20, detail: remote_host&.whois_asn || remote_host&.whois_name)
         end
 
-        if connection.dst_port && !common_ports.include?(connection.dst_port.to_i)
+        if connection.dst_port && !common_ports.include?(connection.dst_port.to_i) && !allowlisted_device_port?(connection, device)
           if connection.proto.to_s.downcase == "udp" && connection.dst_port.to_i == 443
             reasons << Reason.new(code: "RARE_PORT", weight: 5, detail: connection.dst_port)
           else
@@ -43,7 +49,7 @@ module Netmon
         end
 
         if remote_host && remote_host.rdns_name.to_s.strip.empty?
-          cdn_weight = cdn_rdn_weight(remote_host)
+          cdn_weight = org_asn_allowlisted ? 0 : cdn_rdn_weight(remote_host)
           reasons << Reason.new(code: "NO_RDNS", weight: cdn_weight, detail: remote_host.ip) if cdn_weight.positive?
         end
 
@@ -70,6 +76,7 @@ module Netmon
           )
         end
 
+        reasons = reasons.reject { |reason| suppressed?(reason, remote_host, device, connection) }
         score = reasons.sum(&:weight)
         score = [[score, 0].max, 100].min
 
@@ -94,6 +101,58 @@ module Netmon
         !seen
       end
       private_class_method :new_asn?
+
+      def self.allowlisted_org?(remote_host)
+        value = remote_host&.whois_name.to_s
+        return false if value.empty?
+
+        AllowlistRule.match?(kind: "org", value: value)
+      end
+      private_class_method :allowlisted_org?
+
+      def self.allowlisted_asn?(remote_host)
+        value = remote_host&.whois_asn.to_s
+        return false if value.empty?
+
+        AllowlistRule.match?(kind: "asn", value: value)
+      end
+      private_class_method :allowlisted_asn?
+
+      def self.allowlisted_ip?(remote_host)
+        value = remote_host&.ip.to_s
+        return false if value.empty?
+
+        AllowlistRule.match?(kind: "ip", value: value)
+      end
+      private_class_method :allowlisted_ip?
+
+      def self.allowlisted_device_port?(connection, device)
+        return false if connection.dst_port.nil? || device.nil?
+
+        AllowlistRule.match?(kind: "device_port", value: connection.dst_port.to_s, device_id: device.id)
+      end
+      private_class_method :allowlisted_device_port?
+
+      def self.suppressed?(reason, remote_host, device, connection)
+        code = reason.code
+
+        if remote_host&.whois_name.to_s.present?
+          return true if SuppressionRule.match?(code: code, kind: "org", value: remote_host.whois_name)
+        end
+        if remote_host&.whois_asn.to_s.present?
+          return true if SuppressionRule.match?(code: code, kind: "asn", value: remote_host.whois_asn)
+        end
+        if remote_host&.ip.to_s.present?
+          return true if SuppressionRule.match?(code: code, kind: "ip", value: remote_host.ip)
+        end
+        if connection&.dst_port
+          return true if SuppressionRule.match?(code: code, kind: "port", value: connection.dst_port.to_s)
+          return true if device && SuppressionRule.match?(code: code, kind: "device_port", value: connection.dst_port.to_s, device_id: device.id)
+        end
+
+        false
+      end
+      private_class_method :suppressed?
 
       def self.cdn_rdn_weight(remote_host)
         org = remote_host.whois_name.to_s.downcase

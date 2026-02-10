@@ -10,7 +10,19 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_133500) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_135100) do
+  create_table "allowlist_rules", force: :cascade do |t|
+    t.string "kind", null: false
+    t.string "value", null: false
+    t.integer "device_id"
+    t.string "notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["device_id"], name: "index_allowlist_rules_on_device_id"
+    t.index ["kind", "value", "device_id"], name: "index_allowlist_rules_on_kind_and_value_and_device_id"
+    t.index ["kind", "value"], name: "index_allowlist_rules_on_kind_and_value"
+  end
+
   create_table "anomaly_hits", force: :cascade do |t|
     t.datetime "occurred_at", null: false
     t.integer "device_id", null: false
@@ -164,10 +176,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_133500) do
     t.index ["path"], name: "index_saved_queries_on_path"
   end
 
+  create_table "suppression_rules", force: :cascade do |t|
+    t.string "code", null: false
+    t.string "kind", null: false
+    t.string "value", null: false
+    t.integer "device_id"
+    t.string "notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["code", "kind", "value", "device_id"], name: "idx_on_code_kind_value_device_id_6c24ddade8"
+    t.index ["code", "kind", "value"], name: "index_suppression_rules_on_code_and_kind_and_value"
+    t.index ["device_id"], name: "index_suppression_rules_on_device_id"
+  end
+
+  add_foreign_key "allowlist_rules", "devices"
   add_foreign_key "anomaly_hits", "devices"
   add_foreign_key "anomaly_hits", "remote_hosts"
   add_foreign_key "device_baselines", "devices"
   add_foreign_key "device_minutes", "devices"
   add_foreign_key "remote_host_minutes", "remote_hosts"
   add_foreign_key "remote_host_ports", "remote_hosts"
+  add_foreign_key "suppression_rules", "devices"
 end

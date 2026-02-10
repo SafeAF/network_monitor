@@ -175,4 +175,97 @@ RSpec.describe Netmon::Anomaly::Scorer do
     codes = result[:reasons].map { |r| r[:code] }
     expect(codes).to include("PORT_SCAN_LIKE")
   end
+
+  it "suppresses scoring when IP is allowlisted" do
+    AllowlistRule.create!(kind: "ip", value: remote_host.ip)
+    stats = Netmon::Anomaly::DeviceStats::Result.new(
+      uplink_bytes_last_10m: 0,
+      new_dst_ips_last_10m: 0,
+      unique_ports_last_10m: 0,
+      unique_dst_ips_last_10m: 0,
+      top_port_share_10m: 1.0
+    )
+
+    result = described_class.score_connection(
+      connection:,
+      device:,
+      remote_host:,
+      baseline: nil,
+      device_stats: stats,
+      now: Time.current,
+      config: {
+        "common_ports" => [53, 80, 123, 443],
+        "common_protos" => ["tcp", "udp"],
+        "new_window_seconds" => 600,
+        "dormant_remote_days" => 30,
+        "high_fanout_threshold" => 30,
+        "high_unique_ports_threshold" => 20
+      }
+    )
+
+    expect(result[:score]).to eq(0)
+    expect(result[:reasons]).to eq([])
+  end
+
+  it "suppresses NO_RDNS when org is allowlisted" do
+    AllowlistRule.create!(kind: "org", value: remote_host.whois_name)
+    stats = Netmon::Anomaly::DeviceStats::Result.new(
+      uplink_bytes_last_10m: 0,
+      new_dst_ips_last_10m: 0,
+      unique_ports_last_10m: 0,
+      unique_dst_ips_last_10m: 0,
+      top_port_share_10m: 1.0
+    )
+
+    result = described_class.score_connection(
+      connection:,
+      device:,
+      remote_host:,
+      baseline: nil,
+      device_stats: stats,
+      now: Time.current,
+      config: {
+        "common_ports" => [53, 80, 123, 443],
+        "common_protos" => ["tcp", "udp"],
+        "new_window_seconds" => 600,
+        "dormant_remote_days" => 30,
+        "high_fanout_threshold" => 30,
+        "high_unique_ports_threshold" => 20
+      }
+    )
+
+    codes = result[:reasons].map { |r| r[:code] }
+    expect(codes).not_to include("NO_RDNS")
+  end
+
+  it "suppresses RARE_PORT when device port is allowlisted" do
+    AllowlistRule.create!(kind: "device_port", value: connection.dst_port.to_s, device_id: device.id)
+    stats = Netmon::Anomaly::DeviceStats::Result.new(
+      uplink_bytes_last_10m: 0,
+      new_dst_ips_last_10m: 0,
+      unique_ports_last_10m: 0,
+      unique_dst_ips_last_10m: 0,
+      top_port_share_10m: 1.0
+    )
+
+    result = described_class.score_connection(
+      connection:,
+      device:,
+      remote_host:,
+      baseline: nil,
+      device_stats: stats,
+      now: Time.current,
+      config: {
+        "common_ports" => [53, 80, 123, 443],
+        "common_protos" => ["tcp", "udp"],
+        "new_window_seconds" => 600,
+        "dormant_remote_days" => 30,
+        "high_fanout_threshold" => 30,
+        "high_unique_ports_threshold" => 20
+      }
+    )
+
+    codes = result[:reasons].map { |r| r[:code] }
+    expect(codes).not_to include("RARE_PORT")
+  end
 end
