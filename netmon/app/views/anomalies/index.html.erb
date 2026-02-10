@@ -52,7 +52,11 @@
       <tr>
         <td><%= hit.occurred_at %></td>
         <td><%= hit.device&.name.presence || hit.device&.ip %></td>
-        <td><%= hit.dst_ip %><%= hit.dst_port ? ":#{hit.dst_port}" : "" %></td>
+        <td>
+          <% if hit.dst_ip.present? %>
+            <a href="/remote_hosts/<%= hit.dst_ip %>"><%= hit.dst_ip %></a><%= hit.dst_port ? ":#{hit.dst_port}" : "" %>
+          <% end %>
+        </td>
         <td><%= hit.proto %></td>
         <td><%= hit.score %></td>
         <td><%= hit.summary %></td>
