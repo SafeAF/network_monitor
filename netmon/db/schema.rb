@@ -39,6 +39,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_136000) do
     t.datetime "suppressed_until"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "acknowledged_at"
+    t.text "ack_notes"
     t.index ["device_id", "occurred_at"], name: "index_anomaly_hits_on_device_id_and_occurred_at"
     t.index ["device_id"], name: "index_anomaly_hits_on_device_id"
     t.index ["dst_ip", "occurred_at"], name: "index_anomaly_hits_on_dst_ip_and_occurred_at"

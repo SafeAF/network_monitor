@@ -18,6 +18,7 @@ Rails.application.routes.draw do
   get "metrics/series" => "metrics#series", defaults: { format: :json }
   resources :devices, only: [:index, :update]
   get "anomalies" => "anomalies#index"
+  patch "anomalies/:id" => "anomalies#update"
   get "remote_hosts" => "remote_hosts#index"
   get "remote_hosts/:ip" => "remote_hosts#show", constraints: { ip: /[^\/]+/ }
   patch "remote_hosts/:ip" => "remote_hosts#update", constraints: { ip: /[^\/]+/ }

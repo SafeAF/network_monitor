@@ -32,13 +32,27 @@ class AnomaliesController < ApplicationController
       scope = scope.where("occurred_at >= ?", window_start(@filters[:window]))
     end
 
+    if params[:hit_id].present?
+      scope = scope.where(id: params[:hit_id])
+    end
+
     @hits = scope.limit(500)
+  end
+
+  def update
+    hit = AnomalyHit.find(params[:id])
+    hit.update!(ack_params.merge(acknowledged_at: Time.current))
+    redirect_to "/anomalies"
   end
 
   private
 
   def filter_params
     params.permit(:min_score, :device, :code, :dst_ip, :dst_port, :window)
+  end
+
+  def ack_params
+    params.require(:anomaly_hit).permit(:ack_notes)
   end
 
   def window_start(value)

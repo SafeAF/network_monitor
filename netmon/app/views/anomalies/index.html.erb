@@ -44,6 +44,7 @@
       <th>Score</th>
       <th>Summary</th>
       <th>Reasons</th>
+      <th>Ack</th>
     </tr>
   </thead>
   <tbody>
@@ -60,6 +61,16 @@
             <summary><%= hit.reason_codes.join(",") %></summary>
             <pre><%= hit.reasons_json %></pre>
           </details>
+        </td>
+        <td>
+          <% if hit.acknowledged_at %>
+            <%= hit.acknowledged_at %>
+          <% else %>
+            <%= form_with model: hit, url: "/anomalies/#{hit.id}", method: :patch, local: true do |form| %>
+              <%= form.text_field :ack_notes, placeholder: "Notes" %>
+              <%= form.submit "Ack" %>
+            <% end %>
+          <% end %>
         </td>
       </tr>
     <% end %>

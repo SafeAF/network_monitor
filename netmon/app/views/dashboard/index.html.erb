@@ -217,6 +217,8 @@
   <a href="/anomalies">Anomalies</a>
   <a href="/search">Search</a>
   <a href="/remote_hosts">Remote Hosts</a>
+  <a href="/search/hosts">Search Hosts</a>
+  <a href="/search/connections">Search Connections</a>
 </form>
 
 <section class="netmon-tiles">
@@ -309,6 +311,11 @@
 <section class="netmon-anomalies">
   <strong>Anomalies:</strong>
   <span id="metric-anomalies">None</span>
+</section>
+
+<section class="netmon-panel">
+  <h3>Recent Hits (1h)</h3>
+  <ol id="panel-recent-hits"></ol>
 </section>
 
 <section class="netmon-top-panels">
@@ -839,6 +846,7 @@
     const newestViewAllEl = document.getElementById("panel-newest-viewall");
     const rarePortsEl = document.getElementById("panel-rare-ports");
     const topDevicesEgressEl = document.getElementById("panel-top-devices-egress");
+    const recentHitsEl = document.getElementById("panel-recent-hits");
 
     function renderPanelList(el, items) {
       if (!el) return;
@@ -887,6 +895,13 @@
             });
             const allItem = `<button type="button" class="rare-port-item" data-port="all">View All</button>`;
             rarePortsEl.innerHTML = [allItem, ...items].map((item) => `<li>${item}</li>`).join("");
+          }
+
+          if (recentHitsEl) {
+            const hits = (data.recent_hits || []).map((hit) => {
+              return `<a href="/anomalies?hit_id=${hit.id}">${hit.label || "Hit"} (${hit.score})</a>`;
+            });
+            renderPanelList(recentHitsEl, hits);
           }
         })
         .catch(() => {});

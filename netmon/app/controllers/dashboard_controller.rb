@@ -89,9 +89,9 @@ class DashboardController < ApplicationController
                            end
 
     top_devices_egress = DeviceMinute.where("bucket_ts >= ?", window_start(top_devices_window, now))
-                                     .group(:device_id)
-                                     .select("device_id, SUM(uplink_bytes) AS total_uplink")
-                                     .order(Arel.sql("total_uplink DESC"))
+                                      .group(:device_id)
+                                      .select("device_id, SUM(uplink_bytes) AS total_uplink")
+                                      .order(Arel.sql("total_uplink DESC"))
                                       .limit(5)
                                       .map do |row|
                                         device = Device.find_by(id: row.device_id)
@@ -99,11 +99,19 @@ class DashboardController < ApplicationController
                                         { label: label, total_uplink: row.total_uplink.to_i }
                                       end
 
+    recent_hits = AnomalyHit.where("occurred_at >= ?", now - 1.hour)
+                            .order(occurred_at: :desc)
+                            .limit(10)
+                            .map do |hit|
+                              { id: hit.id, label: hit.summary, score: hit.score, occurred_at: hit.occurred_at.iso8601 }
+                            end
+
     render json: {
       top_remote_hosts: top_remote_hosts,
       newest_remote_hosts: newest_remote_hosts,
       rare_ports: rare_ports,
-      top_devices_egress: top_devices_egress
+      top_devices_egress: top_devices_egress,
+      recent_hits: recent_hits
     }
   end
 
