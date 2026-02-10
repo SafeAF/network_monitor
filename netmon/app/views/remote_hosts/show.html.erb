@@ -1,13 +1,54 @@
 <h1>Remote Host: <%= @ip %></h1>
 
+<% require "cgi" %>
+
 <div class="netmon-detail">
   <div class="item"><strong>First Seen:</strong> <%= @first_seen || "--" %></div>
   <div class="item"><strong>Last Seen:</strong> <%= @last_seen || "--" %></div>
   <div class="item"><strong>Ports:</strong> <%= @ports.any? ? @ports.join(", ") : "--" %></div>
   <div class="item"><strong>Total Traffic:</strong> <%= @traffic.to_i %> bytes</div>
-  <div class="item"><strong>rDNS:</strong> <%= @rdns || "--" %></div>
-  <div class="item"><strong>WHOIS:</strong> <span title="<%= @whois_raw.to_s %>"><%= @whois || "--" %></span></div>
+  <div class="item"><strong>rDNS:</strong> <span id="copy-rdns"><%= @rdns || "--" %></span>
+    <button type="button" class="copy-btn" data-copy="copy-rdns">Copy</button>
+  </div>
+  <div class="item"><strong>WHOIS:</strong> <span id="copy-org" title="<%= @whois_raw.to_s %>"><%= @whois || "--" %></span>
+    <button type="button" class="copy-btn" data-copy="copy-org">Copy</button>
+  </div>
+  <div class="item"><strong>ASN:</strong> <span id="copy-asn"><%= @host&.whois_asn || "--" %></span>
+    <button type="button" class="copy-btn" data-copy="copy-asn">Copy</button>
+  </div>
+  <div class="item"><strong>IP:</strong> <span id="copy-ip"><%= @ip %></span>
+    <button type="button" class="copy-btn" data-copy="copy-ip">Copy</button>
+  </div>
   <div class="item"><strong>Geo:</strong> <%= @geo || "--" %></div>
+</div>
+
+<div class="netmon-detail">
+  <%= form_with url: "/remote_hosts/#{@ip}", method: :patch, local: true do |form| %>
+    <label>
+      Tag
+      <%= form.select :tag, [["Unknown", "unknown"], ["Known Good", "known_good"], ["Suspicious", "suspicious"]], selected: @host&.tag %>
+    </label>
+    <label>
+      Notes
+      <%= form.text_area :notes, value: @host&.notes, rows: 3, cols: 60 %>
+    </label>
+    <%= form.submit "Save" %>
+  <% end %>
+</div>
+
+<div class="netmon-detail">
+  <% if @host&.whois_asn.present? %>
+    <a href="/search/hosts?whois_asn=<%= CGI.escape(@host.whois_asn) %>">Show all hosts in same ASN</a>
+  <% end %>
+  <% if @rdns.to_s.include?(".") %>
+    <% suffix = @rdns.to_s.split(".").last(2).join(".") %>
+    <a href="/search/hosts?rdns=<%= CGI.escape(suffix) %>">Show all hosts with same rDNS suffix</a>
+  <% end %>
+</div>
+
+<div class="netmon-detail">
+  <div class="item"><strong>Block Rule (display only):</strong></div>
+  <pre>add rule inet filter output ip daddr <%= @ip %> drop</pre>
 </div>
 
 <div class="netmon-detail">
@@ -135,7 +176,7 @@
     <% @connections.each do |conn| %>
       <tr>
         <td><%= conn.proto %></td>
-        <td><%= conn.src_ip %></td>
+        <td><a href="/search/connections?device=<%= CGI.escape(conn.src_ip) %>&dst_ip=<%= CGI.escape(@ip) %>"><%= conn.src_ip %></a></td>
         <td><%= conn.dst_port %></td>
         <td><%= conn.state %></td>
         <td><%= conn.uplink_bytes %></td>
@@ -146,3 +187,18 @@
     <% end %>
   </tbody>
 </table>
+
+<script>
+  (function() {
+    document.querySelectorAll(".copy-btn").forEach((button) => {
+      button.addEventListener("click", () => {
+        const targetId = button.dataset.copy;
+        const el = document.getElementById(targetId);
+        if (!el) return;
+        const text = el.textContent.trim();
+        if (text === "--" || text === "") return;
+        navigator.clipboard?.writeText(text);
+      });
+    });
+  })();
+</script>

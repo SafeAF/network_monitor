@@ -20,6 +20,7 @@ Rails.application.routes.draw do
   get "anomalies" => "anomalies#index"
   get "remote_hosts" => "remote_hosts#index"
   get "remote_hosts/:ip" => "remote_hosts#show", constraints: { ip: /[^\/]+/ }
+  patch "remote_hosts/:ip" => "remote_hosts#update", constraints: { ip: /[^\/]+/ }
   get "remote_hosts/:ip/traceroute" => "remote_hosts#traceroute", constraints: { ip: /[^\/]+/ }, defaults: { format: :json }
   get "search" => "search#index"
   get "search/hosts" => "search#hosts"

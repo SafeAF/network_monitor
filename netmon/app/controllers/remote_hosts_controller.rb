@@ -33,6 +33,12 @@ class RemoteHostsController < ApplicationController
     @geo = geo_lookup(@ip)
   end
 
+  def update
+    @host = RemoteHost.find_by!(ip: params[:ip])
+    @host.update!(host_params)
+    redirect_to "/remote_hosts/#{@host.ip}"
+  end
+
   def traceroute
     ip = params[:ip]
     key = traceroute_cache_key(ip)
@@ -50,6 +56,10 @@ class RemoteHostsController < ApplicationController
   end
 
   private
+
+  def host_params
+    params.require(:remote_host).permit(:notes, :tag)
+  end
 
   def window_start(window)
     case window

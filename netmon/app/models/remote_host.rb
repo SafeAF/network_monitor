@@ -4,6 +4,7 @@ class RemoteHost < ApplicationRecord
   NEW_WINDOW = 60.seconds
 
   validates :ip, presence: true, uniqueness: true
+  validates :tag, inclusion: { in: %w[unknown known_good suspicious] }
 
   has_many :remote_host_ports, dependent: :destroy
 

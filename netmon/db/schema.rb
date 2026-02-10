@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_135100) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_136000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -162,7 +162,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_135100) do
     t.datetime "rdns_checked_at"
     t.datetime "whois_checked_at"
     t.string "whois_asn"
+    t.text "notes"
+    t.string "tag", default: "unknown", null: false
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
+    t.index ["tag"], name: "index_remote_hosts_on_tag"
   end
 
   create_table "saved_queries", force: :cascade do |t|
