@@ -145,6 +145,10 @@
     margin: 0 0 6px;
     font-size: 14px;
   }
+  .netmon-panel select {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
   .netmon-panel .rare-port-item {
     all: unset;
     cursor: pointer;
@@ -308,6 +312,12 @@
 <section class="netmon-top-panels">
   <div class="netmon-panel">
     <h3>Top Remote Hosts (10m)</h3>
+    <select class="panel-window" data-panel="top-remote" data-default="10m">
+      <option value="10m" selected>10m</option>
+      <option value="1h">1h</option>
+      <option value="24h">24h</option>
+      <option value="1w">1w</option>
+    </select>
     <ol id="panel-top-remote-hosts">
       <% @top_remote_hosts.each do |row| %>
         <li><%= row[:ip] %> (<%= row[:total_bytes].to_i %> bytes)</li>
@@ -316,23 +326,43 @@
   </div>
   <div class="netmon-panel">
     <h3>Newest Remote Hosts (10m)</h3>
+    <select class="panel-window" data-panel="newest" data-default="10m">
+      <option value="10m" selected>10m</option>
+      <option value="1h">1h</option>
+      <option value="24h">24h</option>
+      <option value="1w">1w</option>
+    </select>
     <ol id="panel-newest-remote-hosts">
       <% @newest_remote_hosts.each do |host| %>
-        <li><%= host.ip %></li>
+        <li><a href="/remote_hosts?window=10m"><%= host[:ip] %><%= host[:port] ? ":#{host[:port]}" : "" %></a></li>
       <% end %>
     </ol>
   </div>
   <div class="netmon-panel">
     <h3>Rare Ports (24h)</h3>
+    <select class="panel-window" data-panel="rare" data-default="24h">
+      <option value="10m">10m</option>
+      <option value="1h">1h</option>
+      <option value="24h" selected>24h</option>
+      <option value="1w">1w</option>
+    </select>
     <ol id="panel-rare-ports">
       <li><button type="button" class="rare-port-item" data-port="all">View All</button></li>
-      <% @rare_ports.each do |port, count| %>
-        <li><button type="button" class="rare-port-item" data-port="<%= port %>"><%= port %> (<%= count %>)</button></li>
+      <% @rare_ports.each do |row| %>
+        <% ip_snippet = row[:ips].to_a.first(2).join(", ") %>
+        <% suffix = ip_snippet.present? ? " — #{ip_snippet}" : "" %>
+        <li><button type="button" class="rare-port-item" data-port="<%= row[:port] %>"><%= row[:port] %> (<%= row[:count] %>)<%= suffix %></button></li>
       <% end %>
     </ol>
   </div>
   <div class="netmon-panel">
     <h3>Devices by Egress (10m)</h3>
+    <select class="panel-window" data-panel="devices-egress" data-default="10m">
+      <option value="10m" selected>10m</option>
+      <option value="1h">1h</option>
+      <option value="24h">24h</option>
+      <option value="1w">1w</option>
+    </select>
     <ol id="panel-top-devices-egress">
       <% @top_devices_egress.each do |row| %>
         <li><%= row[:label] %> (<%= row[:total_uplink].to_i %> bytes)</li>
@@ -777,11 +807,28 @@
     }
 
     function refreshTopPanels() {
-      fetch("/dashboard/top_panels.json")
+      const panelParams = new URLSearchParams();
+      let newestWindow = "10m";
+      document.querySelectorAll(".panel-window").forEach((select) => {
+        const panel = select.dataset.panel;
+        if (panel === "top-remote") panelParams.set("top_remote_window", select.value);
+        if (panel === "newest") {
+          panelParams.set("newest_window", select.value);
+          newestWindow = select.value;
+        }
+        if (panel === "rare") panelParams.set("rare_window", select.value);
+        if (panel === "devices-egress") panelParams.set("top_devices_window", select.value);
+      });
+      const query = panelParams.toString();
+      const url = query ? `/dashboard/top_panels.json?${query}` : "/dashboard/top_panels.json";
+      fetch(url)
         .then((resp) => resp.json())
         .then((data) => {
           const topRemote = (data.top_remote_hosts || []).map((row) => `${row.ip} (${row.total_bytes} bytes)`);
-          const newest = (data.newest_remote_hosts || []).map((ip) => ip);
+          const newest = (data.newest_remote_hosts || []).map((row) => {
+            const label = `${row.ip}${row.port ? `:${row.port}` : ""}`;
+            return `<a href="/remote_hosts?window=${encodeURIComponent(newestWindow)}">${label}</a>`;
+          });
           const topDevices = (data.top_devices_egress || []).map((row) => `${row.label} (${row.total_uplink} bytes)`);
           renderPanelList(topRemoteHostsEl, topRemote);
           renderPanelList(newestRemoteHostsEl, newest);
@@ -790,7 +837,9 @@
           if (rarePortsEl) {
             const rows = (data.rare_ports || []).filter((row) => row && row.port != null);
             const items = rows.map((row) => {
-              return `<button type="button" class="rare-port-item" data-port="${row.port}">${row.port} (${row.count})</button>`;
+              const ipSnippet = (row.ips || []).slice(0, 2).join(", ");
+              const suffix = ipSnippet ? ` — ${ipSnippet}` : "";
+              return `<button type="button" class="rare-port-item" data-port="${row.port}">${row.port} (${row.count})${suffix}</button>`;
             });
             const allItem = `<button type="button" class="rare-port-item" data-port="all">View All</button>`;
             rarePortsEl.innerHTML = [allItem, ...items].map((item) => `<li>${item}</li>`).join("");
@@ -801,5 +850,9 @@
 
     refreshTopPanels();
     setInterval(refreshTopPanels, 2000);
+
+    document.querySelectorAll(".panel-window").forEach((select) => {
+      select.addEventListener("change", refreshTopPanels);
+    });
   })();
 </script>

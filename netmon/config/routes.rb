@@ -18,4 +18,5 @@ Rails.application.routes.draw do
   get "metrics/series" => "metrics#series", defaults: { format: :json }
   resources :devices, only: [:index, :update]
   get "anomalies" => "anomalies#index"
+  get "remote_hosts" => "remote_hosts#index"
 end

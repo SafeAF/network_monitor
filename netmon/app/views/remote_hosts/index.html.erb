@@ -1,0 +1,47 @@
+<h1>New Remote Hosts (<%= @window %>)</h1>
+
+<form class="netmon-filters" method="get">
+  <label>
+    Window
+    <select name="window">
+      <option value="10m" <%= "selected" if @window == "10m" %>>10m</option>
+      <option value="1h" <%= "selected" if @window == "1h" %>>1h</option>
+      <option value="24h" <%= "selected" if @window == "24h" %>>24h</option>
+      <option value="1w" <%= "selected" if @window == "1w" %>>1w</option>
+    </select>
+  </label>
+  <button type="submit">Apply</button>
+</form>
+
+<p>Showing <%= @hosts.size %> of <%= @total %></p>
+
+<table class="netmon-table">
+  <thead>
+    <tr>
+      <th>Host</th>
+      <th>rDNS</th>
+      <th>WHOIS</th>
+      <th>First Seen</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @hosts.each do |host| %>
+      <% port = Connection.where(dst_ip: host.ip).order(last_seen_at: :desc).limit(1).pick(:dst_port) %>
+      <tr>
+        <td><%= host.ip %><%= port ? ":#{port}" : "" %></td>
+        <td><%= host.rdns_name || "--" %></td>
+        <td title="<%= host.try(:whois_raw_line).to_s %>"><%= host.whois_name || "--" %></td>
+        <td><%= host.first_seen_at %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<div class="netmon-filters">
+  <% if @page > 1 %>
+    <a href="/remote_hosts?window=<%= @window %>&page=<%= @page - 1 %>">Prev</a>
+  <% end %>
+  <% if @page < @total_pages %>
+    <a href="/remote_hosts?window=<%= @window %>&page=<%= @page + 1 %>">Next</a>
+  <% end %>
+</div>
