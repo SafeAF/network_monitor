@@ -413,8 +413,8 @@
             <%= device_label %>
           <% end %>
         </td>
-        <td><%= conn.src_ip %>:<%= conn.src_port %></td>
-        <td><%= conn.dst_ip %>:<%= conn.dst_port %></td>
+        <td><a href="/remote_hosts/<%= conn.src_ip %>"><%= conn.src_ip %></a>:<%= conn.src_port %></td>
+        <td><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %></td>
         <td><%= conn.state %></td>
         <td><%= conn.flags %></td>
         <td><%= conn.uplink_bytes %></td>
@@ -440,8 +440,12 @@
     if (!body) return;
 
     function renderRow(conn) {
-      const src = conn.src_port ? `${conn.src_ip}:${conn.src_port}` : conn.src_ip;
-      const dst = conn.dst_port ? `${conn.dst_ip}:${conn.dst_port}` : conn.dst_ip;
+      const src = conn.src_port
+        ? `<a href="/remote_hosts/${conn.src_ip}">${conn.src_ip}</a>:${conn.src_port}`
+        : `<a href="/remote_hosts/${conn.src_ip}">${conn.src_ip}</a>`;
+      const dst = conn.dst_port
+        ? `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>:${conn.dst_port}`
+        : `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>`;
       const seenLabel = conn.is_new ? "NEW" : "SEEN";
       const seenClass = conn.is_new ? "new" : "seen";
       const score = Number(conn.anomaly_score || 0);
