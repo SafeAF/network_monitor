@@ -1,0 +1,32 @@
+<div class="netmon-detail">
+  <%= form_with url: "/saved_queries", method: :post, local: true do |form| %>
+    <label>
+      Save Query
+      <%= form.text_field :name, value: "", placeholder: "Name" %>
+    </label>
+    <%= form.hidden_field :path, value: request.path %>
+    <%= form.hidden_field :params_json, value: request.query_parameters.to_json %>
+    <%= form.submit "Save" %>
+  <% end %>
+
+  <label>
+    Load Saved Query
+    <select id="saved-query-select">
+      <option value="">Select…</option>
+      <% @saved_queries.each do |saved| %>
+        <% url = saved.path + (saved.params_hash.present? ? "?#{saved.params_hash.to_query}" : "") %>
+        <option value="<%= url %>"><%= saved.name %></option>
+      <% end %>
+    </select>
+  </label>
+</div>
+
+<script>
+  (function() {
+    const select = document.getElementById("saved-query-select");
+    if (!select) return;
+    select.addEventListener("change", () => {
+      if (select.value) window.location = select.value;
+    });
+  })();
+</script>

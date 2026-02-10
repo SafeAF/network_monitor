@@ -56,6 +56,13 @@ module Netmon
         enricher.apply(remote_host, now:)
         remote_host.save!
 
+        if orig.dport
+          host_port = RemoteHostPort.find_or_initialize_by(remote_host_id: remote_host.id, port: orig.dport.to_i)
+          host_port.first_seen_at ||= now
+          host_port.last_seen_at = now
+          host_port.save!
+        end
+
         connection = Connection.find_or_initialize_by(
           proto: entry.proto,
           src_ip: orig.src,

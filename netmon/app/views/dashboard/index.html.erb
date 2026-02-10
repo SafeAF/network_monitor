@@ -325,7 +325,7 @@
     </ol>
   </div>
   <div class="netmon-panel">
-    <h3>Newest Remote Hosts (10m)</h3>
+    <h3>Newest Remote Hosts (10m) <a id="panel-newest-viewall" href="/remote_hosts?window=10m">View All</a></h3>
     <select class="panel-window" data-panel="newest" data-default="10m">
       <option value="10m" selected>10m</option>
       <option value="1h">1h</option>
@@ -802,6 +802,7 @@
 
     const topRemoteHostsEl = document.getElementById("panel-top-remote-hosts");
     const newestRemoteHostsEl = document.getElementById("panel-newest-remote-hosts");
+    const newestViewAllEl = document.getElementById("panel-newest-viewall");
     const rarePortsEl = document.getElementById("panel-rare-ports");
     const topDevicesEgressEl = document.getElementById("panel-top-devices-egress");
 
@@ -838,6 +839,9 @@
           const topDevices = (data.top_devices_egress || []).map((row) => `${row.label} (${row.total_uplink} bytes)`);
           renderPanelList(topRemoteHostsEl, topRemote);
           renderPanelList(newestRemoteHostsEl, newest);
+          if (newestViewAllEl) {
+            newestViewAllEl.setAttribute("href", `/remote_hosts?window=${encodeURIComponent(newestWindow)}`);
+          }
           renderPanelList(topDevicesEgressEl, topDevices);
 
           if (rarePortsEl) {

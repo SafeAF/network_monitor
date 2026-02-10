@@ -471,3 +471,247 @@ Tests:
 - [ ] cleanup rake task
 - [ ] tests for delta, scorer, dedup, baseline recompute
 - [ ] show `git diff --stat` before finishing; revert unrelated edits
+
+# CODEX_NEXT.md — Search + Saved Queries + Allow/Suppress + Scoring fixes + Investigation UX
+
+## Decision
+Do NOT wipe. Extend the existing system:
+- You already have live ingest + charts + per-remote-host page.
+- Next work is investigation UX + noise reduction + review workflow.
+
+Constraints:
+- No new dependencies unless absolutely required.
+- All new queries must be indexed and fast.
+- Make everything screenshot-safe (redaction mode optional but recommended).
+- Keep scoring explainable; persist reasons/codes when scoring triggers.
+- Provide tests for filter parsing + scoring changes + allow/suppress behavior.
+
+---
+
+## Step 22 — Add Search pages (hosts / connections / anomalies)
+### Routes
+- GET /search (redirect to /search/hosts)
+- GET /search/hosts
+- GET /search/connections
+- GET /search/anomalies
+
+### UI pattern (shared)
+- Filter form at top
+- Results table below
+- “Save Query” button (stores current params)
+- “Load Saved Query” dropdown
+
+### Filters to implement
+
+#### /search/hosts (RemoteHosts)
+Filters:
+- ip (exact / prefix)
+- whois_name contains
+- whois_asn contains
+- rdns contains
+- rdns missing (true/false)
+- first_seen within (1h/24h/7d/30d)
+- last_seen within (1h/24h/7d/30d)
+- seen_port = N (host has ever been contacted on dst_port N)
+- min_total_bytes_ever (computed from connections aggregate; see notes)
+- min_max_score_ever (if connection scores are stored)
+
+Sort:
+- last_seen desc (default)
+- first_seen desc
+- max_total_bytes desc
+- max_score desc
+
+Result rows link to the existing per-host page.
+
+Implementation notes:
+- “seen_port” requires either:
+  A) a `remote_host_ports` summary table, or
+  B) query from `connections` (but connections is a snapshot, not history).
+Prefer A.
+
+#### /search/connections
+Filters:
+- device (by name or src_ip)
+- src_ip
+- dst_ip
+- dst_port
+- proto
+- state (hide TIME_WAIT)
+- min_score (0/20/50)
+- reason contains (e.g. RARE_PORT)
+- only_new_dst (dst first_seen within new_window)
+
+Sort:
+- score desc (default)
+- total_bytes desc
+- last_seen desc
+
+#### /search/anomalies (AnomalyHits)
+Filters:
+- device
+- dst_ip
+- dst_port
+- min_score
+- code (contains)
+- time range (1h/24h/7d/30d)
+
+Sort:
+- occurred_at desc (default)
+
+---
+
+## Step 23 — Saved Queries
+Create `saved_queries` table:
+- name (string, NOT NULL)
+- kind (string, NOT NULL) # "hosts"|"connections"|"anomalies"
+- params_json (text, NOT NULL) # JSON
+- created_at
+
+UI:
+- On each /search page: “Save” button prompts for name
+- Dropdown to load a saved query
+
+Tests:
+- saving and loading preserves params correctly
+- invalid JSON rejected
+
+---
+
+## Step 24 — Host Port History (make seen_port possible)
+Problem: `connections` is a current snapshot. Search needs “host has ever been seen on port X”.
+
+Create `remote_host_ports`:
+- remote_host_id
+- dst_port (int)
+- first_seen_at
+- last_seen_at
+- seen_count (int)
+Unique index (remote_host_id, dst_port).
+
+Ingest:
+- whenever we see a connection to dst_ip:dst_port:
+  - upsert remote_host_ports and bump last_seen_at, seen_count
+
+UI:
+- On host page show list of ports with first/last seen + count.
+- On /search/hosts implement `seen_port=N` via this table.
+
+Tests:
+- port history upserts and counts
+
+---
+
+## Step 25 — Fix PORT_SCAN_LIKE false positives (make scoring trustworthy)
+Current behavior (observed): PORT_SCAN_LIKE triggers on normal 443-heavy browsing.
+
+Replace PORT_SCAN_LIKE rule with a higher-signal definition:
+
+Compute per device over last 10 minutes:
+- unique_dst_ports_10m
+- unique_dst_ips_10m
+- top_port_share_10m (fraction of connections using the most common port)
+
+Trigger PORT_SCAN_LIKE only if ALL:
+- unique_dst_ports_10m >= 20
+- unique_dst_ips_10m >= 20
+- top_port_share_10m <= 0.80  (if most traffic is one port, it’s not a scan)
+
+Implementation:
+- add these aggregates to the existing 10m rollup service (or minute buckets)
+- store top_port_share_10m in MetricSamples or compute on the fly from minute buckets.
+
+Tests:
+- browsing scenario (mostly 443) does NOT trigger
+- synthetic scan scenario does trigger
+
+Also: lower weight of NO_RDNS or make it conditional:
+- If whois_name is a major CDN org (Cloudflare/Fastly/Amazon/Google/Microsoft), NO_RDNS weight => 0 or 2.
+
+---
+
+## Step 26 — Allowlist + Suppression (reduce noise, keep signal)
+Create `allowlist_rules` table:
+- kind (string) # "asn"|"org"|"rdns_suffix"|"ip"|"port"|"device_port"
+- value (string) # e.g. "CLOUD14" or "cloudfront.net" or "104.16.0.0/12" (start simple: exact)
+- device_id (nullable) # for device_port allowlist
+- created_at
+- notes
+
+Create `suppression_rules` table:
+- code (string) # reason code to suppress
+- kind/value/device_id same pattern as allowlist
+- created_at
+- notes
+
+Behavior:
+- Scorer consults allowlist/suppression:
+  - If dst org/asn is allowlisted, suppress NO_RDNS and lower NEW_DST weight.
+  - If dst_port is allowlisted for device, suppress RARE_PORT for that device.
+  - If dst_ip is allowlisted, suppress all scoring (optional toggle).
+
+UI:
+- On host page: “Allowlist this ASN” / “Allowlist this org” / “Suppress NO_RDNS for this org”
+- On connection row: “Allowlist this port for this device”
+
+Tests:
+- allowlist suppresses intended codes and leaves others intact
+
+---
+
+## Step 27 — Investigation UX upgrades (host page + drilldowns)
+Add to per-host page:
+- “Show connections from device X” (filter links)
+- “Show all hosts in same ASN” (search link)
+- “Show all hosts with same rDNS suffix” (search link)
+- Notes field on RemoteHost:
+  - remote_hosts.notes (text, nullable)
+- Mark known good / suspicious:
+  - remote_hosts.tag (string: "unknown"|"known_good"|"suspicious")
+
+Add copy buttons (pure HTML):
+- copy IP, copy org, copy ASN
+
+Optional:
+- “Generate nftables block rule” (display-only):
+  - Example: `add rule inet filter output ip daddr <ip> drop`
+  - Make it obvious it is NOT applied automatically.
+
+---
+
+## Step 28 — Review workflow: “Anomalies” panel + timeline
+- Add a small “Recent hits (last 1h)” panel on dashboard.
+- Clicking a hit goes to /anomalies with that hit expanded.
+- Add acknowledge feature (optional):
+  - anomaly_hits.acknowledged_at
+  - anomaly_hits.ack_notes
+
+---
+
+## Step 29 — Performance + indexes (must do)
+Add/verify indexes:
+- remote_hosts(last_seen_at), remote_hosts(first_seen_at)
+- connections(last_seen_at), connections(anomaly_score)
+- anomaly_hits(occurred_at), anomaly_hits(score), anomaly_hits(dst_ip)
+- remote_host_ports(remote_host_id, dst_port), remote_host_ports(last_seen_at)
+- devices(ip), devices(name)
+
+Add a safety cap:
+- default result limit 200 with pagination.
+
+Tests:
+- request specs ensure search endpoints respond fast on seeded data (basic sanity)
+
+---
+
+## Deliverables
+- [ ] /search/hosts, /search/connections, /search/anomalies with filters + sorting
+- [ ] saved_queries CRUD + UI load/save
+- [ ] remote_host_ports table + ingest integration + host page ports list
+- [ ] PORT_SCAN_LIKE fixed (requires unique ports + unique dst ips + top_port_share)
+- [ ] allowlist_rules + suppression_rules + scorer integration
+- [ ] host page drilldowns + notes/tagging
+- [ ] recent anomalies panel + (optional) acknowledge
+- [ ] indexes + pagination
+- [ ] tests for core logic and filters
+- [ ] show `git diff --stat` before finishing; revert unrelated file edits

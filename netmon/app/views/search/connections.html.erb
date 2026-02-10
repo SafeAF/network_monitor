@@ -1,0 +1,84 @@
+<h1>Search Connections</h1>
+
+<form class="netmon-filters" method="get">
+  <label>Device <input name="device" value="<%= @filters[:device].to_s %>"></label>
+  <label>Src IP <input name="src_ip" value="<%= @filters[:src_ip].to_s %>"></label>
+  <label>Dst IP <input name="dst_ip" value="<%= @filters[:dst_ip].to_s %>"></label>
+  <label>Dst Port <input name="dst_port" value="<%= @filters[:dst_port].to_s %>"></label>
+  <label>Proto <input name="proto" value="<%= @filters[:proto].to_s %>"></label>
+  <label>
+    Hide TIME_WAIT
+    <select name="hide_time_wait">
+      <option value="" <%= "selected" if @filters[:hide_time_wait].to_s.empty? %>>All</option>
+      <option value="true" <%= "selected" if @filters[:hide_time_wait] == "true" %>>Yes</option>
+    </select>
+  </label>
+  <label>
+    Min Score
+    <select name="min_score">
+      <option value="" <%= "selected" if @filters[:min_score].to_s.empty? %>>All</option>
+      <option value="0" <%= "selected" if @filters[:min_score] == "0" %>>0</option>
+      <option value="20" <%= "selected" if @filters[:min_score] == "20" %>>20</option>
+      <option value="50" <%= "selected" if @filters[:min_score] == "50" %>>50</option>
+    </select>
+  </label>
+  <label>Reason Contains <input name="reason_contains" value="<%= @filters[:reason_contains].to_s %>"></label>
+  <label>
+    Only New Dst
+    <select name="only_new_dst">
+      <option value="" <%= "selected" if @filters[:only_new_dst].to_s.empty? %>>All</option>
+      <option value="true" <%= "selected" if @filters[:only_new_dst] == "true" %>>Yes</option>
+    </select>
+  </label>
+  <label>
+    Sort
+    <select name="sort">
+      <option value="score_desc" <%= "selected" if @filters[:sort].to_s == "score_desc" %>>Score</option>
+      <option value="total_bytes_desc" <%= "selected" if @filters[:sort].to_s == "total_bytes_desc" %>>Total Bytes</option>
+      <option value="last_seen_desc" <%= "selected" if @filters[:sort].to_s == "last_seen_desc" %>>Last Seen</option>
+    </select>
+  </label>
+  <button type="submit">Apply</button>
+  <a href="/search/connections">Clear</a>
+</form>
+
+<%= render "saved_queries" %>
+
+<table class="netmon-table">
+  <thead>
+    <tr>
+      <th>Device</th>
+      <th>Src</th>
+      <th>Dst</th>
+      <th>Port</th>
+      <th>Proto</th>
+      <th>State</th>
+      <th>Score</th>
+      <th>Reasons</th>
+      <th>Total Bytes</th>
+      <th>Last Seen</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @connections.each do |conn| %>
+      <% reasons = begin
+           JSON.parse(conn.anomaly_reasons_json || "[]")
+         rescue JSON::ParserError
+           []
+         end %>
+      <% reason_codes = reasons.map { |reason| reason["code"] }.compact %>
+      <tr>
+        <td><%= conn.src_ip %></td>
+        <td><%= conn.src_ip %></td>
+        <td><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a></td>
+        <td><%= conn.dst_port %></td>
+        <td><%= conn.proto %></td>
+        <td><%= conn.state %></td>
+        <td><%= conn.anomaly_score.to_i %></td>
+        <td><%= reason_codes.join(",") %></td>
+        <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
+        <td><%= conn.last_seen_at %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

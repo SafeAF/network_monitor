@@ -21,4 +21,9 @@ Rails.application.routes.draw do
   get "remote_hosts" => "remote_hosts#index"
   get "remote_hosts/:ip" => "remote_hosts#show", constraints: { ip: /[^\/]+/ }
   get "remote_hosts/:ip/traceroute" => "remote_hosts#traceroute", constraints: { ip: /[^\/]+/ }, defaults: { format: :json }
+  get "search" => "search#index"
+  get "search/hosts" => "search#hosts"
+  get "search/connections" => "search#connections"
+  get "search/anomalies" => "search#anomalies"
+  post "saved_queries" => "saved_queries#create"
 end

@@ -1,0 +1,80 @@
+<h1>Search Hosts</h1>
+
+<form class="netmon-filters" method="get">
+  <label>IP <input name="ip" value="<%= @filters[:ip].to_s %>"></label>
+  <label>WHOIS Name <input name="whois_name" value="<%= @filters[:whois_name].to_s %>"></label>
+  <label>WHOIS ASN <input name="whois_asn" value="<%= @filters[:whois_asn].to_s %>"></label>
+  <label>rDNS <input name="rdns" value="<%= @filters[:rdns].to_s %>"></label>
+  <label>
+    rDNS Missing
+    <select name="rdns_missing">
+      <option value="" <%= "selected" if @filters[:rdns_missing].to_s.empty? %>>All</option>
+      <option value="true" <%= "selected" if @filters[:rdns_missing] == "true" %>>Yes</option>
+    </select>
+  </label>
+  <label>
+    First Seen
+    <select name="first_seen_within">
+      <option value="">Any</option>
+      <option value="1h" <%= "selected" if @filters[:first_seen_within] == "1h" %>>1h</option>
+      <option value="24h" <%= "selected" if @filters[:first_seen_within] == "24h" %>>24h</option>
+      <option value="7d" <%= "selected" if @filters[:first_seen_within] == "7d" %>>7d</option>
+      <option value="30d" <%= "selected" if @filters[:first_seen_within] == "30d" %>>30d</option>
+    </select>
+  </label>
+  <label>
+    Last Seen
+    <select name="last_seen_within">
+      <option value="">Any</option>
+      <option value="1h" <%= "selected" if @filters[:last_seen_within] == "1h" %>>1h</option>
+      <option value="24h" <%= "selected" if @filters[:last_seen_within] == "24h" %>>24h</option>
+      <option value="7d" <%= "selected" if @filters[:last_seen_within] == "7d" %>>7d</option>
+      <option value="30d" <%= "selected" if @filters[:last_seen_within] == "30d" %>>30d</option>
+    </select>
+  </label>
+  <label>Seen Port <input name="seen_port" value="<%= @filters[:seen_port].to_s %>"></label>
+  <label>Min Total Bytes <input name="min_total_bytes_ever" value="<%= @filters[:min_total_bytes_ever].to_s %>"></label>
+  <label>Min Max Score <input name="min_max_score_ever" value="<%= @filters[:min_max_score_ever].to_s %>"></label>
+  <label>
+    Sort
+    <select name="sort">
+      <option value="last_seen_desc" <%= "selected" if @filters[:sort].to_s == "last_seen_desc" %>>Last Seen</option>
+      <option value="first_seen_desc" <%= "selected" if @filters[:sort].to_s == "first_seen_desc" %>>First Seen</option>
+      <option value="max_total_bytes_desc" <%= "selected" if @filters[:sort].to_s == "max_total_bytes_desc" %>>Max Total Bytes</option>
+      <option value="max_score_desc" <%= "selected" if @filters[:sort].to_s == "max_score_desc" %>>Max Score</option>
+    </select>
+  </label>
+  <button type="submit">Apply</button>
+  <a href="/search/hosts">Clear</a>
+</form>
+
+<%= render "saved_queries" %>
+
+<table class="netmon-table">
+  <thead>
+    <tr>
+      <th>IP</th>
+      <th>WHOIS</th>
+      <th>ASN</th>
+      <th>rDNS</th>
+      <th>First Seen</th>
+      <th>Last Seen</th>
+      <th>Total Bytes</th>
+      <th>Max Score</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @hosts.each do |host| %>
+      <tr>
+        <td><a href="/remote_hosts/<%= host.ip %>"><%= host.ip %></a></td>
+        <td><%= host.whois_name || "--" %></td>
+        <td><%= host.whois_asn || "--" %></td>
+        <td><%= host.rdns_name || "--" %></td>
+        <td><%= host.first_seen_at %></td>
+        <td><%= host.last_seen_at %></td>
+        <td><%= host.try(:total_bytes).to_i %></td>
+        <td><%= host.try(:max_score).to_i %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

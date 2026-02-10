@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_130000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_131500) do
   create_table "anomaly_hits", force: :cascade do |t|
     t.datetime "occurred_at", null: false
     t.integer "device_id", null: false
@@ -129,6 +129,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_130000) do
     t.index ["remote_host_id"], name: "index_remote_host_minutes_on_remote_host_id"
   end
 
+  create_table "remote_host_ports", force: :cascade do |t|
+    t.integer "remote_host_id", null: false
+    t.integer "port", null: false
+    t.datetime "first_seen_at", null: false
+    t.datetime "last_seen_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["remote_host_id", "port"], name: "index_remote_host_ports_on_remote_host_id_and_port", unique: true
+    t.index ["remote_host_id"], name: "index_remote_host_ports_on_remote_host_id"
+  end
+
   create_table "remote_hosts", force: :cascade do |t|
     t.string "ip", null: false
     t.datetime "first_seen_at", null: false
@@ -141,9 +152,19 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_130000) do
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
   end
 
+  create_table "saved_queries", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "path", null: false
+    t.text "params_json", default: "{}", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["path"], name: "index_saved_queries_on_path"
+  end
+
   add_foreign_key "anomaly_hits", "devices"
   add_foreign_key "anomaly_hits", "remote_hosts"
   add_foreign_key "device_baselines", "devices"
   add_foreign_key "device_minutes", "devices"
   add_foreign_key "remote_host_minutes", "remote_hosts"
+  add_foreign_key "remote_host_ports", "remote_hosts"
 end

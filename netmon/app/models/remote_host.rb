@@ -5,6 +5,8 @@ class RemoteHost < ApplicationRecord
 
   validates :ip, presence: true, uniqueness: true
 
+  has_many :remote_host_ports, dependent: :destroy
+
   def new?(now: Time.current, window: NEW_WINDOW)
     return false if first_seen_at.nil?
 
