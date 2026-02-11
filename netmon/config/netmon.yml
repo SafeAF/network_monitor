@@ -20,6 +20,18 @@ dormant_remote_days: 30
 high_fanout_threshold: 30
 high_unique_ports_threshold: 20
 
+alert:
+  threshold_score: 70
+  required_codes:
+    - RARE_PORT
+    - UNEXPECTED_PROTO
+    - HIGH_EGRESS
+    - HIGH_FANOUT
+  suppress_if_only_codes:
+    - NO_RDNS
+  incident_window_seconds: 600
+  incident_dedup_seconds: 600
+
 exclude_subnets:
   - 10.0.0.0/8
   - 172.16.0.0/12
