@@ -14,6 +14,8 @@ module Netmon
       new_window_seconds = (config["new_window_seconds"].presence || 600).to_i
       anomaly_threshold = (config["anomaly_threshold"].presence || 50).to_i
       dedup_suppress_seconds = (config["dedup_suppress_seconds"].presence || 600).to_i
+      alert_config = config.fetch("alert", {})
+      incident_window_seconds = (alert_config["incident_window_seconds"].presence || 600).to_i
       bucket_ts = now.utc.change(sec: 0)
 
       entries = Conntrack::Snapshot.read(input_file:)
@@ -147,7 +149,9 @@ module Netmon
           device: device,
           reasons: anomaly[:reasons],
           now: now,
-          dedup_seconds: dedup_suppress_seconds
+          dedup_seconds: dedup_suppress_seconds,
+          alert_config: alert_config,
+          incident_window_seconds: incident_window_seconds
         )
 
         if connection.anomaly_score >= anomaly_threshold
@@ -157,7 +161,9 @@ module Netmon
             remote_host: remote_host,
             reasons: anomaly[:reasons],
             now: now,
-            dedup_seconds: dedup_suppress_seconds
+            dedup_seconds: dedup_suppress_seconds,
+            alert_config: alert_config,
+            incident_window_seconds: incident_window_seconds
           )
         end
 
@@ -198,7 +204,7 @@ module Netmon
     end
     private_class_method :load_config
 
-    def self.emit_anomaly_hit(connection:, device:, remote_host:, reasons:, now:, dedup_seconds:)
+    def self.emit_anomaly_hit(connection:, device:, remote_host:, reasons:, now:, dedup_seconds:, alert_config:, incident_window_seconds:)
       codes = Array(reasons).map { |reason| reason[:code] || reason["code"] }.compact.sort
       fingerprint = [
         device.id,
@@ -216,7 +222,8 @@ module Netmon
       total_bytes = connection.uplink_bytes.to_i + connection.downlink_bytes.to_i
       summary = codes.join(",")
 
-      AnomalyHit.create!(
+      policy = Netmon::AlertPolicy.evaluate(reasons: reasons, score: connection.anomaly_score, config: { "alert" => alert_config })
+      hit = AnomalyHit.create!(
         occurred_at: now,
         device_id: device.id,
         remote_host_id: remote_host&.id,
@@ -229,14 +236,60 @@ module Netmon
         summary: summary,
         reasons_json: reasons.to_json,
         fingerprint: fingerprint,
-        suppressed_until: now + dedup_seconds
+        suppressed_until: now + dedup_seconds,
+        alertable: policy.alertable
       )
+
+      return unless policy.alertable
+
+      codes_for_incident = policy.codes - policy.suppress_only_codes
+      incident_fingerprint = Netmon::IncidentFingerprint.build(
+        device_id: device.id,
+        dst_ip: connection.dst_ip,
+        dst_port: connection.dst_port,
+        proto: connection.proto,
+        codes: codes_for_incident,
+        required_codes: policy.required_codes,
+        suppress_codes: policy.suppress_only_codes
+      )
+
+      incident = Incident.where(fingerprint: incident_fingerprint)
+                         .where("last_seen_at >= ?", now - incident_window_seconds)
+                         .order(last_seen_at: :desc)
+                         .first
+
+      codes_csv = codes_for_incident.uniq.sort.join(",")
+      if incident
+        merged_codes = (incident.codes_csv.to_s.split(",") + codes_for_incident).uniq.sort
+        incident.update!(
+          last_seen_at: now,
+          count: incident.count.to_i + 1,
+          max_score: [incident.max_score.to_i, connection.anomaly_score.to_i].max,
+          codes_csv: merged_codes.join(",")
+        )
+      else
+        incident = Incident.create!(
+          fingerprint: incident_fingerprint,
+          device_id: device.id,
+          dst_ip: connection.dst_ip,
+          dst_port: connection.dst_port,
+          proto: connection.proto,
+          codes_csv: codes_csv,
+          first_seen_at: now,
+          last_seen_at: now,
+          count: 1,
+          max_score: connection.anomaly_score.to_i
+        )
+      end
+
+      hit.update!(incident_id: incident.id)
     end
     private_class_method :emit_anomaly_hit
 
-    def self.emit_device_level_hits(device:, reasons:, now:, dedup_seconds:)
+    def self.emit_device_level_hits(device:, reasons:, now:, dedup_seconds:, alert_config:, incident_window_seconds:)
       trigger_codes = %w[HIGH_FANOUT PORT_SCAN_LIKE]
       codes = Array(reasons).map { |reason| reason[:code] || reason["code"] }.compact
+      threshold = (alert_config["threshold_score"].presence || 70).to_i
       (codes & trigger_codes).each do |code|
         fingerprint = ["DEVICE", device.id, code].join("|")
         recent = AnomalyHit.where(fingerprint: fingerprint)
@@ -244,20 +297,67 @@ module Netmon
                            .exists?
         next if recent
 
-        AnomalyHit.create!(
+        hit = AnomalyHit.create!(
           occurred_at: now,
           device_id: device.id,
           proto: nil,
           src_ip: device.ip,
           dst_ip: nil,
           dst_port: nil,
-          score: 0,
+          score: threshold,
           total_bytes: 0,
           summary: code,
           reasons_json: [{ code: code, weight: 25, detail: "device-level" }].to_json,
           fingerprint: fingerprint,
-          suppressed_until: now + dedup_seconds
+          suppressed_until: now + dedup_seconds,
+          alertable: Netmon::AlertPolicy.evaluate(
+            reasons: [{ code: code, weight: 25 }],
+            score: threshold,
+            config: { "alert" => alert_config }
+          ).alertable
         )
+
+        next unless hit.alertable
+
+        incident_fingerprint = Netmon::IncidentFingerprint.build(
+          device_id: device.id,
+          dst_ip: nil,
+          dst_port: nil,
+          proto: nil,
+          codes: [code],
+          required_codes: Array(alert_config["required_codes"]),
+          suppress_codes: Array(alert_config["suppress_if_only_codes"])
+        )
+
+        incident = Incident.where(fingerprint: incident_fingerprint)
+                           .where("last_seen_at >= ?", now - incident_window_seconds)
+                           .order(last_seen_at: :desc)
+                           .first
+
+        if incident
+          merged_codes = (incident.codes_csv.to_s.split(",") + [code]).uniq.sort
+          incident.update!(
+            last_seen_at: now,
+            count: incident.count.to_i + 1,
+            max_score: [incident.max_score.to_i, threshold].max,
+            codes_csv: merged_codes.join(",")
+          )
+        else
+          incident = Incident.create!(
+            fingerprint: incident_fingerprint,
+            device_id: device.id,
+            dst_ip: nil,
+            dst_port: nil,
+            proto: nil,
+            codes_csv: [code].join(","),
+            first_seen_at: now,
+            last_seen_at: now,
+            count: 1,
+            max_score: threshold
+          )
+        end
+
+        hit.update!(incident_id: incident.id)
       end
     end
     private_class_method :emit_device_level_hits

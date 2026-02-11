@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_11_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_11_121000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -42,6 +42,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_11_120000) do
     t.datetime "acknowledged_at"
     t.text "ack_notes"
     t.integer "incident_id"
+    t.boolean "alertable", default: false, null: false
+    t.index ["alertable"], name: "index_anomaly_hits_on_alertable"
     t.index ["device_id", "occurred_at"], name: "index_anomaly_hits_on_device_id_and_occurred_at"
     t.index ["device_id"], name: "index_anomaly_hits_on_device_id"
     t.index ["dst_ip", "occurred_at"], name: "index_anomaly_hits_on_dst_ip_and_occurred_at"
