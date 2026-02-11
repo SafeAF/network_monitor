@@ -1,138 +1,223 @@
-
-# CODEX_NEXT_UI.md — Tailwind “hackery” dark theme + spacing/layout cleanup
+# CODEX_NEXT_UI.md — Tailwind dark “hacker” theme (Emerald primary + Electric Blue secondary) + spacing cleanup
 
 ## Goal
-Restyle the entire NetMon UI with Tailwind:
-- black background, green-ish “terminal” accents
-- readable density (tables still compact)
-- consistent spacing/padding/typography
+Restyle the entire NetMon UI with Tailwind to a cohesive dark theme:
+- black / near-black background
+- **emerald** primary accents (brand, headings, OK states)
+- **electric blue/cyan** secondary accents (links, focus, active controls)
+- dense but readable tables
+- consistent spacing and alignment across dashboard/anomalies/hosts/search
 - keep pages fast (no heavy JS frameworks)
-- make charts match the theme
-- fix alignment issues in filters/top panels/tables
+- charts visually match the theme
+
+Do NOT change data logic. This is strictly UI + view structure.
 
 Constraints:
-- Use Tailwind that is already in the Rails app (no new CSS frameworks).
-- Do not change data logic.
-- Keep HTML semantic and accessible (contrast, focus rings).
-- Avoid huge refactors; apply a shared layout + partials.
+- Use Tailwind already in the Rails app (no new CSS frameworks).
+- Keep HTML semantic and accessible (contrast, focus rings, keyboard nav).
+- Avoid big refactors; prefer shared layout + partials.
+- No new dependencies without explicit permission.
+- Don’t introduce custom CSS unless absolutely required; prefer Tailwind utilities.
+
+Design reference:
+- dark UI with soft glow, emerald highlights, cyan interaction accents (user-provided reference image).
 
 ---
 
-## Step A — Establish a global layout + theme tokens
-1) Create/modify `app/views/layouts/application.html.erb` to apply:
-   - `class="bg-black text-zinc-100"`
-   - use a monospace stack:
-     - `font-mono` with fallback
-   - set a centered max width and padding:
-     - `max-w-[1600px] mx-auto px-4 py-4`
+## Visual Reference for Style
 
-2) Define a simple “theme token” set via Tailwind utility choices:
-   - background: `bg-black`, cards: `bg-zinc-950/60`, borders: `border-zinc-800`
-   - primary: `text-emerald-400`, secondary: `text-zinc-300`
-   - muted: `text-zinc-500`
-   - badges:
-     - normal: `bg-zinc-900 text-zinc-200`
-     - warn: `bg-amber-900/40 text-amber-200 border border-amber-700/50`
-     - alert: `bg-red-950/40 text-red-200 border border-red-700/50`
-     - success: `bg-emerald-950/40 text-emerald-200 border border-emerald-700/50`
+Use the screenshots (attached) as a reference for:
+- color intensity
+- mood (dark + vibrant accents)
+- contrast
+- spacing rhythm
 
----
+Match:
+- emerald/green as primary accent
+- electric blue/cyan as link/focus/interactive
+- amber for warning, red for alerts
 
-## Step B — Componentize UI fragments (partials)
-Create partials in `app/views/shared/`:
-- `_topbar.html.erb` (nav links + quick actions)
-- `_filter_bar.html.erb` (filters + apply/clear + score quick buttons)
-- `_stat_card.html.erb` (load avg/mem/interfaces etc)
-- `_panel_card.html.erb` (Top-N boxes)
-- `_badge.html.erb` (score badge, seen badge, ack badge)
-- `_table.html.erb` (standard table wrapper)
+## Step A — Global layout + base theme tokens
+1) Update `app/views/layouts/application.html.erb`:
+   - page wrapper: `class="bg-black text-zinc-200 min-h-screen font-mono"`
+   - constrain width: `max-w-[1600px] mx-auto px-4 py-4`
+   - default link style: `text-cyan-300 hover:text-cyan-200 underline-offset-2 hover:underline`
+   - ensure focus rings visible: `focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black`
 
-Goal: every page uses the same structure so spacing stays consistent.
+2) Define consistent “tokens” via utility choices (use everywhere):
+   - background: `bg-black`
+   - panel/card: `bg-zinc-950/70`
+   - border: `border-zinc-800/80`
+   - subtle glow: `shadow-[0_0_0_1px_rgba(16,185,129,0.10)]` (emerald hairline)
+   - primary text: `text-zinc-200`
+   - muted text: `text-zinc-500`
+   - primary accent (emerald): `text-emerald-400`
+   - secondary accent (cyan): `text-cyan-300`
+   - “interactive cyan”: `hover:text-cyan-200`, `ring-cyan-400/50`
+   - success: emerald
+   - warning: amber
+   - danger: red
 
----
-
-## Step C — Rebuild dashboard layout with Tailwind grid
-Use a clear grid:
-- top row: filters / controls in a sticky bar:
-  - `sticky top-0 z-50 bg-black/80 backdrop-blur border-b border-zinc-800`
-- stats row: `grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3`
-- charts row: `grid grid-cols-1 lg:grid-cols-4 gap-3`
-- Top-N row: `grid grid-cols-1 lg:grid-cols-4 gap-3`
-- table: full width card beneath.
-
-Ensure spacing:
-- cards: `rounded-lg border border-zinc-800 bg-zinc-950/60 p-3`
-- headings: `text-xs uppercase tracking-wider text-zinc-400`
-- values: `text-lg text-zinc-100`
+Badge palette:
+- neutral: `bg-zinc-900/60 text-zinc-200 border border-zinc-800`
+- info (cyan): `bg-cyan-950/30 text-cyan-200 border border-cyan-800/40`
+- ok (emerald): `bg-emerald-950/30 text-emerald-200 border border-emerald-800/40`
+- warn (amber): `bg-amber-950/30 text-amber-200 border border-amber-800/40`
+- alert (red): `bg-red-950/30 text-red-200 border border-red-800/40`
 
 ---
 
-## Step D — Make tables compact but readable
+## Step B — Shared UI partials (reduce drift, fix spacing)
+Create/standardize partials in `app/views/shared/`:
+- `_topbar.html.erb`:
+  - left: brand label “NETMON” in emerald
+  - right: nav links (Dashboard, Anomalies, Incidents, Hosts, Search, Devices)
+  - use compact pill links with cyan hover
+- `_filter_bar.html.erb`:
+  - consistent spacing, aligned controls, Apply/Clear on right
+  - inputs styled uniformly
+- `_card.html.erb`:
+  - generic card wrapper for stat panels and boxes
+- `_stat.html.erb`:
+  - label/value pair pattern (small label, large value)
+- `_badge.html.erb`:
+  - generic badge renderer with variants
+- `_table.html.erb`:
+  - consistent table wrapper + header/row styling
+- `_pill_button.html.erb` (optional):
+  - for score quick filters (Score 0+/20+/50+) and toggles
+
+Goal: every page shares the same visual language and spacing.
+
+---
+
+## Step C — Navigation + page chrome
+1) Make the topbar sticky:
+   - `sticky top-0 z-50 bg-black/80 backdrop-blur border-b border-zinc-800/70`
+2) Keep “action cluster” (Apply/Clear/quick filters) on the right, consistent across pages.
+3) Provide a subtle divider under the topbar to anchor the UI.
+
+---
+
+## Step D — Dashboard layout (grid + cards)
+Layout structure:
+- Filter bar (sticky)
+- Stats row:
+  - `grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3`
+- Charts row:
+  - `grid grid-cols-1 lg:grid-cols-4 gap-3`
+- Top-N row:
+  - `grid grid-cols-1 lg:grid-cols-4 gap-3`
+- Table row:
+  - full width card
+
+Card styling (apply everywhere):
+- `rounded-xl border border-zinc-800/80 bg-zinc-950/70 p-3 shadow-[0_0_0_1px_rgba(16,185,129,0.10)]`
+Headings:
+- `text-xs uppercase tracking-wider text-zinc-500`
+Values:
+- `text-lg text-zinc-100`
+
+---
+
+## Step E — Table styling (dense, readable, aligned)
 Table wrapper:
-- `overflow-x-auto rounded-lg border border-zinc-800`
-- `table class="min-w-full text-sm"`
+- `overflow-x-auto rounded-xl border border-zinc-800/80 bg-zinc-950/50`
 
-Row styling:
-- header: `bg-zinc-950 text-zinc-300 text-xs uppercase`
-- rows: `odd:bg-black even:bg-zinc-950/40`
-- hover: `hover:bg-zinc-900/60`
-- padding: `px-2 py-1.5` (keep it dense)
+Table:
+- `min-w-full text-sm`
 
-Column alignment:
-- numeric columns right aligned
-- codes/reasons use `text-xs` and `whitespace-nowrap` with truncation:
-  - `max-w-[240px] truncate`
+Header:
+- `bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider`
+
+Rows:
+- `odd:bg-black even:bg-zinc-950/30`
+- hover: `hover:bg-zinc-900/50`
+
+Cell padding:
+- `px-2 py-1.5` (keep dense)
+
+Alignment:
+- numeric columns right-aligned
+- proto/state/flags monospace
+- long fields (reasons/rdns/org) use truncation:
+  - `max-w-[260px] truncate`
 
 Score badge:
-- show number inside a pill
-- use color bands:
-  - 0–19 normal
-  - 20–49 warn
-  - 50–69 high
-  - 70+ alert
+- pill with color bands:
+  - 0–19: neutral
+  - 20–49: info (cyan)
+  - 50–69: warn (amber)
+  - 70+: alert (red)
+Also show tooltip/title with reasons.
+
+Seen badge:
+- `NEW` gets cyan or emerald (your choice; default cyan)
+- `SEEN` stays neutral
+
+Ack badge:
+- acked: neutral
+- unacked: cyan outline
 
 ---
 
-## Step E — Make “hackery” accents without being cringe
-- topbar includes a small “NETMON” label in `text-emerald-400`
-- subtle scanline effect optional:
-  - add a pseudo-element or background gradient only if cheap (no animations)
-- use `text-emerald-300` for links on hover:
-  - `text-zinc-300 hover:text-emerald-300 underline-offset-2 hover:underline`
+## Step F — Forms/inputs/buttons (consistent)
+Inputs:
+- `bg-black border border-zinc-800 rounded-lg px-2 py-1 text-zinc-200 placeholder:text-zinc-600`
+Focus:
+- `focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black`
+
+Buttons:
+- Primary (emerald): `bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30`
+- Secondary (cyan): `bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25`
+- Neutral: `bg-zinc-900/50 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80`
 
 ---
 
-## Step F — Charts theme consistency
-If charts are inline SVG/canvas:
-- set background transparent
-- set axes/labels to `zinc` colors
-- line colors: keep what you already have if it’s code-heavy; otherwise:
-  - bytes chart: emerald
-  - ports: amber
-  - new dst: cyan
-Keep it subtle; don’t overdo neon.
+## Step G — “Hackery” detail without cringe
+Optional (only if cheap):
+- subtle panel glow via the emerald hairline shadow above
+- no animated scanlines, no heavy effects
+- avoid big neon gradients; keep it restrained
 
 ---
 
-## Step G — Apply styling to all pages
-Pages to update:
+## Step H — Charts theme consistency
+- backgrounds transparent
+- axes/labels: zinc
+- series colors:
+  - bytes: emerald
+  - ports: cyan
+  - new dst: cyan (alt shade) or amber
+  - asn: emerald/cyan
+Keep the chart code minimal; don’t refactor chart libs.
+
+---
+
+## Step I — Apply across all pages
+Update these pages to use shared partials and consistent cards:
 - dashboard (/)
 - anomalies (/anomalies)
-- remote host page (/hosts/:ip or whatever route)
-- new remote hosts page
+- incidents (/incidents) if present
+- remote host pages (per IP)
+- remote hosts list (new hosts)
 - search pages (hosts/connections/anomalies)
 - devices edit page
 
 ---
 
-## Step H — Verify usability
-- test on 1080p and small screen widths
-- verify tables don’t explode spacing
-- verify focus rings visible (keyboard nav)
-- ensure important links/buttons still obvious
+## Step J — QA checklist
+- 1080p and narrow viewport sanity
+- no overflow bugs in tables
+- links and buttons obvious on dark background
+- focus rings visible with keyboard navigation
+- no business logic changes
+- run `bundle exec rspec`
 
 Deliverables:
-- All pages use shared layout and cards
-- Tailwind only, no extra libs
-- Dark hackery theme applied consistently
-- No change to business logic
+- cohesive emerald/cyan dark theme
+- consistent spacing/alignment across UI
+- shared partials reduce drift
+- tables dense but readable
+- charts visually match
+- tests still passing

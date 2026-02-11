@@ -1,42 +1,64 @@
-<h1>Remote Host: <%= @ip %></h1>
+<% input_class = "bg-black border border-zinc-800 rounded-lg px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black" %>
+<% button_primary = "bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30 rounded-lg px-3 py-1 text-sm" %>
+<% button_secondary = "bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25 rounded-lg px-3 py-1 text-sm" %>
+<% button_neutral = "bg-zinc-900/50 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm" %>
+
+<h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Remote Host: <%= @ip %></h1>
 
 <% require "cgi" %>
 
-<div class="netmon-detail">
-  <div class="item"><strong>First Seen:</strong> <%= @first_seen || "--" %></div>
-  <div class="item"><strong>Last Seen:</strong> <%= @last_seen || "--" %></div>
-  <div class="item"><strong>Ports:</strong> <%= @ports.any? ? @ports.join(", ") : "--" %></div>
-  <div class="item"><strong>Total Traffic:</strong> <%= @traffic.to_i %> bytes</div>
-  <div class="item"><strong>rDNS:</strong> <span id="copy-rdns"><%= @rdns || "--" %></span>
-    <button type="button" class="copy-btn" data-copy="copy-rdns">Copy</button>
+<%= render "shared/card" do %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+    <div><span class="text-xs uppercase tracking-wider text-zinc-500">First Seen</span><div><%= @first_seen || "--" %></div></div>
+    <div><span class="text-xs uppercase tracking-wider text-zinc-500">Last Seen</span><div><%= @last_seen || "--" %></div></div>
+    <div><span class="text-xs uppercase tracking-wider text-zinc-500">Ports</span><div><%= @ports.any? ? @ports.join(", ") : "--" %></div></div>
+    <div><span class="text-xs uppercase tracking-wider text-zinc-500">Total Traffic</span><div><%= @traffic.to_i %> bytes</div></div>
+    <div>
+      <span class="text-xs uppercase tracking-wider text-zinc-500">rDNS</span>
+      <div class="flex items-center gap-2"><span id="copy-rdns"><%= @rdns || "--" %></span>
+        <button type="button" class="copy-btn <%= button_neutral %>" data-copy="copy-rdns">Copy</button>
+      </div>
+    </div>
+    <div>
+      <span class="text-xs uppercase tracking-wider text-zinc-500">WHOIS</span>
+      <div class="flex items-center gap-2"><span id="copy-org" title="<%= @whois_raw.to_s %>"><%= @whois || "--" %></span>
+        <button type="button" class="copy-btn <%= button_neutral %>" data-copy="copy-org">Copy</button>
+      </div>
+    </div>
+    <div>
+      <span class="text-xs uppercase tracking-wider text-zinc-500">ASN</span>
+      <div class="flex items-center gap-2"><span id="copy-asn"><%= @host&.whois_asn || "--" %></span>
+        <button type="button" class="copy-btn <%= button_neutral %>" data-copy="copy-asn">Copy</button>
+      </div>
+    </div>
+    <div>
+      <span class="text-xs uppercase tracking-wider text-zinc-500">IP</span>
+      <div class="flex items-center gap-2"><span id="copy-ip"><%= @ip %></span>
+        <button type="button" class="copy-btn <%= button_neutral %>" data-copy="copy-ip">Copy</button>
+      </div>
+    </div>
+    <div><span class="text-xs uppercase tracking-wider text-zinc-500">Geo</span><div><%= @geo || "--" %></div></div>
   </div>
-  <div class="item"><strong>WHOIS:</strong> <span id="copy-org" title="<%= @whois_raw.to_s %>"><%= @whois || "--" %></span>
-    <button type="button" class="copy-btn" data-copy="copy-org">Copy</button>
-  </div>
-  <div class="item"><strong>ASN:</strong> <span id="copy-asn"><%= @host&.whois_asn || "--" %></span>
-    <button type="button" class="copy-btn" data-copy="copy-asn">Copy</button>
-  </div>
-  <div class="item"><strong>IP:</strong> <span id="copy-ip"><%= @ip %></span>
-    <button type="button" class="copy-btn" data-copy="copy-ip">Copy</button>
-  </div>
-  <div class="item"><strong>Geo:</strong> <%= @geo || "--" %></div>
-</div>
+<% end %>
 
-<div class="netmon-detail">
-  <%= form_with url: "/remote_hosts/#{@ip}", method: :patch, local: true do |form| %>
-    <label>
+<div class="mt-4">
+  <%= render "shared/card" do %>
+  <%= form_with url: "/remote_hosts/#{@ip}", method: :patch, local: true, class: "space-y-2" do |form| %>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
       Tag
-      <%= form.select :tag, [["Unknown", "unknown"], ["Known Good", "known_good"], ["Suspicious", "suspicious"]], selected: @host&.tag %>
+      <%= form.select :tag, [["Unknown", "unknown"], ["Known Good", "known_good"], ["Suspicious", "suspicious"]], { selected: @host&.tag }, class: input_class %>
     </label>
-    <label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
       Notes
-      <%= form.text_area :notes, value: @host&.notes, rows: 3, cols: 60 %>
+      <%= form.text_area :notes, value: @host&.notes, rows: 3, class: input_class %>
     </label>
-    <%= form.submit "Save" %>
+    <%= form.submit "Save", class: button_primary %>
+  <% end %>
   <% end %>
 </div>
 
-<div class="netmon-detail">
+<div class="mt-4">
+  <%= render "shared/card" do %>
   <% if @host&.whois_asn.present? %>
     <a href="/search/hosts?whois_asn=<%= CGI.escape(@host.whois_asn) %>">Show all hosts in same ASN</a>
   <% end %>
@@ -44,19 +66,23 @@
     <% suffix = @rdns.to_s.split(".").last(2).join(".") %>
     <a href="/search/hosts?rdns=<%= CGI.escape(suffix) %>">Show all hosts with same rDNS suffix</a>
   <% end %>
+  <% end %>
 </div>
 
-<div class="netmon-detail">
-  <div class="item"><strong>Block Rule (display only):</strong></div>
-  <pre>add rule inet filter output ip daddr <%= @ip %> drop</pre>
+<div class="mt-4">
+  <%= render "shared/card" do %>
+  <div class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Block Rule (display only)</div>
+  <pre class="text-xs text-zinc-300">add rule inet filter output ip daddr <%= @ip %> drop</pre>
+  <% end %>
 </div>
 
-<div class="netmon-detail">
+<div class="mt-4">
+  <%= render "shared/card" do %>
   <% if @host&.whois_asn.present? %>
     <%= form_with url: "/allowlist_rules", method: :post, local: true do |form| %>
       <input type="hidden" name="allowlist_rule[kind]" value="asn">
       <input type="hidden" name="allowlist_rule[value]" value="<%= @host.whois_asn %>">
-      <button type="submit">Allowlist this ASN</button>
+      <button type="submit" class="<%= button_secondary %>">Allowlist this ASN</button>
     <% end %>
   <% end %>
 
@@ -64,45 +90,50 @@
     <%= form_with url: "/allowlist_rules", method: :post, local: true do |form| %>
       <input type="hidden" name="allowlist_rule[kind]" value="org">
       <input type="hidden" name="allowlist_rule[value]" value="<%= @host.whois_name %>">
-      <button type="submit">Allowlist this org</button>
+      <button type="submit" class="<%= button_secondary %>">Allowlist this org</button>
     <% end %>
     <%= form_with url: "/suppression_rules", method: :post, local: true do |form| %>
       <input type="hidden" name="suppression_rule[code]" value="NO_RDNS">
       <input type="hidden" name="suppression_rule[kind]" value="org">
       <input type="hidden" name="suppression_rule[value]" value="<%= @host.whois_name %>">
-      <button type="submit">Suppress NO_RDNS for this org</button>
+      <button type="submit" class="<%= button_neutral %>">Suppress NO_RDNS for this org</button>
     <% end %>
+  <% end %>
   <% end %>
 </div>
 
-<h2>Port History</h2>
-<table class="netmon-table">
-  <thead>
+<h2 class="text-lg text-emerald-200 font-semibold mt-4 mb-2">Port History</h2>
+<%= render "shared/table" do %>
+  <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th>Port</th>
-      <th>First Seen</th>
-      <th>Last Seen</th>
-      <th>Seen Count</th>
+      <th class="px-2 py-1.5 text-left">Port</th>
+      <th class="px-2 py-1.5 text-left">First Seen</th>
+      <th class="px-2 py-1.5 text-left">Last Seen</th>
+      <th class="px-2 py-1.5 text-right">Seen Count</th>
     </tr>
   </thead>
   <tbody>
     <% @port_history.each do |row| %>
-      <tr>
-        <td><%= row.dst_port %></td>
-        <td><%= row.first_seen_at %></td>
-        <td><%= row.last_seen_at %></td>
-        <td><%= row.seen_count %></td>
+      <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
+        <td class="px-2 py-1.5"><%= row.dst_port %></td>
+        <td class="px-2 py-1.5"><%= row.first_seen_at %></td>
+        <td class="px-2 py-1.5"><%= row.last_seen_at %></td>
+        <td class="px-2 py-1.5 text-right"><%= row.seen_count %></td>
       </tr>
     <% end %>
   </tbody>
-</table>
+<% end %>
 
-<div class="netmon-detail">
-  <button type="button" id="traceroute-run">Run Traceroute</button>
-  <button type="button" id="traceroute-cancel" disabled>Cancel</button>
-  <span id="traceroute-status"></span>
-  <span id="traceroute-timeout"></span>
-  <pre id="traceroute-output" style="display: none;"></pre>
+<div class="mt-4">
+  <%= render "shared/card" do %>
+  <div class="flex flex-wrap items-center gap-2 text-sm">
+    <button type="button" id="traceroute-run" class="<%= button_primary %>">Run Traceroute</button>
+    <button type="button" id="traceroute-cancel" class="<%= button_neutral %>" disabled>Cancel</button>
+    <span id="traceroute-status" class="text-zinc-400"></span>
+    <span id="traceroute-timeout" class="text-amber-200"></span>
+  </div>
+  <pre id="traceroute-output" class="text-xs text-zinc-300 mt-2 hidden"></pre>
+  <% end %>
 </div>
 
 <script>
@@ -124,7 +155,7 @@
         .then((data) => {
           statusEl.textContent = data.status;
           if (data.status === "done" || data.status === "error") {
-            outputEl.style.display = "block";
+            outputEl.classList.remove("hidden");
             outputEl.textContent = data.output || "";
             cancelButton.disabled = true;
             return;
@@ -143,7 +174,7 @@
       statusEl.textContent = "queued";
       timeoutEl.textContent = "";
       startTime = Date.now();
-      outputEl.style.display = "none";
+      outputEl.classList.add("hidden");
       cancelButton.disabled = false;
       fetch(`${url}?start=1`)
         .then(() => poll())
@@ -158,35 +189,35 @@
   })();
 </script>
 
-<h2>Connections</h2>
-<table class="netmon-table">
-  <thead>
+<h2 class="text-lg text-emerald-200 font-semibold mt-4 mb-2">Connections</h2>
+<%= render "shared/table" do %>
+  <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th>Proto</th>
-      <th>Source</th>
-      <th>Port</th>
-      <th>State</th>
-      <th>Up</th>
-      <th>Down</th>
-      <th>Total</th>
-      <th>Last Seen</th>
+      <th class="px-2 py-1.5 text-left">Proto</th>
+      <th class="px-2 py-1.5 text-left">Source</th>
+      <th class="px-2 py-1.5 text-left">Port</th>
+      <th class="px-2 py-1.5 text-left">State</th>
+      <th class="px-2 py-1.5 text-right">Up</th>
+      <th class="px-2 py-1.5 text-right">Down</th>
+      <th class="px-2 py-1.5 text-right">Total</th>
+      <th class="px-2 py-1.5 text-left">Last Seen</th>
     </tr>
   </thead>
   <tbody>
     <% @connections.each do |conn| %>
-      <tr>
-        <td><%= conn.proto %></td>
-        <td><a href="/search/connections?device=<%= CGI.escape(conn.src_ip) %>&dst_ip=<%= CGI.escape(@ip) %>"><%= conn.src_ip %></a></td>
-        <td><%= conn.dst_port %></td>
-        <td><%= conn.state %></td>
-        <td><%= conn.uplink_bytes %></td>
-        <td><%= conn.downlink_bytes %></td>
-        <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
-        <td><%= conn.last_seen_at %></td>
+      <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
+        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.proto %></td>
+        <td class="px-2 py-1.5"><a href="/search/connections?device=<%= CGI.escape(conn.src_ip) %>&dst_ip=<%= CGI.escape(@ip) %>"><%= conn.src_ip %></a></td>
+        <td class="px-2 py-1.5"><%= conn.dst_port %></td>
+        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.state %></td>
+        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes %></td>
+        <td class="px-2 py-1.5 text-right"><%= conn.downlink_bytes %></td>
+        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes + conn.downlink_bytes %></td>
+        <td class="px-2 py-1.5"><%= conn.last_seen_at %></td>
       </tr>
     <% end %>
   </tbody>
-</table>
+<% end %>
 
 <script>
   (function() {

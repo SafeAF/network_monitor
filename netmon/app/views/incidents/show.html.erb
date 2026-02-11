@@ -1,45 +1,49 @@
-<h1>Incident <%= @incident.id %></h1>
+<h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Incident <%= @incident.id %></h1>
 
-<div class="netmon-detail">
-  <div class="item"><strong>Device:</strong> <%= @device&.name.presence || @device&.ip %></div>
-  <div class="item"><strong>Dst:</strong>
-    <% if @incident.dst_ip.present? %>
-      <a href="/remote_hosts/<%= @incident.dst_ip %>"><%= @incident.dst_ip %></a><%= @incident.dst_port ? ":#{@incident.dst_port}" : "" %>
-    <% end %>
+<%= render "shared/card" do %>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+    <div><span class="text-zinc-500 uppercase text-xs">Device</span> <div><%= @device&.name.presence || @device&.ip %></div></div>
+    <div><span class="text-zinc-500 uppercase text-xs">Dst</span>
+      <div>
+        <% if @incident.dst_ip.present? %>
+          <a href="/remote_hosts/<%= @incident.dst_ip %>"><%= @incident.dst_ip %></a><%= @incident.dst_port ? ":#{@incident.dst_port}" : "" %>
+        <% end %>
+      </div>
+    </div>
+    <div><span class="text-zinc-500 uppercase text-xs">Codes</span> <div><%= @incident.codes_csv %></div></div>
+    <div><span class="text-zinc-500 uppercase text-xs">First Seen</span> <div><%= @incident.first_seen_at %></div></div>
+    <div><span class="text-zinc-500 uppercase text-xs">Last Seen</span> <div><%= @incident.last_seen_at %></div></div>
+    <div><span class="text-zinc-500 uppercase text-xs">Count</span> <div><%= @incident.count %></div></div>
+    <div><span class="text-zinc-500 uppercase text-xs">Max Score</span> <div><%= @incident.max_score %></div></div>
   </div>
-  <div class="item"><strong>Codes:</strong> <%= @incident.codes_csv %></div>
-  <div class="item"><strong>First Seen:</strong> <%= @incident.first_seen_at %></div>
-  <div class="item"><strong>Last Seen:</strong> <%= @incident.last_seen_at %></div>
-  <div class="item"><strong>Count:</strong> <%= @incident.count %></div>
-  <div class="item"><strong>Max Score:</strong> <%= @incident.max_score %></div>
-</div>
+<% end %>
 
-<h2>Hits</h2>
-<table class="netmon-table">
-  <thead>
+<h2 class="text-lg text-emerald-200 font-semibold mt-4 mb-2">Hits</h2>
+<%= render "shared/table" do %>
+  <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th>Time</th>
-      <th>Dst</th>
-      <th>Score</th>
-      <th>Summary</th>
+      <th class="px-2 py-1.5 text-left">Time</th>
+      <th class="px-2 py-1.5 text-left">Dst</th>
+      <th class="px-2 py-1.5 text-left">Score</th>
+      <th class="px-2 py-1.5 text-left">Summary</th>
     </tr>
   </thead>
   <tbody>
     <% @hits.each do |hit| %>
-      <tr>
-        <td><%= hit.occurred_at %></td>
-        <td>
+      <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
+        <td class="px-2 py-1.5"><%= hit.occurred_at %></td>
+        <td class="px-2 py-1.5">
           <% if hit.dst_ip.present? %>
             <a href="/remote_hosts/<%= hit.dst_ip %>"><%= hit.dst_ip %></a><%= hit.dst_port ? ":#{hit.dst_port}" : "" %>
           <% end %>
         </td>
-        <td><%= hit.score %></td>
-        <td><%= hit.summary %></td>
+        <td class="px-2 py-1.5"><%= hit.score %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= hit.summary.to_s %>"><%= hit.summary %></td>
       </tr>
     <% end %>
   </tbody>
-</table>
+<% end %>
 
-<div class="netmon-pagination">
-  <a href="/incidents">Back to incidents</a>
+<div class="mt-3">
+  <a class="bg-zinc-900/50 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm" href="/incidents">Back to incidents</a>
 </div>

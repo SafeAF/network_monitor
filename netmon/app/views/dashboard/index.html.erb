@@ -1,415 +1,256 @@
-<style>
-  table.netmon-table {
-    border-collapse: collapse;
-    width: 100%;
-  }
-  table.netmon-table th,
-  table.netmon-table td {
-    padding: 6px 8px;
-    text-align: left;
-    white-space: nowrap;
-  }
-  table.netmon-table thead th {
-    border-bottom: 1px solid #ddd;
-  }
-  .netmon-score {
-    display: inline-block;
-    min-width: 32px;
-    text-align: center;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    background: #f2f2f2;
-    color: #333;
-  }
-  .netmon-score.high {
-    background: #ffebe8;
-    color: #8a0a0a;
-  }
-  .netmon-score.med {
-    background: #fff7e0;
-    color: #8a5b0a;
-  }
-  .netmon-score.low {
-    background: #e6f4ff;
-    color: #0a4a8a;
-  }
-  .netmon-badge {
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .netmon-badge.new {
-    background: #e6f4ff;
-    color: #0a4a8a;
-  }
-  .netmon-badge.seen {
-    background: #f2f2f2;
-    color: #333;
-  }
-  .netmon-filters {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin: 8px 0 16px;
-    align-items: center;
-  }
-  .netmon-filters label {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  .netmon-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-    margin: 12px 0 16px;
-  }
-  .netmon-tile {
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 10px 12px;
-  }
-  .netmon-tile h3 {
-    margin: 0 0 6px;
-    font-size: 14px;
-  }
-  .netmon-tile .value {
-    font-size: 16px;
-    font-weight: 600;
-  }
-  .netmon-tile .status-ok {
-    color: #1f6f2c;
-  }
-  .netmon-tile .status-stale {
-    color: #8a0a0a;
-  }
-  .netmon-tile button {
-    all: unset;
-    cursor: pointer;
-    display: inline-block;
-  }
-  .netmon-graphs {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 12px;
-    margin: 12px 0 16px;
-  }
-  .netmon-graph {
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 10px 12px;
-  }
-  .netmon-graph canvas {
-    width: 100%;
-    height: 120px;
-  }
-  .netmon-graph .graph-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-  }
-  .netmon-graph select {
-    font-size: 12px;
-  }
-  .netmon-anomalies {
-    border: 1px solid #f0c36d;
-    background: #fff7e0;
-    padding: 10px 12px;
-    border-radius: 6px;
-    margin: 12px 0 16px;
-  }
-  .netmon-detail {
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 10px 12px;
-    margin: 12px 0 16px;
-  }
-  .netmon-detail h3 {
-    margin: 0 0 8px;
-    font-size: 14px;
-  }
-  .netmon-detail .item {
-    margin: 4px 0;
-  }
-  .netmon-top-panels {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
-    margin: 12px 0 16px;
-  }
-  .netmon-panel {
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 10px 12px;
-  }
-  .netmon-panel h3 {
-    margin: 0 0 6px;
-    font-size: 14px;
-  }
-  .netmon-panel select {
-    font-size: 12px;
-    margin-bottom: 6px;
-  }
-  .netmon-panel .rare-port-item {
-    all: unset;
-    cursor: pointer;
-    color: inherit;
-    display: inline-block;
-  }
-  .netmon-panel .rare-port-item:focus {
-    outline: 2px solid #9ec3ff;
-    outline-offset: 2px;
-  }
-</style>
+<% input_class = "bg-black border border-zinc-800 rounded-lg px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black" %>
+<% checkbox_class = "rounded border-zinc-700 bg-black text-cyan-400 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black" %>
+<% button_primary = "bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30 rounded-lg px-3 py-1 text-sm" %>
+<% button_secondary = "bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25 rounded-lg px-3 py-1 text-sm" %>
+<% button_neutral = "bg-zinc-900/50 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm" %>
 
-<h1>Active Connections</h1>
+<h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Active Connections</h1>
 
-<form class="netmon-filters" method="get">
-  <label>
-    Src IP
-    <input name="src_ip" value="<%= params[:src_ip].to_s %>">
-  </label>
-  <label>
-    Dst IP
-    <input name="dst_ip" value="<%= params[:dst_ip].to_s %>">
-  </label>
-  <label>
-    Dst Port
-    <input name="dport" value="<%= params[:dport].to_s %>">
-  </label>
-  <label>
-    Proto
-    <input name="proto" value="<%= params[:proto].to_s %>">
-  </label>
-  <label>
-    <input type="checkbox" name="hide_time_wait" value="true" <%= "checked" if params[:hide_time_wait].present? %>>
-    Hide TIME_WAIT
-  </label>
-  <label>
-    <input type="checkbox" name="only_new" value="true" <%= "checked" if params[:only_new].present? %>>
-    Only NEW
-  </label>
-  <label>
-    Min Score
-    <select name="min_score">
-      <option value="" <%= "selected" if params[:min_score].to_s.empty? %>>All</option>
-      <option value="0" <%= "selected" if params[:min_score] == "0" %>>0</option>
-      <option value="20" <%= "selected" if params[:min_score] == "20" %>>20</option>
-      <option value="50" <%= "selected" if params[:min_score] == "50" %>>50</option>
-    </select>
-  </label>
-  <label>
-    Interfaces
-    <input id="metric-interfaces" name="interfaces" value="<%= params[:interfaces].to_s %>" list="interface-options">
-    <datalist id="interface-options">
-      <option value="enp42s0"></option>
-      <option value="enp2s0"></option>
-      <option value="enp3s0"></option>
-    </datalist>
-  </label>
-  <button type="submit">Apply</button>
-  <a href="/">Clear</a>
-  <a href="?only_new=true">Only NEW</a>
-  <a href="?hide_time_wait=true">Hide TIME_WAIT</a>
-  <a href="?min_score=0">Score 0+</a>
-  <a href="?min_score=20">Score 20+</a>
-  <a href="?min_score=50">Score 50+</a>
-  <a href="/devices">Edit Devices</a>
-  <a href="/anomalies">Anomalies</a>
-  <a href="/incidents">Incidents</a>
-  <a href="/search">Search</a>
-  <a href="/remote_hosts">Remote Hosts</a>
-  <a href="/search/hosts">Search Hosts</a>
-  <a href="/search/connections">Search Connections</a>
+<form method="get" class="mb-4" id="connections-filter">
+  <%= render "shared/filter_bar" do %>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Src IP
+      <input class="<%= input_class %>" name="src_ip" value="<%= params[:src_ip].to_s %>">
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Dst IP
+      <input class="<%= input_class %>" name="dst_ip" value="<%= params[:dst_ip].to_s %>">
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Dst Port
+      <input class="<%= input_class %>" name="dport" value="<%= params[:dport].to_s %>">
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Proto
+      <input class="<%= input_class %>" name="proto" value="<%= params[:proto].to_s %>">
+    </label>
+    <label class="flex items-center gap-2 text-xs uppercase tracking-wider text-zinc-500 mt-4">
+      <input type="checkbox" class="<%= checkbox_class %>" name="hide_time_wait" value="true" <%= "checked" if params[:hide_time_wait].present? %>>
+      Hide TIME_WAIT
+    </label>
+    <label class="flex items-center gap-2 text-xs uppercase tracking-wider text-zinc-500 mt-4">
+      <input type="checkbox" class="<%= checkbox_class %>" name="only_new" value="true" <%= "checked" if params[:only_new].present? %>>
+      Only NEW
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Min Score
+      <select class="<%= input_class %>" name="min_score">
+        <option value="" <%= "selected" if params[:min_score].to_s.empty? %>>All</option>
+        <option value="0" <%= "selected" if params[:min_score] == "0" %>>0</option>
+        <option value="20" <%= "selected" if params[:min_score] == "20" %>>20</option>
+        <option value="50" <%= "selected" if params[:min_score] == "50" %>>50</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Interfaces
+      <input id="metric-interfaces" class="<%= input_class %>" name="interfaces" value="<%= params[:interfaces].to_s %>" list="interface-options">
+      <datalist id="interface-options">
+        <option value="enp42s0"></option>
+        <option value="enp2s0"></option>
+        <option value="enp3s0"></option>
+      </datalist>
+    </label>
+    <div class="flex flex-wrap items-center gap-2 ml-auto">
+      <button type="submit" class="<%= button_primary %>">Apply</button>
+      <a href="/" class="<%= button_neutral %>">Clear</a>
+      <a href="?only_new=true" class="<%= button_secondary %>">Only NEW</a>
+      <a href="?hide_time_wait=true" class="<%= button_secondary %>">Hide TIME_WAIT</a>
+      <a href="?min_score=0" class="<%= button_neutral %>">Score 0+</a>
+      <a href="?min_score=20" class="<%= button_neutral %>">Score 20+</a>
+      <a href="?min_score=50" class="<%= button_neutral %>">Score 50+</a>
+    </div>
+  <% end %>
 </form>
 
-<section class="netmon-tiles">
-  <div class="netmon-tile">
-    <h3>Load Avg</h3>
-    <div class="value" id="metric-loadavg">--</div>
-  </div>
-  <div class="netmon-tile">
-    <h3>Collector</h3>
-    <div class="value" id="metric-collector">--</div>
-  </div>
-  <div class="netmon-tile">
-    <h3>Memory</h3>
-    <div class="value" id="metric-mem">--</div>
-  </div>
-  <div class="netmon-tile">
-    <h3>Interfaces</h3>
-    <div class="value" id="metric-ifaces">--</div>
-  </div>
-  <div class="netmon-tile">
-    <h3>New DST IPs (10m)</h3>
-    <div class="value"><button type="button" id="metric-new-dst">--</button></div>
-  </div>
-  <div class="netmon-tile">
-    <h3>Unique DPorts (10m)</h3>
-    <div class="value"><button type="button" id="metric-unique-dports">--</button></div>
-  </div>
-  <div class="netmon-tile">
-    <h3>Uplink Bytes (10m)</h3>
-    <div class="value" id="metric-uplink-bytes">--</div>
-  </div>
-  <div class="netmon-tile">
-    <h3>New ASNs (1h)</h3>
-    <div class="value"><button type="button" id="metric-new-asns">--</button></div>
-  </div>
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3 mb-4">
+  <%= render "shared/card" do %>
+    <%= render "shared/stat", label: "Load Avg", value: "<span id='metric-loadavg'>--</span>".html_safe %>
+  <% end %>
+  <%= render "shared/card" do %>
+  <%= render "shared/stat", label: "Collector", value: "<span id='metric-collector'>--</span>".html_safe, value_class: "text-emerald-300" %>
+  <% end %>
+  <%= render "shared/card" do %>
+    <%= render "shared/stat", label: "Memory", value: "<span id='metric-mem'>--</span>".html_safe %>
+  <% end %>
+  <%= render "shared/card" do %>
+    <%= render "shared/stat", label: "Interfaces", value: "<span id='metric-ifaces'>--</span>".html_safe %>
+  <% end %>
+  <%= render "shared/card" do %>
+    <%= render "shared/stat", label: "New DST IPs (10m)", value: "<button type='button' id='metric-new-dst' class='text-cyan-200 hover:text-cyan-100'>--</button>".html_safe %>
+  <% end %>
+  <%= render "shared/card" do %>
+    <%= render "shared/stat", label: "Unique DPorts (10m)", value: "<button type='button' id='metric-unique-dports' class='text-cyan-200 hover:text-cyan-100'>--</button>".html_safe %>
+  <% end %>
+  <%= render "shared/card" do %>
+    <%= render "shared/stat", label: "Uplink Bytes (10m)", value: "<button type='button' id='metric-uplink-bytes' class='text-cyan-200 hover:text-cyan-100'>--</button>".html_safe %>
+  <% end %>
+  <%= render "shared/card" do %>
+    <%= render "shared/stat", label: "New ASNs (1h)", value: "<button type='button' id='metric-new-asns' class='text-cyan-200 hover:text-cyan-100'>--</button>".html_safe %>
+  <% end %>
 </section>
 
-<section class="netmon-detail" id="metric-detail" style="display: none;">
-  <h3 id="metric-detail-title"></h3>
-  <div id="metric-detail-body"></div>
+<section id="metric-detail" class="hidden mb-4">
+  <%= render "shared/card" do %>
+    <div class="text-xs uppercase tracking-wider text-zinc-500 mb-2" id="metric-detail-title"></div>
+    <div id="metric-detail-body" class="text-sm text-zinc-200"></div>
+  <% end %>
 </section>
 
-<section class="netmon-graphs">
-  <div class="netmon-graph">
-    <div class="graph-header">
-      <h3>New DST IPs</h3>
-      <select class="graph-window" data-series="new_dst_ips_last_10m">
+<section class="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4">
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <h3 class="text-xs uppercase tracking-wider text-zinc-500">New DST IPs</h3>
+      <select class="graph-window <%= input_class %> text-xs" data-series="new_dst_ips_last_10m">
         <option value="10m" selected>10m</option>
         <option value="1h">1h</option>
         <option value="24h">24h</option>
         <option value="1w">1w</option>
       </select>
     </div>
-    <canvas id="graph-new-dst" data-series="new_dst_ips_last_10m"></canvas>
-  </div>
-  <div class="netmon-graph">
-    <div class="graph-header">
-      <h3>Unique DPorts</h3>
-      <select class="graph-window" data-series="unique_dports_last_10m">
+    <canvas id="graph-new-dst" data-series="new_dst_ips_last_10m" class="w-full h-32"></canvas>
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <h3 class="text-xs uppercase tracking-wider text-zinc-500">Unique DPorts</h3>
+      <select class="graph-window <%= input_class %> text-xs" data-series="unique_dports_last_10m">
         <option value="10m" selected>10m</option>
         <option value="1h">1h</option>
         <option value="24h">24h</option>
         <option value="1w">1w</option>
       </select>
     </div>
-    <canvas id="graph-unique-dports" data-series="unique_dports_last_10m"></canvas>
-  </div>
-  <div class="netmon-graph">
-    <div class="graph-header">
-      <h3>Uplink Bytes</h3>
-      <select class="graph-window" data-series="uplink_bytes_last_10m">
+    <canvas id="graph-unique-dports" data-series="unique_dports_last_10m" class="w-full h-32"></canvas>
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <h3 class="text-xs uppercase tracking-wider text-zinc-500">Uplink Bytes</h3>
+      <select class="graph-window <%= input_class %> text-xs" data-series="uplink_bytes_last_10m">
         <option value="10m" selected>10m</option>
         <option value="1h">1h</option>
         <option value="24h">24h</option>
         <option value="1w">1w</option>
       </select>
     </div>
-    <canvas id="graph-uplink-bytes" data-series="uplink_bytes_last_10m"></canvas>
-  </div>
-  <div class="netmon-graph">
-    <div class="graph-header">
-      <h3>New ASNs</h3>
-      <select class="graph-window" data-series="new_asns_last_1h">
+    <canvas id="graph-uplink-bytes" data-series="uplink_bytes_last_10m" class="w-full h-32"></canvas>
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <h3 class="text-xs uppercase tracking-wider text-zinc-500">New ASNs</h3>
+      <select class="graph-window <%= input_class %> text-xs" data-series="new_asns_last_1h">
         <option value="10m">10m</option>
         <option value="1h" selected>1h</option>
         <option value="24h">24h</option>
         <option value="1w">1w</option>
       </select>
     </div>
-    <canvas id="graph-new-asns" data-series="new_asns_last_1h"></canvas>
+    <canvas id="graph-new-asns" data-series="new_asns_last_1h" class="w-full h-32"></canvas>
+  <% end %>
+</section>
+
+<%= render "shared/card" do %>
+  <div class="flex items-center justify-between gap-3">
+    <div class="text-xs uppercase tracking-wider text-zinc-500">Anomalies</div>
+    <div id="metric-anomalies" class="text-sm text-amber-200">None</div>
   </div>
-</section>
+<% end %>
 
-<section class="netmon-anomalies">
-  <strong>Anomalies:</strong>
-  <span id="metric-anomalies">None</span>
-</section>
+<div class="mt-4">
+  <%= render "shared/card" do %>
+    <div class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Recent Incidents (1h)</div>
+    <ol id="panel-recent-incidents" class="space-y-1 text-sm"></ol>
+  <% end %>
+</div>
 
-<section class="netmon-panel">
-  <h3>Recent Incidents (1h)</h3>
-  <ol id="panel-recent-incidents"></ol>
-</section>
-
-<section class="netmon-top-panels">
-  <div class="netmon-panel">
-    <h3>Top Remote Hosts (10m)</h3>
-    <select class="panel-window" data-panel="top-remote" data-default="10m">
-      <option value="10m" selected>10m</option>
-      <option value="1h">1h</option>
-      <option value="24h">24h</option>
-      <option value="1w">1w</option>
-    </select>
-    <ol id="panel-top-remote-hosts">
+<section class="grid grid-cols-1 lg:grid-cols-4 gap-3 mt-4 mb-4">
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <h3 class="text-xs uppercase tracking-wider text-zinc-500">Top Remote Hosts (10m)</h3>
+      <select class="panel-window <%= input_class %> text-xs" data-panel="top-remote" data-default="10m">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <ol id="panel-top-remote-hosts" class="space-y-1 text-sm">
       <% @top_remote_hosts.each do |row| %>
         <li><a href="/remote_hosts/<%= row[:ip] %>"><%= row[:ip] %></a> (<%= row[:total_bytes].to_i %> bytes)</li>
       <% end %>
     </ol>
-  </div>
-  <div class="netmon-panel">
-    <h3>Newest Remote Hosts (10m) <a id="panel-newest-viewall" href="/remote_hosts?window=10m">View All</a></h3>
-    <select class="panel-window" data-panel="newest" data-default="10m">
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <h3 class="text-xs uppercase tracking-wider text-zinc-500">Newest Remote Hosts (10m)</h3>
+      <a id="panel-newest-viewall" class="text-xs text-cyan-200 hover:text-cyan-100" href="/remote_hosts?window=10m">View All</a>
+    </div>
+    <select class="panel-window <%= input_class %> text-xs mb-2" data-panel="newest" data-default="10m">
       <option value="10m" selected>10m</option>
       <option value="1h">1h</option>
       <option value="24h">24h</option>
       <option value="1w">1w</option>
     </select>
-    <ol id="panel-newest-remote-hosts">
+    <ol id="panel-newest-remote-hosts" class="space-y-1 text-sm">
       <% @newest_remote_hosts.each do |host| %>
         <li><a href="/remote_hosts/<%= host[:ip] %>"><%= host[:ip] %><%= host[:port] ? ":#{host[:port]}" : "" %></a></li>
       <% end %>
     </ol>
-  </div>
-  <div class="netmon-panel">
-    <h3>Rare Ports (24h)</h3>
-    <select class="panel-window" data-panel="rare" data-default="24h">
-      <option value="10m">10m</option>
-      <option value="1h">1h</option>
-      <option value="24h" selected>24h</option>
-      <option value="1w">1w</option>
-    </select>
-    <ol id="panel-rare-ports">
-      <li><button type="button" class="rare-port-item" data-port="all">View All</button></li>
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <h3 class="text-xs uppercase tracking-wider text-zinc-500">Rare Ports (24h)</h3>
+      <select class="panel-window <%= input_class %> text-xs" data-panel="rare" data-default="24h">
+        <option value="10m">10m</option>
+        <option value="1h">1h</option>
+        <option value="24h" selected>24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <ol id="panel-rare-ports" class="space-y-1 text-sm">
+      <li><button type="button" class="rare-port-item text-cyan-200 hover:text-cyan-100 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded" data-port="all">View All</button></li>
       <% @rare_ports.each do |row| %>
         <% ip_snippet = row[:ips].to_a.first(2).join(", ") %>
         <% suffix = ip_snippet.present? ? " — #{ip_snippet}" : "" %>
-        <li><button type="button" class="rare-port-item" data-port="<%= row[:port] %>"><%= row[:port] %> (<%= row[:count] %>)<%= suffix %></button></li>
+        <li><button type="button" class="rare-port-item text-cyan-200 hover:text-cyan-100 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded" data-port="<%= row[:port] %>"><%= row[:port] %> (<%= row[:count] %>)<%= suffix %></button></li>
       <% end %>
     </ol>
-  </div>
-  <div class="netmon-panel">
-    <h3>Devices by Egress (10m)</h3>
-    <select class="panel-window" data-panel="devices-egress" data-default="10m">
-      <option value="10m" selected>10m</option>
-      <option value="1h">1h</option>
-      <option value="24h">24h</option>
-      <option value="1w">1w</option>
-    </select>
-    <ol id="panel-top-devices-egress">
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <h3 class="text-xs uppercase tracking-wider text-zinc-500">Devices by Egress (10m)</h3>
+      <select class="panel-window <%= input_class %> text-xs" data-panel="devices-egress" data-default="10m">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <ol id="panel-top-devices-egress" class="space-y-1 text-sm">
       <% @top_devices_egress.each do |row| %>
         <li><%= row[:label] %> (<%= row[:total_uplink].to_i %> bytes)</li>
       <% end %>
     </ol>
-  </div>
+  <% end %>
 </section>
 
-<table class="netmon-table">
-  <thead>
+<%= render "shared/table" do %>
+  <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th>Proto</th>
-      <th>Device</th>
-      <th>Source</th>
-      <th>Destination</th>
-      <th>State</th>
-      <th>Flags</th>
-      <th>Up (bytes)</th>
-      <th>Down (bytes)</th>
-      <th>Total (bytes)</th>
-      <th>Score</th>
-      <th>Reasons</th>
-      <th>Allow</th>
-      <th>Age</th>
-      <th>rDNS</th>
-      <th>WHOIS</th>
-      <th>Seen</th>
+      <th class="px-2 py-1.5 text-left">Proto</th>
+      <th class="px-2 py-1.5 text-left">Device</th>
+      <th class="px-2 py-1.5 text-left">Source</th>
+      <th class="px-2 py-1.5 text-left">Destination</th>
+      <th class="px-2 py-1.5 text-left">State</th>
+      <th class="px-2 py-1.5 text-left">Flags</th>
+      <th class="px-2 py-1.5 text-right">Up</th>
+      <th class="px-2 py-1.5 text-right">Down</th>
+      <th class="px-2 py-1.5 text-right">Total</th>
+      <th class="px-2 py-1.5 text-left">Score</th>
+      <th class="px-2 py-1.5 text-left">Reasons</th>
+      <th class="px-2 py-1.5 text-left">Allow</th>
+      <th class="px-2 py-1.5 text-left">Age</th>
+      <th class="px-2 py-1.5 text-left">rDNS</th>
+      <th class="px-2 py-1.5 text-left">WHOIS</th>
+      <th class="px-2 py-1.5 text-left">Seen</th>
     </tr>
   </thead>
   <tbody id="connections-body">
@@ -425,45 +266,50 @@
            []
          end %>
       <% reason_codes = reasons.map { |reason| reason["code"] }.compact %>
-      <tr>
-        <td><%= conn.proto %></td>
-        <td>
+      <% score = conn.anomaly_score.to_i %>
+      <% score_badge = score >= 70 ? "alert" : (score >= 50 ? "warn" : (score >= 20 ? "info" : "neutral")) %>
+      <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
+        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.proto %></td>
+        <td class="px-2 py-1.5">
           <% if device %>
-            <input class="device-name-input" data-device-id="<%= device.id %>" value="<%= device.name %>" size="14">
+            <input class="device-name-input <%= input_class %> text-xs" data-device-id="<%= device.id %>" value="<%= device.name %>" size="12">
           <% else %>
             <%= device_label %>
           <% end %>
         </td>
-        <td><a href="/remote_hosts/<%= conn.src_ip %>"><%= conn.src_ip %></a>:<%= conn.src_port %></td>
-        <td><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %></td>
-        <td><%= conn.state %></td>
-        <td><%= conn.flags %></td>
-        <td><%= conn.uplink_bytes %></td>
-        <td><%= conn.downlink_bytes %></td>
-        <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
-        <td>
-          <% score_class = conn.anomaly_score.to_i >= 50 ? "high" : (conn.anomaly_score.to_i >= 20 ? "med" : "low") %>
-          <span class="netmon-score <%= score_class %>"><%= conn.anomaly_score.to_i %></span>
-        </td>
-        <td><%= reason_codes.join(",") %></td>
-        <td>
+        <td class="px-2 py-1.5"><a href="/remote_hosts/<%= conn.src_ip %>"><%= conn.src_ip %></a>:<%= conn.src_port %></td>
+        <td class="px-2 py-1.5"><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %></td>
+        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.state %></td>
+        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.flags %></td>
+        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes %></td>
+        <td class="px-2 py-1.5 text-right"><%= conn.downlink_bytes %></td>
+        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes + conn.downlink_bytes %></td>
+        <td class="px-2 py-1.5"><%= render "shared/badge", text: score, variant: score_badge %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= reason_codes.join(",") %>"><%= reason_codes.join(",") %></td>
+        <td class="px-2 py-1.5">
           <% if device && conn.dst_port %>
             <%= form_with url: "/allowlist_rules", method: :post, local: true do |form| %>
               <input type="hidden" name="allowlist_rule[kind]" value="device_port">
               <input type="hidden" name="allowlist_rule[value]" value="<%= conn.dst_port %>">
               <input type="hidden" name="allowlist_rule[device_id]" value="<%= device.id %>">
-              <button type="submit">Allow port</button>
+              <button type="submit" class="<%= button_secondary %>">Allow port</button>
             <% end %>
           <% end %>
         </td>
-        <td><%= seen_age %></td>
-        <td><%= host&.rdns_name || "--" %></td>
-        <td title="<%= host&.try(:whois_raw_line).to_s %>"><%= host&.whois_name || "--" %></td>
-        <td><span class="netmon-badge <%= seen_label.downcase %>"><%= seen_label %></span></td>
+        <td class="px-2 py-1.5"><%= seen_age %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host&.rdns_name.to_s %>"><%= host&.rdns_name || "--" %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host&.try(:whois_raw_line).to_s %>"><%= host&.whois_name || "--" %></td>
+        <td class="px-2 py-1.5">
+          <% if seen_label == "NEW" %>
+            <%= render "shared/badge", text: "NEW", variant: "info" %>
+          <% else %>
+            <%= render "shared/badge", text: "SEEN", variant: "neutral" %>
+          <% end %>
+        </td>
       </tr>
     <% end %>
   </tbody>
-</table>
+<% end %>
 
 <script>
   (function() {
@@ -478,41 +324,50 @@
         ? `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>:${conn.dst_port}`
         : `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>`;
       const seenLabel = conn.is_new ? "NEW" : "SEEN";
-      const seenClass = conn.is_new ? "new" : "seen";
       const score = Number(conn.anomaly_score || 0);
-      const scoreClass = score >= 50 ? "high" : (score >= 20 ? "med" : "low");
+      const scoreVariant = score >= 70 ? "alert" : (score >= 50 ? "warn" : (score >= 20 ? "info" : "neutral"));
+      const scoreClass = scoreVariant === "alert"
+        ? "bg-red-950/30 text-red-200 border border-red-800/40"
+        : (scoreVariant === "warn"
+          ? "bg-amber-950/30 text-amber-200 border border-amber-800/40"
+          : (scoreVariant === "info"
+            ? "bg-cyan-950/30 text-cyan-200 border border-cyan-800/40"
+            : "bg-zinc-900/60 text-zinc-200 border border-zinc-800"));
       const reasons = (conn.anomaly_reasons || []).join(",");
       const allowButton = (conn.device_id && conn.dst_port)
-        ? `<button type="button" class="allow-port-btn" data-device-id="${conn.device_id}" data-port="${conn.dst_port}">Allow port</button>`
+        ? `<button type="button" class="allow-port-btn bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25 rounded-lg px-2 py-0.5 text-xs" data-device-id="${conn.device_id}" data-port="${conn.dst_port}">Allow port</button>`
         : "";
       const deviceCell = conn.device_id
-        ? `<input class="device-name-input" data-device-id="${conn.device_id}" value="${conn.device_name || ""}" size="14">`
+        ? `<input class="device-name-input bg-black border border-zinc-800 rounded-lg px-2 py-1 text-zinc-200 placeholder:text-zinc-600 text-xs" data-device-id="${conn.device_id}" value="${conn.device_name || ""}" size="12">`
         : `<span>${conn.device_name || conn.src_ip}</span>`;
+      const seenBadge = seenLabel === "NEW"
+        ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-950/30 text-cyan-200 border border-cyan-800/40">NEW</span>`
+        : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-900/60 text-zinc-200 border border-zinc-800">SEEN</span>`;
       return `
-        <tr>
-          <td>${conn.proto}</td>
-          <td>${deviceCell}</td>
-          <td>${src}</td>
-          <td>${dst}</td>
-          <td>${conn.state || ""}</td>
-          <td>${conn.flags || ""}</td>
-          <td>${conn.uplink_bytes}</td>
-          <td>${conn.downlink_bytes}</td>
-          <td>${conn.total_bytes}</td>
-          <td><span class="netmon-score ${scoreClass}">${score}</span></td>
-          <td>${reasons}</td>
-          <td>${allowButton}</td>
-          <td>${conn.seen_age || "unknown"}</td>
-          <td>${conn.rdns_name || "--"}</td>
-          <td title="${conn.whois_raw_line || ""}">${conn.whois_name || "--"}</td>
-          <td><span class="netmon-badge ${seenClass}">${seenLabel}</span></td>
+        <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
+          <td class="px-2 py-1.5 font-mono text-xs">${conn.proto}</td>
+          <td class="px-2 py-1.5">${deviceCell}</td>
+          <td class="px-2 py-1.5">${src}</td>
+          <td class="px-2 py-1.5">${dst}</td>
+          <td class="px-2 py-1.5 font-mono text-xs">${conn.state || ""}</td>
+          <td class="px-2 py-1.5 font-mono text-xs">${conn.flags || ""}</td>
+          <td class="px-2 py-1.5 text-right">${conn.uplink_bytes}</td>
+          <td class="px-2 py-1.5 text-right">${conn.downlink_bytes}</td>
+          <td class="px-2 py-1.5 text-right">${conn.total_bytes}</td>
+          <td class="px-2 py-1.5"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${scoreClass}">${score}</span></td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" title="${reasons}">${reasons}</td>
+          <td class="px-2 py-1.5">${allowButton}</td>
+          <td class="px-2 py-1.5">${conn.seen_age || "unknown"}</td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" title="${conn.rdns_name || ""}">${conn.rdns_name || "--"}</td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" title="${conn.whois_raw_line || ""}">${conn.whois_name || "--"}</td>
+          <td class="px-2 py-1.5">${seenBadge}</td>
         </tr>
       `;
     }
 
     function buildConnectionsQuery() {
       const params = new URLSearchParams();
-      const form = document.querySelector(".netmon-filters");
+      const form = document.getElementById("connections-filter");
       if (!form) return "";
       const src = form.querySelector("input[name='src_ip']")?.value.trim();
       const dst = form.querySelector("input[name='dst_ip']")?.value.trim();
@@ -624,12 +479,12 @@
     let lastAnalytics = null;
 
     function renderHostList(hosts) {
-      if (!hosts || hosts.length === 0) return "<div class=\"item\">None</div>";
+      if (!hosts || hosts.length === 0) return "<div class=\"text-sm text-zinc-200\">None</div>";
       return hosts.map((host) => {
         const whois = host.whois || "--";
         const rdns = host.rdns || "--";
         const title = host.whois_raw || "";
-        return `<div class="item" title="${title}">${host.ip} — rDNS: ${rdns} — WHOIS: ${whois}</div>`;
+        return `<div class="text-sm text-zinc-200 mb-1" title="${title}">${host.ip} — rDNS: ${rdns} — WHOIS: ${whois}</div>`;
       }).join("");
     }
 
@@ -637,14 +492,14 @@
       if (!detailEl) return;
       detailTitleEl.textContent = title;
       detailBodyEl.innerHTML = html;
-      detailEl.style.display = "block";
+      detailEl.classList.remove("hidden");
     }
 
     const graphs = {
-      newDst: { canvas: document.getElementById("graph-new-dst"), color: "#2a7" },
-      uniqueDports: { canvas: document.getElementById("graph-unique-dports"), color: "#b55" },
-      uplinkBytes: { canvas: document.getElementById("graph-uplink-bytes"), color: "#36c" },
-      newAsns: { canvas: document.getElementById("graph-new-asns"), color: "#884" }
+      newDst: { canvas: document.getElementById("graph-new-dst"), color: "#22d3ee" },
+      uniqueDports: { canvas: document.getElementById("graph-unique-dports"), color: "#38bdf8" },
+      uplinkBytes: { canvas: document.getElementById("graph-uplink-bytes"), color: "#34d399" },
+      newAsns: { canvas: document.getElementById("graph-new-asns"), color: "#5eead4" }
     };
 
     const graphSeriesState = {};
@@ -657,7 +512,7 @@
       ctx.clearRect(0, 0, width, height);
 
       if (!points || points.length === 0) {
-        ctx.fillStyle = "#666";
+        ctx.fillStyle = "#71717a";
         ctx.font = "12px sans-serif";
         ctx.fillText("No data yet", 10, 20);
         return;
@@ -674,7 +529,7 @@
       const plotWidth = width - leftPad - rightPad;
       const plotHeight = height - topPad - bottomPad;
 
-      ctx.strokeStyle = "#e0e0e0";
+      ctx.strokeStyle = "#3f3f46";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(leftPad, topPad);
@@ -682,7 +537,7 @@
       ctx.lineTo(leftPad + plotWidth, topPad + plotHeight);
       ctx.stroke();
 
-      ctx.fillStyle = "#555";
+      ctx.fillStyle = "#71717a";
       ctx.font = "10px sans-serif";
       ctx.fillText(String(max), 2, topPad + 8);
       ctx.fillText(String(min), 2, topPad + plotHeight);
@@ -708,12 +563,12 @@
         const age = payload.collector?.age_seconds;
         if (age == null) {
           collectorEl.textContent = "Unknown";
-          collectorEl.className = "value";
+          collectorEl.className = "text-zinc-200";
         } else {
-          const statusClass = age <= 10 ? "status-ok" : "status-stale";
+          const statusClass = age <= 10 ? "text-emerald-300" : "text-red-300";
           const label = age <= 10 ? "OK" : "Stale";
           collectorEl.textContent = `${label} (${age}s ago)`;
-          collectorEl.className = `value ${statusClass}`;
+          collectorEl.className = statusClass;
         }
       }
       if (memEl && payload.meminfo) {
@@ -758,9 +613,9 @@
       uniqueDportsEl.addEventListener("click", () => {
         const ports = lastAnalytics?.unique_dports_hosts || [];
         const html = ports.map((row) => {
-          return `<div class="item"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
+          return `<div class="text-sm text-cyan-200 mb-1"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
         }).join("");
-        showDetail("Unique DPorts (10m)", html || "<div class=\"item\">None</div>");
+        showDetail("Unique DPorts (10m)", html || "<div class=\"text-sm text-zinc-200\">None</div>");
       });
     }
 
@@ -768,9 +623,9 @@
       newAsnsEl.addEventListener("click", () => {
         const asns = lastAnalytics?.new_asns_hosts || [];
         const html = asns.map((row) => {
-          return `<div class="item"><strong>${row.asn}</strong></div>${renderHostList(row.hosts)}`;
+          return `<div class="text-sm text-cyan-200 mb-1"><strong>${row.asn}</strong></div>${renderHostList(row.hosts)}`;
         }).join("");
-        showDetail("New ASNs (1h)", html || "<div class=\"item\">None</div>");
+        showDetail("New ASNs (1h)", html || "<div class=\"text-sm text-zinc-200\">None</div>");
       });
     }
 
@@ -782,14 +637,14 @@
         const ports = lastAnalytics?.rare_ports_hosts || [];
         if (port === "all") {
           const html = ports.map((row) => {
-            return `<div class="item"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
+            return `<div class="text-sm text-cyan-200 mb-1"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
           }).join("");
-          showDetail("Rare Ports (24h)", html || "<div class=\"item\">None</div>");
+          showDetail("Rare Ports (24h)", html || "<div class=\"text-sm text-zinc-200\">None</div>");
           return;
         }
         const row = ports.find((item) => String(item.port) === port);
         if (!row) return;
-        const html = `<div class="item"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
+        const html = `<div class="text-sm text-cyan-200 mb-1"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
         showDetail(`Rare Port ${row.port} (24h)`, html);
       });
     }
@@ -877,7 +732,7 @@
         const max = Math.max(...points);
         const last = points[points.length - 1];
         const title = `${seriesKey.replace(/_/g, " ")} (${state.window || "10m"})`;
-        const html = `<div class="item">Min: ${min}</div><div class="item">Max: ${max}</div><div class="item">Last: ${last}</div><div class="item">Points: ${points.length}</div>`;
+        const html = `<div class="text-sm text-zinc-200 mb-1">Min: ${min}</div><div class="text-sm text-zinc-200 mb-1">Max: ${max}</div><div class="text-sm text-zinc-200 mb-1">Last: ${last}</div><div class="text-sm text-zinc-200">Points: ${points.length}</div>`;
         showDetail(title, html);
       });
     });
@@ -932,9 +787,9 @@
             const items = rows.map((row) => {
               const ipSnippet = (row.ips || []).slice(0, 2).join(", ");
               const suffix = ipSnippet ? ` — ${ipSnippet}` : "";
-              return `<button type="button" class="rare-port-item" data-port="${row.port}">${row.port} (${row.count})${suffix}</button>`;
+              return `<button type="button" class="rare-port-item text-cyan-200 hover:text-cyan-100 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded" data-port="${row.port}">${row.port} (${row.count})${suffix}</button>`;
             });
-            const allItem = `<button type="button" class="rare-port-item" data-port="all">View All</button>`;
+            const allItem = `<button type="button" class="rare-port-item text-cyan-200 hover:text-cyan-100 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded" data-port="all">View All</button>`;
             rarePortsEl.innerHTML = [allItem, ...items].map((item) => `<li>${item}</li>`).join("");
           }
 

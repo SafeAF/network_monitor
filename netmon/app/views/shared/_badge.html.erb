@@ -1,0 +1,11 @@
+<% variant = (local_assigns[:variant] || "neutral").to_s %>
+<% classes = case variant
+            when "info" then "bg-cyan-950/30 text-cyan-200 border border-cyan-800/40"
+            when "ok" then "bg-emerald-950/30 text-emerald-200 border border-emerald-800/40"
+            when "warn" then "bg-amber-950/30 text-amber-200 border border-amber-800/40"
+            when "alert" then "bg-red-950/30 text-red-200 border border-red-800/40"
+            else "bg-zinc-900/60 text-zinc-200 border border-zinc-800"
+            end %>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold <%= classes %>">
+  <%= text %>
+</span>

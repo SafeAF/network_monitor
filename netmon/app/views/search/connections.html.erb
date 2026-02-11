@@ -1,62 +1,70 @@
-<h1>Search Connections</h1>
+<% input_class = "bg-black border border-zinc-800 rounded-lg px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black" %>
+<% button_primary = "bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30 rounded-lg px-3 py-1 text-sm" %>
+<% button_neutral = "bg-zinc-900/50 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm" %>
 
-<form class="netmon-filters" method="get">
-  <label>Device <input name="device" value="<%= @filters[:device].to_s %>"></label>
-  <label>Src IP <input name="src_ip" value="<%= @filters[:src_ip].to_s %>"></label>
-  <label>Dst IP <input name="dst_ip" value="<%= @filters[:dst_ip].to_s %>"></label>
-  <label>Dst Port <input name="dst_port" value="<%= @filters[:dst_port].to_s %>"></label>
-  <label>Proto <input name="proto" value="<%= @filters[:proto].to_s %>"></label>
-  <label>
-    Hide TIME_WAIT
-    <select name="hide_time_wait">
-      <option value="" <%= "selected" if @filters[:hide_time_wait].to_s.empty? %>>All</option>
-      <option value="true" <%= "selected" if @filters[:hide_time_wait] == "true" %>>Yes</option>
-    </select>
-  </label>
-  <label>
-    Min Score
-    <select name="min_score">
-      <option value="" <%= "selected" if @filters[:min_score].to_s.empty? %>>All</option>
-      <option value="0" <%= "selected" if @filters[:min_score] == "0" %>>0</option>
-      <option value="20" <%= "selected" if @filters[:min_score] == "20" %>>20</option>
-      <option value="50" <%= "selected" if @filters[:min_score] == "50" %>>50</option>
-    </select>
-  </label>
-  <label>Reason Contains <input name="reason_contains" value="<%= @filters[:reason_contains].to_s %>"></label>
-  <label>
-    Only New Dst
-    <select name="only_new_dst">
-      <option value="" <%= "selected" if @filters[:only_new_dst].to_s.empty? %>>All</option>
-      <option value="true" <%= "selected" if @filters[:only_new_dst] == "true" %>>Yes</option>
-    </select>
-  </label>
-  <label>
-    Sort
-    <select name="sort">
-      <option value="score_desc" <%= "selected" if @filters[:sort].to_s == "score_desc" %>>Score</option>
-      <option value="total_bytes_desc" <%= "selected" if @filters[:sort].to_s == "total_bytes_desc" %>>Total Bytes</option>
-      <option value="last_seen_desc" <%= "selected" if @filters[:sort].to_s == "last_seen_desc" %>>Last Seen</option>
-    </select>
-  </label>
-  <button type="submit">Apply</button>
-  <a href="/search/connections">Clear</a>
+<h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Search Connections</h1>
+
+<form method="get" class="mb-4">
+  <%= render "shared/filter_bar" do %>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Device <input class="<%= input_class %>" name="device" value="<%= @filters[:device].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Src IP <input class="<%= input_class %>" name="src_ip" value="<%= @filters[:src_ip].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Dst IP <input class="<%= input_class %>" name="dst_ip" value="<%= @filters[:dst_ip].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Dst Port <input class="<%= input_class %>" name="dst_port" value="<%= @filters[:dst_port].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Proto <input class="<%= input_class %>" name="proto" value="<%= @filters[:proto].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Hide TIME_WAIT
+      <select class="<%= input_class %>" name="hide_time_wait">
+        <option value="" <%= "selected" if @filters[:hide_time_wait].to_s.empty? %>>All</option>
+        <option value="true" <%= "selected" if @filters[:hide_time_wait] == "true" %>>Yes</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Min Score
+      <select class="<%= input_class %>" name="min_score">
+        <option value="" <%= "selected" if @filters[:min_score].to_s.empty? %>>All</option>
+        <option value="0" <%= "selected" if @filters[:min_score] == "0" %>>0</option>
+        <option value="20" <%= "selected" if @filters[:min_score] == "20" %>>20</option>
+        <option value="50" <%= "selected" if @filters[:min_score] == "50" %>>50</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Reason Contains <input class="<%= input_class %>" name="reason_contains" value="<%= @filters[:reason_contains].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Only New Dst
+      <select class="<%= input_class %>" name="only_new_dst">
+        <option value="" <%= "selected" if @filters[:only_new_dst].to_s.empty? %>>All</option>
+        <option value="true" <%= "selected" if @filters[:only_new_dst] == "true" %>>Yes</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Sort
+      <select class="<%= input_class %>" name="sort">
+        <option value="score_desc" <%= "selected" if @filters[:sort].to_s == "score_desc" %>>Score</option>
+        <option value="total_bytes_desc" <%= "selected" if @filters[:sort].to_s == "total_bytes_desc" %>>Total Bytes</option>
+        <option value="last_seen_desc" <%= "selected" if @filters[:sort].to_s == "last_seen_desc" %>>Last Seen</option>
+      </select>
+    </label>
+    <div class="flex flex-wrap items-center gap-2 ml-auto">
+      <button type="submit" class="<%= button_primary %>">Apply</button>
+      <a href="/search/connections" class="<%= button_neutral %>">Clear</a>
+    </div>
+  <% end %>
 </form>
 
 <%= render "saved_queries" %>
 
-<table class="netmon-table">
-  <thead>
+<%= render "shared/table" do %>
+  <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th>Device</th>
-      <th>Src</th>
-      <th>Dst</th>
-      <th>Port</th>
-      <th>Proto</th>
-      <th>State</th>
-      <th>Score</th>
-      <th>Reasons</th>
-      <th>Total Bytes</th>
-      <th>Last Seen</th>
+      <th class="px-2 py-1.5 text-left">Device</th>
+      <th class="px-2 py-1.5 text-left">Src</th>
+      <th class="px-2 py-1.5 text-left">Dst</th>
+      <th class="px-2 py-1.5 text-left">Port</th>
+      <th class="px-2 py-1.5 text-left">Proto</th>
+      <th class="px-2 py-1.5 text-left">State</th>
+      <th class="px-2 py-1.5 text-left">Score</th>
+      <th class="px-2 py-1.5 text-left">Reasons</th>
+      <th class="px-2 py-1.5 text-right">Total Bytes</th>
+      <th class="px-2 py-1.5 text-left">Last Seen</th>
     </tr>
   </thead>
   <tbody>
@@ -67,27 +75,29 @@
            []
          end %>
       <% reason_codes = reasons.map { |reason| reason["code"] }.compact %>
-      <tr>
-        <td><%= conn.src_ip %></td>
-        <td><%= conn.src_ip %></td>
-        <td><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a></td>
-        <td><%= conn.dst_port %></td>
-        <td><%= conn.proto %></td>
-        <td><%= conn.state %></td>
-        <td><%= conn.anomaly_score.to_i %></td>
-        <td><%= reason_codes.join(",") %></td>
-        <td><%= conn.uplink_bytes + conn.downlink_bytes %></td>
-        <td><%= conn.last_seen_at %></td>
+      <% score = conn.anomaly_score.to_i %>
+      <% score_badge = score >= 70 ? "alert" : (score >= 50 ? "warn" : (score >= 20 ? "info" : "neutral")) %>
+      <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
+        <td class="px-2 py-1.5"><%= conn.src_ip %></td>
+        <td class="px-2 py-1.5"><%= conn.src_ip %></td>
+        <td class="px-2 py-1.5"><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a></td>
+        <td class="px-2 py-1.5"><%= conn.dst_port %></td>
+        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.proto %></td>
+        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.state %></td>
+        <td class="px-2 py-1.5"><%= render "shared/badge", text: score, variant: score_badge %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= reason_codes.join(",") %>"><%= reason_codes.join(",") %></td>
+        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes + conn.downlink_bytes %></td>
+        <td class="px-2 py-1.5"><%= conn.last_seen_at %></td>
       </tr>
     <% end %>
   </tbody>
-</table>
+<% end %>
 
-<div class="netmon-filters">
+<div class="flex items-center gap-3 mt-3">
   <% if @page > 1 %>
-    <a href="/search/connections?<%= request.query_parameters.merge(page: @page - 1).to_query %>">Prev</a>
+    <a class="<%= button_neutral %>" href="/search/connections?<%= request.query_parameters.merge(page: @page - 1).to_query %>">Prev</a>
   <% end %>
   <% if @page < @total_pages %>
-    <a href="/search/connections?<%= request.query_parameters.merge(page: @page + 1).to_query %>">Next</a>
+    <a class="<%= button_neutral %>" href="/search/connections?<%= request.query_parameters.merge(page: @page + 1).to_query %>">Next</a>
   <% end %>
 </div>

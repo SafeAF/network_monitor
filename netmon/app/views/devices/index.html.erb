@@ -1,32 +1,35 @@
-<h1>Devices</h1>
+<% input_class = "bg-black border border-zinc-800 rounded-lg px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black" %>
+<% button_primary = "bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30 rounded-lg px-3 py-1 text-sm" %>
 
-<table class="netmon-table">
-  <thead>
+<h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Devices</h1>
+
+<%= render "shared/table" do %>
+  <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th>IP</th>
-      <th>Name</th>
-      <th>Notes</th>
-      <th>First Seen</th>
-      <th>Last Seen</th>
-      <th>Save</th>
+      <th class="px-2 py-1.5 text-left">IP</th>
+      <th class="px-2 py-1.5 text-left">Name</th>
+      <th class="px-2 py-1.5 text-left">Notes</th>
+      <th class="px-2 py-1.5 text-left">First Seen</th>
+      <th class="px-2 py-1.5 text-left">Last Seen</th>
+      <th class="px-2 py-1.5 text-left">Save</th>
     </tr>
   </thead>
   <tbody>
     <% @devices.each do |device| %>
-      <tr>
-        <td><%= device.ip %></td>
-        <td>
+      <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
+        <td class="px-2 py-1.5"><%= device.ip %></td>
+        <td class="px-2 py-1.5">
           <%= form_with model: device, url: device_path(device), method: :patch, local: true do |form| %>
-            <%= form.text_field :name, value: device.name %>
+            <%= form.text_field :name, value: device.name, class: input_class %>
         </td>
-        <td>
-            <%= form.text_field :notes, value: device.notes %>
+        <td class="px-2 py-1.5">
+            <%= form.text_field :notes, value: device.notes, class: input_class %>
         </td>
-        <td><%= device.first_seen_at %></td>
-        <td><%= device.last_seen_at %></td>
-        <td><%= form.submit "Save" %></td>
+        <td class="px-2 py-1.5"><%= device.first_seen_at %></td>
+        <td class="px-2 py-1.5"><%= device.last_seen_at %></td>
+        <td class="px-2 py-1.5"><%= form.submit "Save", class: button_primary %></td>
           <% end %>
       </tr>
     <% end %>
   </tbody>
-</table>
+<% end %>

@@ -1,89 +1,97 @@
-<h1>Search Hosts</h1>
+<% input_class = "bg-black border border-zinc-800 rounded-lg px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black" %>
+<% button_primary = "bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30 rounded-lg px-3 py-1 text-sm" %>
+<% button_neutral = "bg-zinc-900/50 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm" %>
 
-<form class="netmon-filters" method="get">
-  <label>IP <input name="ip" value="<%= @filters[:ip].to_s %>"></label>
-  <label>WHOIS Name <input name="whois_name" value="<%= @filters[:whois_name].to_s %>"></label>
-  <label>WHOIS ASN <input name="whois_asn" value="<%= @filters[:whois_asn].to_s %>"></label>
-  <label>rDNS <input name="rdns" value="<%= @filters[:rdns].to_s %>"></label>
-  <label>
-    rDNS Missing
-    <select name="rdns_missing">
-      <option value="" <%= "selected" if @filters[:rdns_missing].to_s.empty? %>>All</option>
-      <option value="true" <%= "selected" if @filters[:rdns_missing] == "true" %>>Yes</option>
-    </select>
-  </label>
-  <label>
-    First Seen
-    <select name="first_seen_within">
-      <option value="">Any</option>
-      <option value="1h" <%= "selected" if @filters[:first_seen_within] == "1h" %>>1h</option>
-      <option value="24h" <%= "selected" if @filters[:first_seen_within] == "24h" %>>24h</option>
-      <option value="7d" <%= "selected" if @filters[:first_seen_within] == "7d" %>>7d</option>
-      <option value="30d" <%= "selected" if @filters[:first_seen_within] == "30d" %>>30d</option>
-    </select>
-  </label>
-  <label>
-    Last Seen
-    <select name="last_seen_within">
-      <option value="">Any</option>
-      <option value="1h" <%= "selected" if @filters[:last_seen_within] == "1h" %>>1h</option>
-      <option value="24h" <%= "selected" if @filters[:last_seen_within] == "24h" %>>24h</option>
-      <option value="7d" <%= "selected" if @filters[:last_seen_within] == "7d" %>>7d</option>
-      <option value="30d" <%= "selected" if @filters[:last_seen_within] == "30d" %>>30d</option>
-    </select>
-  </label>
-  <label>Seen Port <input name="seen_port" value="<%= @filters[:seen_port].to_s %>"></label>
-  <label>Min Total Bytes <input name="min_total_bytes_ever" value="<%= @filters[:min_total_bytes_ever].to_s %>"></label>
-  <label>Min Max Score <input name="min_max_score_ever" value="<%= @filters[:min_max_score_ever].to_s %>"></label>
-  <label>
-    Sort
-    <select name="sort">
-      <option value="last_seen_desc" <%= "selected" if @filters[:sort].to_s == "last_seen_desc" %>>Last Seen</option>
-      <option value="first_seen_desc" <%= "selected" if @filters[:sort].to_s == "first_seen_desc" %>>First Seen</option>
-      <option value="max_total_bytes_desc" <%= "selected" if @filters[:sort].to_s == "max_total_bytes_desc" %>>Max Total Bytes</option>
-      <option value="max_score_desc" <%= "selected" if @filters[:sort].to_s == "max_score_desc" %>>Max Score</option>
-    </select>
-  </label>
-  <button type="submit">Apply</button>
-  <a href="/search/hosts">Clear</a>
+<h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Search Hosts</h1>
+
+<form method="get" class="mb-4">
+  <%= render "shared/filter_bar" do %>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">IP <input class="<%= input_class %>" name="ip" value="<%= @filters[:ip].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">WHOIS Name <input class="<%= input_class %>" name="whois_name" value="<%= @filters[:whois_name].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">WHOIS ASN <input class="<%= input_class %>" name="whois_asn" value="<%= @filters[:whois_asn].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">rDNS <input class="<%= input_class %>" name="rdns" value="<%= @filters[:rdns].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      rDNS Missing
+      <select class="<%= input_class %>" name="rdns_missing">
+        <option value="" <%= "selected" if @filters[:rdns_missing].to_s.empty? %>>All</option>
+        <option value="true" <%= "selected" if @filters[:rdns_missing] == "true" %>>Yes</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      First Seen
+      <select class="<%= input_class %>" name="first_seen_within">
+        <option value="">Any</option>
+        <option value="1h" <%= "selected" if @filters[:first_seen_within] == "1h" %>>1h</option>
+        <option value="24h" <%= "selected" if @filters[:first_seen_within] == "24h" %>>24h</option>
+        <option value="7d" <%= "selected" if @filters[:first_seen_within] == "7d" %>>7d</option>
+        <option value="30d" <%= "selected" if @filters[:first_seen_within] == "30d" %>>30d</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Last Seen
+      <select class="<%= input_class %>" name="last_seen_within">
+        <option value="">Any</option>
+        <option value="1h" <%= "selected" if @filters[:last_seen_within] == "1h" %>>1h</option>
+        <option value="24h" <%= "selected" if @filters[:last_seen_within] == "24h" %>>24h</option>
+        <option value="7d" <%= "selected" if @filters[:last_seen_within] == "7d" %>>7d</option>
+        <option value="30d" <%= "selected" if @filters[:last_seen_within] == "30d" %>>30d</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Seen Port <input class="<%= input_class %>" name="seen_port" value="<%= @filters[:seen_port].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Total Bytes <input class="<%= input_class %>" name="min_total_bytes_ever" value="<%= @filters[:min_total_bytes_ever].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Max Score <input class="<%= input_class %>" name="min_max_score_ever" value="<%= @filters[:min_max_score_ever].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Sort
+      <select class="<%= input_class %>" name="sort">
+        <option value="last_seen_desc" <%= "selected" if @filters[:sort].to_s == "last_seen_desc" %>>Last Seen</option>
+        <option value="first_seen_desc" <%= "selected" if @filters[:sort].to_s == "first_seen_desc" %>>First Seen</option>
+        <option value="max_total_bytes_desc" <%= "selected" if @filters[:sort].to_s == "max_total_bytes_desc" %>>Max Total Bytes</option>
+        <option value="max_score_desc" <%= "selected" if @filters[:sort].to_s == "max_score_desc" %>>Max Score</option>
+      </select>
+    </label>
+    <div class="flex flex-wrap items-center gap-2 ml-auto">
+      <button type="submit" class="<%= button_primary %>">Apply</button>
+      <a href="/search/hosts" class="<%= button_neutral %>">Clear</a>
+    </div>
+  <% end %>
 </form>
 
 <%= render "saved_queries" %>
 
-<table class="netmon-table">
-  <thead>
+<%= render "shared/table" do %>
+  <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th>IP</th>
-      <th>WHOIS</th>
-      <th>ASN</th>
-      <th>rDNS</th>
-      <th>First Seen</th>
-      <th>Last Seen</th>
-      <th>Total Bytes</th>
-      <th>Max Score</th>
+      <th class="px-2 py-1.5 text-left">IP</th>
+      <th class="px-2 py-1.5 text-left">WHOIS</th>
+      <th class="px-2 py-1.5 text-left">ASN</th>
+      <th class="px-2 py-1.5 text-left">rDNS</th>
+      <th class="px-2 py-1.5 text-left">First Seen</th>
+      <th class="px-2 py-1.5 text-left">Last Seen</th>
+      <th class="px-2 py-1.5 text-right">Total Bytes</th>
+      <th class="px-2 py-1.5 text-right">Max Score</th>
     </tr>
   </thead>
   <tbody>
     <% @hosts.each do |host| %>
-      <tr>
-        <td><a href="/remote_hosts/<%= host.ip %>"><%= host.ip %></a></td>
-        <td><%= host.whois_name || "--" %></td>
-        <td><%= host.whois_asn || "--" %></td>
-        <td><%= host.rdns_name || "--" %></td>
-        <td><%= host.first_seen_at %></td>
-        <td><%= host.last_seen_at %></td>
-        <td><%= host.try(:total_bytes).to_i %></td>
-        <td><%= host.try(:max_score).to_i %></td>
+      <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
+        <td class="px-2 py-1.5"><a href="/remote_hosts/<%= host.ip %>"><%= host.ip %></a></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.whois_name.to_s %>"><%= host.whois_name || "--" %></td>
+        <td class="px-2 py-1.5"><%= host.whois_asn || "--" %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.rdns_name.to_s %>"><%= host.rdns_name || "--" %></td>
+        <td class="px-2 py-1.5"><%= host.first_seen_at %></td>
+        <td class="px-2 py-1.5"><%= host.last_seen_at %></td>
+        <td class="px-2 py-1.5 text-right"><%= host.try(:total_bytes).to_i %></td>
+        <td class="px-2 py-1.5 text-right"><%= host.try(:max_score).to_i %></td>
       </tr>
     <% end %>
   </tbody>
-</table>
+<% end %>
 
-<div class="netmon-filters">
+<div class="flex items-center gap-3 mt-3">
   <% if @page > 1 %>
-    <a href="/search/hosts?<%= request.query_parameters.merge(page: @page - 1).to_query %>">Prev</a>
+    <a class="<%= button_neutral %>" href="/search/hosts?<%= request.query_parameters.merge(page: @page - 1).to_query %>">Prev</a>
   <% end %>
   <% if @page < @total_pages %>
-    <a href="/search/hosts?<%= request.query_parameters.merge(page: @page + 1).to_query %>">Next</a>
+    <a class="<%= button_neutral %>" href="/search/hosts?<%= request.query_parameters.merge(page: @page + 1).to_query %>">Next</a>
   <% end %>
 </div>

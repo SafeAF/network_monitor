@@ -1,25 +1,28 @@
-<div class="netmon-detail">
-  <%= form_with url: "/saved_queries", method: :post, local: true, id: "saved-query-form" do |form| %>
-    <label>
-      Save Query
-      <%= form.text_field :name, value: "", placeholder: "Name" %>
-    </label>
-    <%= form.hidden_field :path, value: request.path %>
-    <%= form.hidden_field :kind, value: @saved_query_kind %>
-    <%= form.hidden_field :params_json, value: request.query_parameters.to_json %>
-    <%= form.submit "Save", id: "saved-query-submit" %>
+<% input_class = "bg-black border border-zinc-800 rounded-lg px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black" %>
+<% button_primary = "bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30 rounded-lg px-3 py-1 text-sm" %>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+  <%= render "shared/card" do %>
+    <%= form_with url: "/saved_queries", method: :post, local: true, id: "saved-query-form", class: "flex flex-wrap items-center gap-2" do |form| %>
+      <label class="text-xs uppercase tracking-wider text-zinc-500">Save Query</label>
+      <%= form.text_field :name, value: "", placeholder: "Name", class: input_class %>
+      <%= form.hidden_field :path, value: request.path %>
+      <%= form.hidden_field :kind, value: @saved_query_kind %>
+      <%= form.hidden_field :params_json, value: request.query_parameters.to_json %>
+      <%= form.submit "Save", id: "saved-query-submit", class: button_primary %>
+    <% end %>
   <% end %>
 
-  <label>
-    Load Saved Query
-    <select id="saved-query-select">
+  <%= render "shared/card" do %>
+    <label class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Load Saved Query</label>
+    <select id="saved-query-select" class="<%= input_class %> w-full">
       <option value="">Select…</option>
       <% @saved_queries.each do |saved| %>
         <% url = saved.path + (saved.params_hash.present? ? "?#{saved.params_hash.to_query}" : "") %>
         <option value="<%= url %>"><%= saved.name %></option>
       <% end %>
     </select>
-  </label>
+  <% end %>
 </div>
 
 <script>

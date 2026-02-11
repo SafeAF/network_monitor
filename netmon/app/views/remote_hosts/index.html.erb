@@ -1,49 +1,61 @@
-<h1>New Remote Hosts (<%= @window %>)</h1>
+<% input_class = "bg-black border border-zinc-800 rounded-lg px-2 py-1 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black" %>
+<% button_primary = "bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30 rounded-lg px-3 py-1 text-sm" %>
+<% button_neutral = "bg-zinc-900/50 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm" %>
 
-<form class="netmon-filters" method="get">
-  <label>
-    Window
-    <select name="window">
-      <option value="10m" <%= "selected" if @window == "10m" %>>10m</option>
-      <option value="1h" <%= "selected" if @window == "1h" %>>1h</option>
-      <option value="24h" <%= "selected" if @window == "24h" %>>24h</option>
-      <option value="1w" <%= "selected" if @window == "1w" %>>1w</option>
-    </select>
-  </label>
-  <button type="submit">Apply</button>
+<h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">New Remote Hosts (<%= @window %>)</h1>
+
+<form method="get" class="mb-4">
+  <%= render "shared/filter_bar" do %>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Window
+      <select class="<%= input_class %>" name="window">
+        <option value="10m" <%= "selected" if @window == "10m" %>>10m</option>
+        <option value="1h" <%= "selected" if @window == "1h" %>>1h</option>
+        <option value="24h" <%= "selected" if @window == "24h" %>>24h</option>
+        <option value="1w" <%= "selected" if @window == "1w" %>>1w</option>
+      </select>
+    </label>
+    <div class="flex flex-wrap items-center gap-2 ml-auto">
+      <button type="submit" class="<%= button_primary %>">Apply</button>
+    </div>
+  <% end %>
 </form>
 
-<p>Showing <%= @hosts.size %> of <%= @total %></p>
+<%= render "shared/card" do %>
+  <div class="text-sm text-zinc-300">Showing <%= @hosts.size %> of <%= @total %></div>
+<% end %>
 
-<table class="netmon-table">
-  <thead>
-    <tr>
-      <th>Host</th>
-      <th>Port</th>
-      <th>rDNS</th>
-      <th>WHOIS</th>
-      <th>First Seen</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% @hosts.each do |host| %>
-      <% port = Connection.where(dst_ip: host.ip).order(last_seen_at: :desc).limit(1).pick(:dst_port) %>
+<div class="mt-4">
+  <%= render "shared/table" do %>
+    <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
       <tr>
-        <td><a href="/remote_hosts/<%= host.ip %>"><%= host.ip %></a></td>
-        <td><%= port || "--" %></td>
-        <td><%= host.rdns_name || "--" %></td>
-        <td title="<%= host.try(:whois_raw_line).to_s %>"><%= host.whois_name || "--" %></td>
-        <td><%= host.first_seen_at %></td>
+        <th class="px-2 py-1.5 text-left">Host</th>
+        <th class="px-2 py-1.5 text-left">Port</th>
+        <th class="px-2 py-1.5 text-left">rDNS</th>
+        <th class="px-2 py-1.5 text-left">WHOIS</th>
+        <th class="px-2 py-1.5 text-left">First Seen</th>
       </tr>
-    <% end %>
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      <% @hosts.each do |host| %>
+        <% port = Connection.where(dst_ip: host.ip).order(last_seen_at: :desc).limit(1).pick(:dst_port) %>
+        <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
+          <td class="px-2 py-1.5"><a href="/remote_hosts/<%= host.ip %>"><%= host.ip %></a></td>
+          <td class="px-2 py-1.5"><%= port || "--" %></td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.rdns_name.to_s %>"><%= host.rdns_name || "--" %></td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.try(:whois_raw_line).to_s %>"><%= host.whois_name || "--" %></td>
+          <td class="px-2 py-1.5"><%= host.first_seen_at %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  <% end %>
+</div>
 
-<div class="netmon-filters">
+<div class="flex items-center gap-3 mt-3">
   <% if @page > 1 %>
-    <a href="/remote_hosts?window=<%= @window %>&page=<%= @page - 1 %>">Prev</a>
+    <a class="<%= button_neutral %>" href="/remote_hosts?window=<%= @window %>&page=<%= @page - 1 %>">Prev</a>
   <% end %>
   <% if @page < @total_pages %>
-    <a href="/remote_hosts?window=<%= @window %>&page=<%= @page + 1 %>">Next</a>
+    <a class="<%= button_neutral %>" href="/remote_hosts?window=<%= @window %>&page=<%= @page + 1 %>">Next</a>
   <% end %>
 </div>
