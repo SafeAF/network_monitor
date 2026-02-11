@@ -24,7 +24,7 @@
 
   <body class="bg-black text-zinc-200 min-h-screen font-mono">
     <%= render "shared/topbar" %>
-    <main class="max-w-[1600px] mx-auto px-4 py-4 [&_a]:text-cyan-300 [&_a]:underline-offset-2 hover:[&_a]:underline [&_a:hover]:text-cyan-200">
+    <main class="max-w-[1600px] mx-auto px-4 py-4 [&_a]:text-cyan-300 [&_a]:underline-offset-2 hover:[&_a]:underline [&_a:hover]:text-cyan-200 [&_a:focus-visible]:outline-none [&_a:focus-visible]:ring-2 [&_a:focus-visible]:ring-cyan-400/60 [&_a:focus-visible]:ring-offset-2 [&_a:focus-visible]:ring-offset-black">
       <%= yield %>
     </main>
   </body>
