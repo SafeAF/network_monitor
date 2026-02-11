@@ -10,6 +10,7 @@ module Netmon
 
     def self.run(input_file: ENV["CONNTRACK_INPUT_FILE"], now: Time.current, enricher: Netmon::HostEnricher)
       config = load_config
+      Rails.cache.write("netmon:last_ingest_at", now.to_i)
       common_ports = Array(config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
       new_window_seconds = (config["new_window_seconds"].presence || 600).to_i
       anomaly_threshold = (config["anomaly_threshold"].presence || 50).to_i

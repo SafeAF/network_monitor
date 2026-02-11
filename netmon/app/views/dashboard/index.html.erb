@@ -81,6 +81,12 @@
     font-size: 16px;
     font-weight: 600;
   }
+  .netmon-tile .status-ok {
+    color: #1f6f2c;
+  }
+  .netmon-tile .status-stale {
+    color: #8a0a0a;
+  }
   .netmon-tile button {
     all: unset;
     cursor: pointer;
@@ -226,6 +232,10 @@
   <div class="netmon-tile">
     <h3>Load Avg</h3>
     <div class="value" id="metric-loadavg">--</div>
+  </div>
+  <div class="netmon-tile">
+    <h3>Collector</h3>
+    <div class="value" id="metric-collector">--</div>
   </div>
   <div class="netmon-tile">
     <h3>Memory</h3>
@@ -501,8 +511,25 @@
     }
 
     function buildConnectionsQuery() {
-      const params = new URLSearchParams(window.location.search || "");
-      params.delete("interfaces");
+      const params = new URLSearchParams();
+      const form = document.querySelector(".netmon-filters");
+      if (!form) return "";
+      const src = form.querySelector("input[name='src_ip']")?.value.trim();
+      const dst = form.querySelector("input[name='dst_ip']")?.value.trim();
+      const dport = form.querySelector("input[name='dport']")?.value.trim();
+      const proto = form.querySelector("input[name='proto']")?.value.trim();
+      const hide = form.querySelector("input[name='hide_time_wait']")?.checked;
+      const onlyNew = form.querySelector("input[name='only_new']")?.checked;
+      const minScore = form.querySelector("select[name='min_score']")?.value;
+
+      if (src) params.set("src_ip", src);
+      if (dst) params.set("dst_ip", dst);
+      if (dport) params.set("dport", dport);
+      if (proto) params.set("proto", proto);
+      if (hide) params.set("hide_time_wait", "true");
+      if (onlyNew) params.set("only_new", "true");
+      if (minScore) params.set("min_score", minScore);
+
       const query = params.toString();
       return query ? `?${query}` : "";
     }
@@ -580,6 +607,7 @@
     });
 
     const loadavgEl = document.getElementById("metric-loadavg");
+    const collectorEl = document.getElementById("metric-collector");
     const memEl = document.getElementById("metric-mem");
     const ifacesEl = document.getElementById("metric-ifaces");
     const interfacesInput = document.getElementById("metric-interfaces");
@@ -675,6 +703,18 @@
       if (loadavgEl && payload.loadavg) {
         const { one, five, fifteen } = payload.loadavg;
         loadavgEl.textContent = `${one ?? "--"} / ${five ?? "--"} / ${fifteen ?? "--"}`;
+      }
+      if (collectorEl) {
+        const age = payload.collector?.age_seconds;
+        if (age == null) {
+          collectorEl.textContent = "Unknown";
+          collectorEl.className = "value";
+        } else {
+          const statusClass = age <= 10 ? "status-ok" : "status-stale";
+          const label = age <= 10 ? "OK" : "Stale";
+          collectorEl.textContent = `${label} (${age}s ago)`;
+          collectorEl.className = `value ${statusClass}`;
+        }
       }
       if (memEl && payload.meminfo) {
         const total = payload.meminfo.total_kb || 0;

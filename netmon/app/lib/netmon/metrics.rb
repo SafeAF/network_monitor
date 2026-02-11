@@ -15,6 +15,8 @@ module Netmon
       Netmon::MetricsRecorder.record_if_due(now:)
       analytics = Netmon::MetricsReporter.current(now:)
       series = Netmon::MetricsReporter.series
+      last_ingest = Rails.cache.read("netmon:last_ingest_at")
+      age_seconds = last_ingest ? (now.to_i - last_ingest.to_i) : nil
 
       {
         timestamp: now.iso8601,
@@ -22,7 +24,11 @@ module Netmon
         meminfo: parse_meminfo(read_text("/proc/meminfo", file_reader)),
         interfaces: interfaces.filter_map { |iface| read_interface(iface, file_reader) },
         analytics: analytics,
-        series: series
+        series: series,
+        collector: {
+          last_ingest_at: last_ingest ? Time.at(last_ingest).utc.iso8601 : nil,
+          age_seconds: age_seconds
+        }
       }
     end
 
