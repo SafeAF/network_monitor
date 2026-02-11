@@ -66,7 +66,6 @@ class SearchController < ApplicationController
     conn_stats = Connection.select("dst_ip, SUM(uplink_bytes + downlink_bytes) AS total_bytes, MAX(anomaly_score) AS max_score")
                            .group(:dst_ip)
     base = base.joins("LEFT JOIN (#{conn_stats.to_sql}) AS conn_stats ON conn_stats.dst_ip = remote_hosts.ip")
-               .select("remote_hosts.*, conn_stats.total_bytes AS total_bytes, conn_stats.max_score AS max_score")
 
     if @filters[:min_total_bytes_ever].to_s.match?(/\A\d+\z/)
       base = base.where("COALESCE(conn_stats.total_bytes, 0) >= ?", @filters[:min_total_bytes_ever].to_i)
@@ -77,14 +76,17 @@ class SearchController < ApplicationController
 
     sort = @filters[:sort].presence || "last_seen_desc"
     @page = [params[:page].to_i, 1].max
+    @total = base.except(:select, :order).count
+    @total_pages = (@total / RESULTS_LIMIT.to_f).ceil
+
+    base = base.select("remote_hosts.*, conn_stats.total_bytes AS total_bytes, conn_stats.max_score AS max_score")
+
     @hosts = case sort
              when "first_seen_desc" then base.order(first_seen_at: :desc)
              when "max_total_bytes_desc" then base.order(Arel.sql("COALESCE(conn_stats.total_bytes, 0) DESC"))
              when "max_score_desc" then base.order(Arel.sql("COALESCE(conn_stats.max_score, 0) DESC"))
              else base.order(last_seen_at: :desc)
              end.limit(RESULTS_LIMIT).offset((@page - 1) * RESULTS_LIMIT)
-    @total = base.count
-    @total_pages = (@total / RESULTS_LIMIT.to_f).ceil
 
     @saved_query_kind = "hosts"
     @saved_queries = SavedQuery.where(kind: @saved_query_kind).order(created_at: :desc)
