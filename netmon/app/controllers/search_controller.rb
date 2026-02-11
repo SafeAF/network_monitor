@@ -76,12 +76,15 @@ class SearchController < ApplicationController
     end
 
     sort = @filters[:sort].presence || "last_seen_desc"
+    @page = [params[:page].to_i, 1].max
     @hosts = case sort
              when "first_seen_desc" then base.order(first_seen_at: :desc)
              when "max_total_bytes_desc" then base.order(Arel.sql("COALESCE(conn_stats.total_bytes, 0) DESC"))
              when "max_score_desc" then base.order(Arel.sql("COALESCE(conn_stats.max_score, 0) DESC"))
              else base.order(last_seen_at: :desc)
-             end.limit(RESULTS_LIMIT)
+             end.limit(RESULTS_LIMIT).offset((@page - 1) * RESULTS_LIMIT)
+    @total = base.count
+    @total_pages = (@total / RESULTS_LIMIT.to_f).ceil
 
     @saved_query_kind = "hosts"
     @saved_queries = SavedQuery.where(kind: @saved_query_kind).order(created_at: :desc)
@@ -130,6 +133,7 @@ class SearchController < ApplicationController
     end
 
     sort = @filters[:sort].presence || "score_desc"
+    @page = [params[:page].to_i, 1].max
     @connections = case sort
                    when "total_bytes_desc"
                      scope.order(Arel.sql("uplink_bytes + downlink_bytes DESC"))
@@ -137,7 +141,9 @@ class SearchController < ApplicationController
                      scope.order(last_seen_at: :desc)
                    else
                      scope.order(anomaly_score: :desc)
-                   end.limit(RESULTS_LIMIT)
+                   end.limit(RESULTS_LIMIT).offset((@page - 1) * RESULTS_LIMIT)
+    @total = scope.count
+    @total_pages = (@total / RESULTS_LIMIT.to_f).ceil
 
     @saved_query_kind = "connections"
     @saved_queries = SavedQuery.where(kind: @saved_query_kind).order(created_at: :desc)
@@ -157,7 +163,10 @@ class SearchController < ApplicationController
     scope = scope.where("reasons_json LIKE ?", "%#{@filters[:code]}%") if @filters[:code].present?
     scope = scope.where("occurred_at >= ?", window_start(@filters[:window])) if @filters[:window].present?
 
-    @hits = scope.order(occurred_at: :desc).limit(RESULTS_LIMIT)
+    @page = [params[:page].to_i, 1].max
+    @hits = scope.order(occurred_at: :desc).limit(RESULTS_LIMIT).offset((@page - 1) * RESULTS_LIMIT)
+    @total = scope.count
+    @total_pages = (@total / RESULTS_LIMIT.to_f).ceil
     @saved_query_kind = "anomalies"
     @saved_queries = SavedQuery.where(kind: @saved_query_kind).order(created_at: :desc)
   end

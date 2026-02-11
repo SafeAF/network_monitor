@@ -46,3 +46,12 @@
     <% end %>
   </tbody>
 </table>
+
+<div class="netmon-filters">
+  <% if @page > 1 %>
+    <a href="/search/anomalies?<%= request.query_parameters.merge(page: @page - 1).to_query %>">Prev</a>
+  <% end %>
+  <% if @page < @total_pages %>
+    <a href="/search/anomalies?<%= request.query_parameters.merge(page: @page + 1).to_query %>">Next</a>
+  <% end %>
+</div>

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class AnomaliesController < ApplicationController
+  RESULTS_LIMIT = 200
+
   def index
     @filters = filter_params
     scope = AnomalyHit.includes(:device, :remote_host).order(occurred_at: :desc)
@@ -36,7 +38,10 @@ class AnomaliesController < ApplicationController
       scope = scope.where(id: params[:hit_id])
     end
 
-    @hits = scope.limit(500)
+    @page = [params[:page].to_i, 1].max
+    @total = scope.count
+    @total_pages = (@total / RESULTS_LIMIT.to_f).ceil
+    @hits = scope.limit(RESULTS_LIMIT).offset((@page - 1) * RESULTS_LIMIT)
   end
 
   def update

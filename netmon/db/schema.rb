@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_136000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_05_137000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -44,9 +44,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_136000) do
     t.index ["device_id", "occurred_at"], name: "index_anomaly_hits_on_device_id_and_occurred_at"
     t.index ["device_id"], name: "index_anomaly_hits_on_device_id"
     t.index ["dst_ip", "occurred_at"], name: "index_anomaly_hits_on_dst_ip_and_occurred_at"
+    t.index ["dst_ip"], name: "index_anomaly_hits_on_dst_ip"
     t.index ["fingerprint"], name: "index_anomaly_hits_on_fingerprint"
     t.index ["occurred_at"], name: "index_anomaly_hits_on_occurred_at"
     t.index ["remote_host_id"], name: "index_anomaly_hits_on_remote_host_id"
+    t.index ["score"], name: "index_anomaly_hits_on_score"
   end
 
   create_table "connections", force: :cascade do |t|
@@ -70,6 +72,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_136000) do
     t.datetime "last_delta_at"
     t.integer "anomaly_score", default: 0, null: false
     t.text "anomaly_reasons_json", default: "[]", null: false
+    t.index ["anomaly_score"], name: "index_connections_on_anomaly_score"
+    t.index ["last_seen_at"], name: "index_connections_on_last_seen_at"
     t.index ["proto", "src_ip", "src_port", "dst_ip", "dst_port"], name: "index_connections_on_5_tuple", unique: true
   end
 
@@ -114,6 +118,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_136000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["ip"], name: "index_devices_on_ip", unique: true
+    t.index ["name"], name: "index_devices_on_name"
   end
 
   create_table "metric_samples", force: :cascade do |t|
@@ -151,6 +156,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_136000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "seen_count", default: 0, null: false
+    t.index ["last_seen_at"], name: "index_remote_host_ports_on_last_seen_at"
     t.index ["remote_host_id", "dst_port"], name: "index_remote_host_ports_on_remote_host_id_and_dst_port", unique: true
     t.index ["remote_host_id"], name: "index_remote_host_ports_on_remote_host_id"
   end
@@ -166,7 +172,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_136000) do
     t.string "whois_asn"
     t.text "notes"
     t.string "tag", default: "unknown", null: false
+    t.index ["first_seen_at"], name: "index_remote_hosts_on_first_seen_at"
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
+    t.index ["last_seen_at"], name: "index_remote_hosts_on_last_seen_at"
     t.index ["tag"], name: "index_remote_hosts_on_tag"
   end
 
