@@ -3,6 +3,7 @@
 class AnomalyHit < ApplicationRecord
   belongs_to :device
   belongs_to :remote_host, optional: true
+  belongs_to :incident, optional: true
 
   validates :occurred_at, presence: true
   validates :reasons_json, presence: true

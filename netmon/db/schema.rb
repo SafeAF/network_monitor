@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_05_137000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_11_120000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -41,11 +41,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_137000) do
     t.datetime "updated_at", null: false
     t.datetime "acknowledged_at"
     t.text "ack_notes"
+    t.integer "incident_id"
     t.index ["device_id", "occurred_at"], name: "index_anomaly_hits_on_device_id_and_occurred_at"
     t.index ["device_id"], name: "index_anomaly_hits_on_device_id"
     t.index ["dst_ip", "occurred_at"], name: "index_anomaly_hits_on_dst_ip_and_occurred_at"
     t.index ["dst_ip"], name: "index_anomaly_hits_on_dst_ip"
     t.index ["fingerprint"], name: "index_anomaly_hits_on_fingerprint"
+    t.index ["incident_id"], name: "index_anomaly_hits_on_incident_id"
     t.index ["occurred_at"], name: "index_anomaly_hits_on_occurred_at"
     t.index ["remote_host_id"], name: "index_anomaly_hits_on_remote_host_id"
     t.index ["score"], name: "index_anomaly_hits_on_score"
@@ -119,6 +121,26 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_137000) do
     t.datetime "updated_at", null: false
     t.index ["ip"], name: "index_devices_on_ip", unique: true
     t.index ["name"], name: "index_devices_on_name"
+  end
+
+  create_table "incidents", force: :cascade do |t|
+    t.string "fingerprint", null: false
+    t.integer "device_id"
+    t.string "dst_ip"
+    t.integer "dst_port"
+    t.string "proto"
+    t.string "codes_csv", null: false
+    t.datetime "first_seen_at", null: false
+    t.datetime "last_seen_at", null: false
+    t.integer "count", default: 1, null: false
+    t.integer "max_score", default: 0, null: false
+    t.datetime "acknowledged_at"
+    t.string "ack_notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["acknowledged_at"], name: "index_incidents_on_acknowledged_at"
+    t.index ["fingerprint"], name: "index_incidents_on_fingerprint"
+    t.index ["last_seen_at"], name: "index_incidents_on_last_seen_at"
   end
 
   create_table "metric_samples", force: :cascade do |t|
@@ -204,6 +226,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_05_137000) do
 
   add_foreign_key "allowlist_rules", "devices"
   add_foreign_key "anomaly_hits", "devices"
+  add_foreign_key "anomaly_hits", "incidents"
   add_foreign_key "anomaly_hits", "remote_hosts"
   add_foreign_key "device_baselines", "devices"
   add_foreign_key "device_minutes", "devices"
