@@ -5,7 +5,7 @@ class AnomaliesController < ApplicationController
 
   def index
     @filters = filter_params
-    scope = AnomalyHit.includes(:device, :remote_host).order(occurred_at: :desc)
+    scope = AnomalyHit.includes(:device, :remote_host, :incident).order(occurred_at: :desc)
 
     if @filters[:min_score].present?
       scope = scope.where("score >= ?", @filters[:min_score].to_i)

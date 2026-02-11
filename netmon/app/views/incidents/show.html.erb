@@ -1,0 +1,45 @@
+<h1>Incident <%= @incident.id %></h1>
+
+<div class="netmon-detail">
+  <div class="item"><strong>Device:</strong> <%= @device&.name.presence || @device&.ip %></div>
+  <div class="item"><strong>Dst:</strong>
+    <% if @incident.dst_ip.present? %>
+      <a href="/remote_hosts/<%= @incident.dst_ip %>"><%= @incident.dst_ip %></a><%= @incident.dst_port ? ":#{@incident.dst_port}" : "" %>
+    <% end %>
+  </div>
+  <div class="item"><strong>Codes:</strong> <%= @incident.codes_csv %></div>
+  <div class="item"><strong>First Seen:</strong> <%= @incident.first_seen_at %></div>
+  <div class="item"><strong>Last Seen:</strong> <%= @incident.last_seen_at %></div>
+  <div class="item"><strong>Count:</strong> <%= @incident.count %></div>
+  <div class="item"><strong>Max Score:</strong> <%= @incident.max_score %></div>
+</div>
+
+<h2>Hits</h2>
+<table class="netmon-table">
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Dst</th>
+      <th>Score</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @hits.each do |hit| %>
+      <tr>
+        <td><%= hit.occurred_at %></td>
+        <td>
+          <% if hit.dst_ip.present? %>
+            <a href="/remote_hosts/<%= hit.dst_ip %>"><%= hit.dst_ip %></a><%= hit.dst_port ? ":#{hit.dst_port}" : "" %>
+          <% end %>
+        </td>
+        <td><%= hit.score %></td>
+        <td><%= hit.summary %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<div class="netmon-pagination">
+  <a href="/incidents">Back to incidents</a>
+</div>

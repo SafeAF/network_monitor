@@ -19,6 +19,9 @@ Rails.application.routes.draw do
   resources :devices, only: [:index, :update]
   get "anomalies" => "anomalies#index"
   patch "anomalies/:id" => "anomalies#update"
+  get "incidents" => "incidents#index"
+  get "incidents/:id" => "incidents#show"
+  post "incidents/:id/ack" => "incidents#ack"
   get "remote_hosts" => "remote_hosts#index"
   get "remote_hosts/:ip" => "remote_hosts#show", constraints: { ip: /[^\/]+/ }
   patch "remote_hosts/:ip" => "remote_hosts#update", constraints: { ip: /[^\/]+/ }

@@ -99,19 +99,31 @@ class DashboardController < ApplicationController
                                         { label: label, total_uplink: row.total_uplink.to_i }
                                       end
 
-    recent_hits = AnomalyHit.where("occurred_at >= ?", now - 1.hour)
-                            .order(occurred_at: :desc)
-                            .limit(10)
-                            .map do |hit|
-                              { id: hit.id, label: hit.summary, score: hit.score, occurred_at: hit.occurred_at.iso8601 }
-                            end
+    recent_incidents = Incident.where("last_seen_at >= ?", now - 1.hour)
+                               .where(acknowledged_at: nil)
+                               .order(last_seen_at: :desc)
+                               .limit(10)
+                               .includes(:device)
+                               .map do |incident|
+                                 device_label = incident.device&.name.presence || incident.device&.ip
+                                 {
+                                   id: incident.id,
+                                   device: device_label,
+                                   dst_ip: incident.dst_ip,
+                                   dst_port: incident.dst_port,
+                                   max_score: incident.max_score,
+                                   codes: incident.codes_csv,
+                                   count: incident.count,
+                                   last_seen_at: incident.last_seen_at.iso8601
+                                 }
+                               end
 
     render json: {
       top_remote_hosts: top_remote_hosts,
       newest_remote_hosts: newest_remote_hosts,
       rare_ports: rare_ports,
       top_devices_egress: top_devices_egress,
-      recent_hits: recent_hits
+      recent_incidents: recent_incidents
     }
   end
 

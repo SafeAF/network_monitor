@@ -42,6 +42,8 @@
       <th>Dst</th>
       <th>Proto</th>
       <th>Score</th>
+      <th>Alertable</th>
+      <th>Incident</th>
       <th>Summary</th>
       <th>Reasons</th>
       <th>Ack</th>
@@ -59,6 +61,18 @@
         </td>
         <td><%= hit.proto %></td>
         <td><%= hit.score %></td>
+        <td>
+          <% if hit.alertable %>
+            <span class="netmon-badge new">Alert</span>
+          <% else %>
+            <span class="netmon-badge seen">No</span>
+          <% end %>
+        </td>
+        <td>
+          <% if hit.incident_id %>
+            <a href="/incidents/<%= hit.incident_id %>"><%= hit.incident_id %></a>
+          <% end %>
+        </td>
         <td><%= hit.summary %></td>
         <td>
           <details>

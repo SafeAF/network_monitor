@@ -215,6 +215,7 @@
   <a href="?min_score=50">Score 50+</a>
   <a href="/devices">Edit Devices</a>
   <a href="/anomalies">Anomalies</a>
+  <a href="/incidents">Incidents</a>
   <a href="/search">Search</a>
   <a href="/remote_hosts">Remote Hosts</a>
   <a href="/search/hosts">Search Hosts</a>
@@ -314,8 +315,8 @@
 </section>
 
 <section class="netmon-panel">
-  <h3>Recent Hits (1h)</h3>
-  <ol id="panel-recent-hits"></ol>
+  <h3>Recent Incidents (1h)</h3>
+  <ol id="panel-recent-incidents"></ol>
 </section>
 
 <section class="netmon-top-panels">
@@ -846,7 +847,7 @@
     const newestViewAllEl = document.getElementById("panel-newest-viewall");
     const rarePortsEl = document.getElementById("panel-rare-ports");
     const topDevicesEgressEl = document.getElementById("panel-top-devices-egress");
-    const recentHitsEl = document.getElementById("panel-recent-hits");
+    const recentIncidentsEl = document.getElementById("panel-recent-incidents");
 
     function renderPanelList(el, items) {
       if (!el) return;
@@ -897,11 +898,15 @@
             rarePortsEl.innerHTML = [allItem, ...items].map((item) => `<li>${item}</li>`).join("");
           }
 
-          if (recentHitsEl) {
-            const hits = (data.recent_hits || []).map((hit) => {
-              return `<a href="/anomalies?hit_id=${hit.id}">${hit.label || "Hit"} (${hit.score})</a>`;
+          if (recentIncidentsEl) {
+            const incidents = (data.recent_incidents || []).map((incident) => {
+              const dst = incident.dst_ip ? `${incident.dst_ip}${incident.dst_port ? `:${incident.dst_port}` : ""}` : "device-level";
+              const device = incident.device ? `${incident.device}` : "";
+              const codes = incident.codes ? ` ${incident.codes}` : "";
+              const count = incident.count ? ` x${incident.count}` : "";
+              return `<a href="/incidents/${incident.id}">${device} ${dst} (${incident.max_score})${codes}${count}</a>`;
             });
-            renderPanelList(recentHitsEl, hits);
+            renderPanelList(recentIncidentsEl, incidents);
           }
         })
         .catch(() => {});
