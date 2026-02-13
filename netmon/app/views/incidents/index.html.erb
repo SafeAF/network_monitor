@@ -6,7 +6,7 @@
 <h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Incidents</h1>
 
 <form method="get" class="mb-4">
-  <%= render "shared/filter_bar" do %>
+  <%= render "shared/filter_bar", storage_key: "netmon.filterbar.incidents" do %>
     <label class="flex items-center gap-2 text-xs uppercase tracking-wider text-zinc-500 mt-4">
       <input type="checkbox" class="<%= checkbox_class %>" name="unacknowledged" value="true" <%= "checked" if @filters[:unacknowledged].to_s == "true" %>>
       Unacknowledged

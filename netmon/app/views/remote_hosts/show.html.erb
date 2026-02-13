@@ -12,7 +12,7 @@
     <div><span class="text-xs uppercase tracking-wider text-zinc-500">First Seen</span><div><%= @first_seen || "--" %></div></div>
     <div><span class="text-xs uppercase tracking-wider text-zinc-500">Last Seen</span><div><%= @last_seen || "--" %></div></div>
     <div><span class="text-xs uppercase tracking-wider text-zinc-500">Ports</span><div><%= @ports.any? ? @ports.join(", ") : "--" %></div></div>
-    <div><span class="text-xs uppercase tracking-wider text-zinc-500">Total Traffic</span><div><%= @traffic.to_i %> bytes</div></div>
+    <div><span class="text-xs uppercase tracking-wider text-zinc-500">Total Traffic</span><div title="<%= @traffic.to_i %>"><%= format_bytes(@traffic.to_i) %></div></div>
     <div>
       <span class="text-xs uppercase tracking-wider text-zinc-500">rDNS</span>
       <div class="flex items-center gap-2"><span id="copy-rdns"><%= @rdns || "--" %></span>
@@ -46,7 +46,11 @@
   <%= form_with url: "/remote_hosts/#{@ip}", method: :patch, local: true, class: "space-y-2" do |form| %>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
       Tag
-      <%= form.select :tag, [["Unknown", "unknown"], ["Known Good", "known_good"], ["Suspicious", "suspicious"]], { selected: @host&.tag }, class: input_class %>
+      <%= form.select :tag,
+                      [["Unknown", "unknown"], ["Known Good", "known_good"], ["Cloud", "cloud"], ["CDN", "cdn"], ["Microsoft", "microsoft"],
+                       ["Google", "google"], ["Suspicious", "suspicious"], ["Trusted", "trusted"]],
+                      { selected: @host&.tag },
+                      class: input_class %>
     </label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
       Notes
@@ -210,9 +214,10 @@
         <td class="px-2 py-1.5"><a href="/search/connections?device=<%= CGI.escape(conn.src_ip) %>&dst_ip=<%= CGI.escape(@ip) %>"><%= conn.src_ip %></a></td>
         <td class="px-2 py-1.5"><%= conn.dst_port %></td>
         <td class="px-2 py-1.5 font-mono text-xs"><%= conn.state %></td>
-        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes %></td>
-        <td class="px-2 py-1.5 text-right"><%= conn.downlink_bytes %></td>
-        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes + conn.downlink_bytes %></td>
+        <td class="px-2 py-1.5 text-right" title="<%= conn.uplink_bytes %>"><%= format_bytes(conn.uplink_bytes) %></td>
+        <td class="px-2 py-1.5 text-right" title="<%= conn.downlink_bytes %>"><%= format_bytes(conn.downlink_bytes) %></td>
+        <% total_bytes = conn.uplink_bytes + conn.downlink_bytes %>
+        <td class="px-2 py-1.5 text-right" title="<%= total_bytes %>"><%= format_bytes(total_bytes) %></td>
         <td class="px-2 py-1.5"><%= conn.last_seen_at %></td>
       </tr>
     <% end %>

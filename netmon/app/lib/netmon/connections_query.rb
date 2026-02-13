@@ -25,7 +25,27 @@ module Netmon
                      .where("remote_hosts.first_seen_at >= ?", threshold)
       end
 
-      scope = scope.order(Arel.sql("uplink_bytes + downlink_bytes DESC"))
+      sort = params[:sort].to_s
+      dir = params[:dir].to_s == "asc" ? "ASC" : "DESC"
+      case sort
+      when "total_bytes"
+        scope = scope.order(Arel.sql("uplink_bytes + downlink_bytes #{dir}"))
+      when "uplink_bytes"
+        scope = scope.order(Arel.sql("uplink_bytes #{dir}"))
+      when "downlink_bytes"
+        scope = scope.order(Arel.sql("downlink_bytes #{dir}"))
+      when "score"
+        scope = scope.order(Arel.sql("anomaly_score #{dir}"))
+      when "age"
+        scope = scope.joins("LEFT JOIN remote_hosts ON remote_hosts.ip = connections.dst_ip")
+                     .order(Arel.sql("COALESCE(remote_hosts.first_seen_at, connections.first_seen_at) #{dir}"))
+      when "dst_ip"
+        scope = scope.order(Arel.sql("dst_ip #{dir}"))
+      when "dst_port"
+        scope = scope.order(Arel.sql("dst_port #{dir}"))
+      else
+        scope = scope.order(Arel.sql("uplink_bytes + downlink_bytes DESC"))
+      end
       [scope, threshold]
     end
 

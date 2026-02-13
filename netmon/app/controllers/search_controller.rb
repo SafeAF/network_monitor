@@ -21,6 +21,7 @@ class SearchController < ApplicationController
       :seen_port,
       :min_total_bytes_ever,
       :min_max_score_ever,
+      :tag,
       :sort
     )
 
@@ -50,6 +51,9 @@ class SearchController < ApplicationController
     end
     if @filters[:rdns_missing].to_s == "true"
       base = base.where("rdns_name IS NULL OR rdns_name = ''")
+    end
+    if @filters[:tag].present?
+      base = base.where(tag: @filters[:tag])
     end
 
     if @filters[:first_seen_within].present?

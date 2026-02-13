@@ -152,14 +152,25 @@ module Netmon
 
     def self.series_for_window(window:, now: Time.current)
       start_time = window_start(window, now)
+      bucket_seconds, max_points = bucket_for_window(window)
       samples = MetricSample.where("captured_at >= ?", start_time).order(:captured_at)
+
+      buckets = {}
+      samples.each do |sample|
+        bucket = sample.captured_at.to_i / bucket_seconds
+        buckets[bucket] = sample
+      end
+
+      ordered = buckets.keys.sort.map { |key| buckets[key] }
+      ordered = ordered.last(max_points)
+
       {
-        timestamps: samples.map { |s| s.captured_at.iso8601 },
-        new_dst_ips_last_10m: samples.map(&:new_dst_ips_last_10m),
-        unique_dports_last_10m: samples.map(&:unique_dports_last_10m),
-        uplink_bytes_last_10m: samples.map(&:uplink_bytes_last_10m),
-        baseline_p95_uplink_bytes_last_10m: samples.map(&:baseline_p95_uplink_bytes_last_10m),
-        new_asns_last_1h: samples.map(&:new_asns_last_1h)
+        timestamps: ordered.map { |s| s.captured_at.iso8601 },
+        new_dst_ips_last_10m: ordered.map(&:new_dst_ips_last_10m),
+        unique_dports_last_10m: ordered.map(&:unique_dports_last_10m),
+        uplink_bytes_last_10m: ordered.map(&:uplink_bytes_last_10m),
+        baseline_p95_uplink_bytes_last_10m: ordered.map(&:baseline_p95_uplink_bytes_last_10m),
+        new_asns_last_1h: ordered.map(&:new_asns_last_1h)
       }
     end
 
@@ -173,5 +184,16 @@ module Netmon
       end
     end
     private_class_method :window_start
+
+    def self.bucket_for_window(window)
+      case window
+      when "10m" then [60, 10]
+      when "1h" then [60, 60]
+      when "24h" then [300, 288]
+      when "7d", "1w" then [1800, 336]
+      else [60, 10]
+      end
+    end
+    private_class_method :bucket_for_window
   end
 end

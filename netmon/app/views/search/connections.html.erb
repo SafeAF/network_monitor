@@ -5,7 +5,7 @@
 <h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Search Connections</h1>
 
 <form method="get" class="mb-4">
-  <%= render "shared/filter_bar" do %>
+  <%= render "shared/filter_bar", storage_key: "netmon.filterbar.search_connections" do %>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Device <input class="<%= input_class %>" name="device" value="<%= @filters[:device].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Src IP <input class="<%= input_class %>" name="src_ip" value="<%= @filters[:src_ip].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Dst IP <input class="<%= input_class %>" name="dst_ip" value="<%= @filters[:dst_ip].to_s %>"></label>
@@ -86,7 +86,8 @@
         <td class="px-2 py-1.5 font-mono text-xs"><%= conn.state %></td>
         <td class="px-2 py-1.5"><%= render "shared/badge", text: score, variant: score_badge %></td>
         <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= reason_codes.join(",") %>"><%= reason_codes.join(",") %></td>
-        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes + conn.downlink_bytes %></td>
+        <% total_bytes = conn.uplink_bytes + conn.downlink_bytes %>
+        <td class="px-2 py-1.5 text-right" title="<%= total_bytes %>"><%= format_bytes(total_bytes) %></td>
         <td class="px-2 py-1.5"><%= conn.last_seen_at %></td>
       </tr>
     <% end %>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_11_121000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_11_124000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -224,6 +224,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_11_121000) do
     t.index ["code", "kind", "value", "device_id"], name: "idx_on_code_kind_value_device_id_6c24ddade8"
     t.index ["code", "kind", "value"], name: "index_suppression_rules_on_code_and_kind_and_value"
     t.index ["device_id"], name: "index_suppression_rules_on_device_id"
+  end
+
+  create_table "system_minutes", force: :cascade do |t|
+    t.datetime "bucket_ts", null: false
+    t.float "loadavg1"
+    t.bigint "disk_read_bytes", default: 0, null: false
+    t.bigint "disk_write_bytes", default: 0, null: false
+    t.bigint "rx_bytes", default: 0, null: false
+    t.bigint "tx_bytes", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bucket_ts"], name: "index_system_minutes_on_bucket_ts", unique: true
   end
 
   add_foreign_key "allowlist_rules", "devices"

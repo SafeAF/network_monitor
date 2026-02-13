@@ -5,7 +5,7 @@ class AnomaliesController < ApplicationController
 
   def index
     @filters = filter_params
-    scope = AnomalyHit.includes(:device, :remote_host, :incident).order(occurred_at: :desc)
+    scope = AnomalyHit.includes(:device, :remote_host, :incident)
 
     if @filters[:min_score].present?
       scope = scope.where("score >= ?", @filters[:min_score].to_i)
@@ -37,6 +37,20 @@ class AnomaliesController < ApplicationController
     if params[:hit_id].present?
       scope = scope.where(id: params[:hit_id])
     end
+
+    sort = params[:sort].to_s
+    dir = params[:dir].to_s == "asc" ? "ASC" : "DESC"
+    scope = case sort
+            when "occurred_at" then scope.order(Arel.sql("occurred_at #{dir}"))
+            when "score" then scope.order(Arel.sql("score #{dir}"))
+            when "dst_ip" then scope.order(Arel.sql("dst_ip #{dir}"))
+            when "dst_port" then scope.order(Arel.sql("dst_port #{dir}"))
+            when "device"
+              scope.joins("LEFT JOIN devices ON devices.id = anomaly_hits.device_id")
+                   .order(Arel.sql("COALESCE(devices.name, devices.ip, '') #{dir}"))
+            else
+              scope.order(occurred_at: :desc)
+            end
 
     @page = [params[:page].to_i, 1].max
     @total = scope.count

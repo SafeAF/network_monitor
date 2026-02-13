@@ -5,7 +5,7 @@
 <h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">New Remote Hosts (<%= @window %>)</h1>
 
 <form method="get" class="mb-4">
-  <%= render "shared/filter_bar" do %>
+  <%= render "shared/filter_bar", storage_key: "netmon.filterbar.remote_hosts" do %>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
       Window
       <select class="<%= input_class %>" name="window">
@@ -32,8 +32,10 @@
         <th class="px-2 py-1.5 text-left">Host</th>
         <th class="px-2 py-1.5 text-left">Port</th>
         <th class="px-2 py-1.5 text-left">rDNS</th>
-        <th class="px-2 py-1.5 text-left">WHOIS</th>
-        <th class="px-2 py-1.5 text-left">First Seen</th>
+        <th class="px-2 py-1.5 text-left"><%= sortable_th("WHOIS", "whois_name") %></th>
+        <th class="px-2 py-1.5 text-left"><%= sortable_th("First Seen", "first_seen_at") %></th>
+        <th class="px-2 py-1.5 text-left"><%= sortable_th("Last Seen", "last_seen_at") %></th>
+        <th class="px-2 py-1.5 text-left"><%= sortable_th("Tag", "tag") %></th>
       </tr>
     </thead>
     <tbody>
@@ -45,6 +47,8 @@
           <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.rdns_name.to_s %>"><%= host.rdns_name || "--" %></td>
           <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.try(:whois_raw_line).to_s %>"><%= host.whois_name || "--" %></td>
           <td class="px-2 py-1.5"><%= host.first_seen_at %></td>
+          <td class="px-2 py-1.5"><%= host.last_seen_at %></td>
+          <td class="px-2 py-1.5"><%= host.tag %></td>
         </tr>
       <% end %>
     </tbody>

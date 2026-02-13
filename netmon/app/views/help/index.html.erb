@@ -1,0 +1,56 @@
+<% card = "bg-black/70 border border-emerald-900/40 rounded-2xl p-4 shadow-[0_0_0_1px_rgba(16,185,129,0.10)]" %>
+
+<h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-4">Help / FAQ</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  <div class="<%= card %>">
+    <h2 class="text-sm uppercase tracking-wider text-zinc-400 mb-2">What NetMon Shows</h2>
+    <p class="text-sm text-zinc-200">
+      NetMon displays active connections and summarizes recent changes in your network traffic.
+      It highlights new destinations, unusual ports, and traffic spikes so you can investigate quickly.
+    </p>
+  </div>
+  <div class="<%= card %>">
+    <h2 class="text-sm uppercase tracking-wider text-zinc-400 mb-2">NEW vs SEEN</h2>
+    <p class="text-sm text-zinc-200">
+      <strong>NEW</strong> means a destination IP was first observed within the recent new-host window.
+      <strong>SEEN</strong> means the destination has been observed before.
+    </p>
+  </div>
+  <div class="<%= card %>">
+    <h2 class="text-sm uppercase tracking-wider text-zinc-400 mb-2">Anomaly Scoring</h2>
+    <p class="text-sm text-zinc-200">
+      Each connection can receive a score based on matching anomaly rules. Higher scores indicate
+      more suspicious patterns (e.g., scan-like fanout, rare ports, unexpected protocol, or high egress).
+    </p>
+  </div>
+  <div class="<%= card %>">
+    <h2 class="text-sm uppercase tracking-wider text-zinc-400 mb-2">Incidents vs Anomaly Hits</h2>
+    <p class="text-sm text-zinc-200">
+      Anomaly hits are individual rule triggers. Incidents group related hits over time, so you can
+      track persistent behavior at a glance.
+    </p>
+  </div>
+</div>
+
+<div class="mt-4 <%= card %>">
+  <h2 class="text-sm uppercase tracking-wider text-zinc-400 mb-3">Code Reference</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-zinc-200">
+    <div><strong>NEW_DST</strong> — destination IP first seen in the recent window.</div>
+    <div><strong>NEW_ASN</strong> — destination ASN first seen in the recent window.</div>
+    <div><strong>NO_RDNS</strong> — no reverse DNS name found.</div>
+    <div><strong>RARE_PORT</strong> — destination port is uncommon in recent traffic.</div>
+    <div><strong>UNEXPECTED_PROTO</strong> — protocol is unusual for the destination.</div>
+    <div><strong>PORT_SCAN_LIKE</strong> — many distinct ports or hosts in a short period.</div>
+    <div><strong>HIGH_EGRESS</strong> — unusually high upload volume.</div>
+    <div><strong>HIGH_FANOUT</strong> — many unique destinations from a device.</div>
+  </div>
+</div>
+
+<div class="mt-4 <%= card %>">
+  <h2 class="text-sm uppercase tracking-wider text-zinc-400 mb-2">Allowlist vs Suppression</h2>
+  <p class="text-sm text-zinc-200">
+    Allowlist rules prevent alerts for known-good traffic (e.g., an ASN or device+port).
+    Suppression rules hide specific codes (like NO_RDNS) for trusted orgs without muting other alerts.
+  </p>
+</div>

@@ -7,7 +7,7 @@
 <h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Active Connections</h1>
 
 <form method="get" class="mb-4" id="connections-filter">
-  <%= render "shared/filter_bar" do %>
+  <%= render "shared/filter_bar", storage_key: "netmon.filterbar.dashboard" do %>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-400">
       Src IP
       <input class="<%= input_class %>" name="src_ip" value="<%= params[:src_ip].to_s %>">
@@ -50,6 +50,8 @@
         <option value="enp3s0"></option>
       </datalist>
     </label>
+    <input type="hidden" name="sort" value="<%= params[:sort].to_s %>">
+    <input type="hidden" name="dir" value="<%= params[:dir].to_s %>">
     <div class="flex flex-wrap items-center gap-2 ml-auto">
       <button type="submit" class="<%= button_primary %>">Apply</button>
       <a href="/" class="<%= button_neutral %>">Clear</a>
@@ -76,18 +78,119 @@
     <%= render "shared/stat", label: "Interfaces", value: "<span id='metric-ifaces'>--</span>".html_safe %>
   <% end %>
   <%= render "shared/card" do %>
-    <%= render "shared/stat", label: "New DST IPs (10m)", value: "<button type='button' id='metric-new-dst' class='text-cyan-200 hover:text-cyan-100'>--</button>".html_safe %>
+    <div class="flex items-center justify-between gap-2 mb-1">
+      <div class="text-xs uppercase tracking-wider text-zinc-500">New DST IPs</div>
+      <select class="stat-window <%= input_class %> text-xs" data-series="new_dst_ips_last_10m">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <button type="button" id="metric-new-dst" class="text-cyan-200 hover:text-cyan-100 text-lg">--</button>
   <% end %>
   <%= render "shared/card" do %>
-    <%= render "shared/stat", label: "Unique DPorts (10m)", value: "<button type='button' id='metric-unique-dports' class='text-cyan-200 hover:text-cyan-100'>--</button>".html_safe %>
+    <div class="flex items-center justify-between gap-2 mb-1">
+      <div class="text-xs uppercase tracking-wider text-zinc-500">Unique DPorts</div>
+      <select class="stat-window <%= input_class %> text-xs" data-series="unique_dports_last_10m">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <button type="button" id="metric-unique-dports" class="text-cyan-200 hover:text-cyan-100 text-lg">--</button>
   <% end %>
   <%= render "shared/card" do %>
-    <%= render "shared/stat", label: "Uplink Bytes (10m)", value: "<button type='button' id='metric-uplink-bytes' class='text-cyan-200 hover:text-cyan-100'>--</button>".html_safe %>
+    <div class="flex items-center justify-between gap-2 mb-1">
+      <div class="text-xs uppercase tracking-wider text-zinc-500">Uplink Bytes</div>
+      <select class="stat-window <%= input_class %> text-xs" data-series="uplink_bytes_last_10m">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <button type="button" id="metric-uplink-bytes" class="text-cyan-200 hover:text-cyan-100 text-lg">--</button>
   <% end %>
   <%= render "shared/card" do %>
-    <%= render "shared/stat", label: "New ASNs (1h)", value: "<button type='button' id='metric-new-asns' class='text-cyan-200 hover:text-cyan-100'>--</button>".html_safe %>
+    <div class="flex items-center justify-between gap-2 mb-1">
+      <div class="text-xs uppercase tracking-wider text-zinc-500">New ASNs</div>
+      <select class="stat-window <%= input_class %> text-xs" data-series="new_asns_last_1h">
+        <option value="10m">10m</option>
+        <option value="1h" selected>1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <button type="button" id="metric-new-asns" class="text-cyan-200 hover:text-cyan-100 text-lg">--</button>
   <% end %>
 </section>
+
+<section class="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4">
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Load Avg (1m)</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-loadavg1">Last 10m</div>
+      </div>
+      <select class="system-window <%= input_class %> text-xs" data-metric="loadavg1">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <canvas id="graph-loadavg1" data-metric="loadavg1" class="w-full h-32"></canvas>
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Disk Read Bytes</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-disk-read">Last 10m</div>
+      </div>
+      <select class="system-window <%= input_class %> text-xs" data-metric="disk_read_bytes">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <canvas id="graph-disk-read" data-metric="disk_read_bytes" class="w-full h-32"></canvas>
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Disk Write Bytes</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-disk-write">Last 10m</div>
+      </div>
+      <select class="system-window <%= input_class %> text-xs" data-metric="disk_write_bytes">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <canvas id="graph-disk-write" data-metric="disk_write_bytes" class="w-full h-32"></canvas>
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Download Bytes</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-download">Last 10m</div>
+      </div>
+      <select class="system-window <%= input_class %> text-xs" data-metric="rx_bytes">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <canvas id="graph-download" data-metric="rx_bytes" class="w-full h-32"></canvas>
+  <% end %>
+</section>
+
+<div class="text-xs text-zinc-500 mb-4">Updated: <span id="metrics-updated">--</span></div>
 
 <section id="metric-detail" class="hidden mb-4">
   <%= render "shared/card" do %>
@@ -96,10 +199,44 @@
   <% end %>
 </section>
 
+<div id="drilldown-overlay" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/70 drilldown-backdrop"></div>
+  <div class="relative ml-auto h-full w-full max-w-2xl bg-zinc-950 border-l border-emerald-900/50 p-4 overflow-y-auto">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div>
+        <div class="text-xs uppercase tracking-wider text-zinc-500" id="drilldown-window">Window</div>
+        <h2 class="text-lg text-emerald-200 font-semibold" id="drilldown-title">Drilldown</h2>
+        <div class="text-xs text-zinc-500" id="drilldown-generated">Generated: --</div>
+      </div>
+      <button type="button" id="drilldown-close" class="bg-zinc-900/60 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm">Close</button>
+    </div>
+    <div id="drilldown-warning" class="hidden text-xs text-amber-200 mb-3">Limited to 200 rows.</div>
+    <div class="flex flex-wrap items-center gap-2 mb-3">
+      <button type="button" id="drilldown-copy-ports" class="bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25 rounded-lg px-3 py-1 text-sm hidden">Copy Ports</button>
+      <button type="button" id="drilldown-copy-ips" class="bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25 rounded-lg px-3 py-1 text-sm hidden">Copy IPs</button>
+    </div>
+    <div id="drilldown-body" class="space-y-2"></div>
+  </div>
+</div>
+
+<div id="chart-modal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/70 chart-backdrop"></div>
+  <div class="relative mx-auto mt-12 w-[90vw] max-w-4xl bg-zinc-950 border border-emerald-900/50 rounded-2xl p-4">
+    <div class="flex items-center justify-between gap-3 mb-3">
+      <div class="text-sm text-emerald-200 font-semibold" id="chart-modal-title">Chart</div>
+      <button type="button" id="chart-modal-close" class="bg-zinc-900/60 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm">Close</button>
+    </div>
+    <canvas id="chart-modal-canvas" class="w-full h-80"></canvas>
+  </div>
+</div>
+
 <section class="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4">
   <%= render "shared/card" do %>
     <div class="flex items-center justify-between gap-2 mb-2">
-      <h3 class="text-xs uppercase tracking-wider text-zinc-500">New DST IPs</h3>
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">New DST IPs</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-new-dst">Last 10m</div>
+      </div>
       <select class="graph-window <%= input_class %> text-xs" data-series="new_dst_ips_last_10m">
         <option value="10m" selected>10m</option>
         <option value="1h">1h</option>
@@ -111,7 +248,10 @@
   <% end %>
   <%= render "shared/card" do %>
     <div class="flex items-center justify-between gap-2 mb-2">
-      <h3 class="text-xs uppercase tracking-wider text-zinc-500">Unique DPorts</h3>
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Unique DPorts</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-unique-dports">Last 10m</div>
+      </div>
       <select class="graph-window <%= input_class %> text-xs" data-series="unique_dports_last_10m">
         <option value="10m" selected>10m</option>
         <option value="1h">1h</option>
@@ -123,7 +263,10 @@
   <% end %>
   <%= render "shared/card" do %>
     <div class="flex items-center justify-between gap-2 mb-2">
-      <h3 class="text-xs uppercase tracking-wider text-zinc-500">Uplink Bytes</h3>
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Uplink Bytes</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-uplink-bytes">Last 10m</div>
+      </div>
       <select class="graph-window <%= input_class %> text-xs" data-series="uplink_bytes_last_10m">
         <option value="10m" selected>10m</option>
         <option value="1h">1h</option>
@@ -135,7 +278,10 @@
   <% end %>
   <%= render "shared/card" do %>
     <div class="flex items-center justify-between gap-2 mb-2">
-      <h3 class="text-xs uppercase tracking-wider text-zinc-500">New ASNs</h3>
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">New ASNs</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-new-asns">Last 1h</div>
+      </div>
       <select class="graph-window <%= input_class %> text-xs" data-series="new_asns_last_1h">
         <option value="10m">10m</option>
         <option value="1h" selected>1h</option>
@@ -174,7 +320,8 @@
     </div>
     <ol id="panel-top-remote-hosts" class="space-y-1 text-sm">
       <% @top_remote_hosts.each do |row| %>
-        <li><a href="/remote_hosts/<%= row[:ip] %>"><%= row[:ip] %></a> (<%= row[:total_bytes].to_i %> bytes)</li>
+        <% total_bytes = row[:total_bytes].to_i %>
+        <li><a href="/remote_hosts/<%= row[:ip] %>"><%= row[:ip] %></a> (<span title="<%= total_bytes %>"><%= format_bytes(total_bytes) %></span>)</li>
       <% end %>
     </ol>
   <% end %>
@@ -226,31 +373,43 @@
     </div>
     <ol id="panel-top-devices-egress" class="space-y-1 text-sm">
       <% @top_devices_egress.each do |row| %>
-        <li><%= row[:label] %> (<%= row[:total_uplink].to_i %> bytes)</li>
+        <% total_uplink = row[:total_uplink].to_i %>
+        <li><%= row[:label] %> (<span title="<%= total_uplink %>"><%= format_bytes(total_uplink) %></span>)</li>
       <% end %>
     </ol>
   <% end %>
 </section>
 
+<div class="flex items-center justify-between mb-2">
+  <details class="relative">
+    <summary class="cursor-pointer text-sm text-cyan-200 hover:text-cyan-100">Columns</summary>
+    <div class="absolute z-10 mt-2 w-56 rounded-xl border border-zinc-800/80 bg-zinc-950/90 p-3 shadow-[0_0_0_1px_rgba(16,185,129,0.10)]">
+      <div class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Toggle Columns</div>
+      <div id="columns-toggle" class="space-y-1 text-sm"></div>
+    </div>
+  </details>
+</div>
+
 <%= render "shared/table" do %>
   <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th class="px-2 py-1.5 text-left">Proto</th>
-      <th class="px-2 py-1.5 text-left">Device</th>
-      <th class="px-2 py-1.5 text-left">Source</th>
-      <th class="px-2 py-1.5 text-left">Destination</th>
-      <th class="px-2 py-1.5 text-left">State</th>
-      <th class="px-2 py-1.5 text-left">Flags</th>
-      <th class="px-2 py-1.5 text-right">Up</th>
-      <th class="px-2 py-1.5 text-right">Down</th>
-      <th class="px-2 py-1.5 text-right">Total</th>
-      <th class="px-2 py-1.5 text-left">Score</th>
-      <th class="px-2 py-1.5 text-left">Reasons</th>
-      <th class="px-2 py-1.5 text-left">Allow</th>
-      <th class="px-2 py-1.5 text-left">Age</th>
-      <th class="px-2 py-1.5 text-left">rDNS</th>
-      <th class="px-2 py-1.5 text-left">WHOIS</th>
-      <th class="px-2 py-1.5 text-left">Seen</th>
+      <th class="px-2 py-1.5 text-left" data-col="proto">Proto</th>
+      <th class="px-2 py-1.5 text-left" data-col="device">Device</th>
+      <th class="px-2 py-1.5 text-left" data-col="source">Source</th>
+      <th class="px-2 py-1.5 text-left" data-col="destination"><%= sortable_th("Dst IP", "dst_ip") %></th>
+      <th class="px-2 py-1.5 text-left" data-col="state">State</th>
+      <th class="px-2 py-1.5 text-left" data-col="flags">Flags</th>
+      <th class="px-2 py-1.5 text-right" data-col="up"><%= sortable_th("Up", "uplink_bytes") %></th>
+      <th class="px-2 py-1.5 text-right" data-col="down"><%= sortable_th("Down", "downlink_bytes") %></th>
+      <th class="px-2 py-1.5 text-right" data-col="total"><%= sortable_th("Total", "total_bytes") %></th>
+      <th class="px-2 py-1.5 text-left" data-col="score"><%= sortable_th("Score", "score") %></th>
+      <th class="px-2 py-1.5 text-left" data-col="reasons">Reasons</th>
+      <th class="px-2 py-1.5 text-left" data-col="allow">Allow</th>
+      <th class="px-2 py-1.5 text-left" data-col="age"><%= sortable_th("Age", "age") %></th>
+      <th class="px-2 py-1.5 text-left" data-col="rdns">rDNS</th>
+      <th class="px-2 py-1.5 text-left" data-col="whois">WHOIS</th>
+      <th class="px-2 py-1.5 text-left" data-col="dst_port"><%= sortable_th("Dst Port", "dst_port") %></th>
+      <th class="px-2 py-1.5 text-left" data-col="seen">Seen</th>
     </tr>
   </thead>
   <tbody id="connections-body">
@@ -269,24 +428,25 @@
       <% score = conn.anomaly_score.to_i %>
       <% score_badge = score >= 70 ? "alert" : (score >= 50 ? "warn" : (score >= 20 ? "info" : "neutral")) %>
       <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
-        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.proto %></td>
-        <td class="px-2 py-1.5">
+        <td class="px-2 py-1.5 font-mono text-xs" data-col="proto"><%= conn.proto %></td>
+        <td class="px-2 py-1.5" data-col="device">
           <% if device %>
             <input class="device-name-input <%= input_class %> text-xs" data-device-id="<%= device.id %>" value="<%= device.name %>" size="12">
           <% else %>
             <%= device_label %>
           <% end %>
         </td>
-        <td class="px-2 py-1.5"><a href="/remote_hosts/<%= conn.src_ip %>"><%= conn.src_ip %></a>:<%= conn.src_port %></td>
-        <td class="px-2 py-1.5"><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %></td>
-        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.state %></td>
-        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.flags %></td>
-        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes %></td>
-        <td class="px-2 py-1.5 text-right"><%= conn.downlink_bytes %></td>
-        <td class="px-2 py-1.5 text-right"><%= conn.uplink_bytes + conn.downlink_bytes %></td>
-        <td class="px-2 py-1.5"><%= render "shared/badge", text: score, variant: score_badge %></td>
-        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= reason_codes.join(",") %>"><%= reason_codes.join(",") %></td>
-        <td class="px-2 py-1.5">
+        <td class="px-2 py-1.5" data-col="source"><a href="/remote_hosts/<%= conn.src_ip %>"><%= conn.src_ip %></a>:<%= conn.src_port %></td>
+        <td class="px-2 py-1.5" data-col="destination"><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %></td>
+        <td class="px-2 py-1.5 font-mono text-xs" data-col="state"><%= conn.state %></td>
+        <td class="px-2 py-1.5 font-mono text-xs" data-col="flags"><%= conn.flags %></td>
+        <td class="px-2 py-1.5 text-right" data-col="up" title="<%= conn.uplink_bytes %>"><%= format_bytes(conn.uplink_bytes) %></td>
+        <td class="px-2 py-1.5 text-right" data-col="down" title="<%= conn.downlink_bytes %>"><%= format_bytes(conn.downlink_bytes) %></td>
+        <% total_bytes = conn.uplink_bytes + conn.downlink_bytes %>
+        <td class="px-2 py-1.5 text-right" data-col="total" title="<%= total_bytes %>"><%= format_bytes(total_bytes) %></td>
+        <td class="px-2 py-1.5" data-col="score"><%= render "shared/badge", text: score, variant: score_badge %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="reasons" title="<%= reason_codes.join(",") %>"><%= reason_codes.join(",") %></td>
+        <td class="px-2 py-1.5" data-col="allow">
           <% if device && conn.dst_port %>
             <%= form_with url: "/allowlist_rules", method: :post, local: true do |form| %>
               <input type="hidden" name="allowlist_rule[kind]" value="device_port">
@@ -296,10 +456,11 @@
             <% end %>
           <% end %>
         </td>
-        <td class="px-2 py-1.5"><%= seen_age %></td>
-        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host&.rdns_name.to_s %>"><%= host&.rdns_name || "--" %></td>
-        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host&.try(:whois_raw_line).to_s %>"><%= host&.whois_name || "--" %></td>
-        <td class="px-2 py-1.5">
+        <td class="px-2 py-1.5" data-col="age"><%= seen_age %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="rdns" title="<%= host&.rdns_name.to_s %>"><%= host&.rdns_name || "--" %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="whois" title="<%= host&.try(:whois_raw_line).to_s %>"><%= host&.whois_name || "--" %></td>
+        <td class="px-2 py-1.5" data-col="dst_port"><%= conn.dst_port %></td>
+        <td class="px-2 py-1.5" data-col="seen">
           <% if seen_label == "NEW" %>
             <%= render "shared/badge", text: "NEW", variant: "info" %>
           <% else %>
@@ -315,6 +476,19 @@
   (function() {
     const body = document.getElementById("connections-body");
     if (!body) return;
+
+    function formatBytes(value) {
+      if (value == null) return "--";
+      const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+      let n = Number(value);
+      let idx = 0;
+      while (n >= 1024 && idx < units.length - 1) {
+        n /= 1024;
+        idx += 1;
+      }
+      const formatted = idx === 0 ? `${Math.round(n)} ${units[idx]}` : `${n.toFixed(1)} ${units[idx]}`;
+      return formatted;
+    }
 
     function renderRow(conn) {
       const src = conn.src_port
@@ -343,24 +517,28 @@
       const seenBadge = seenLabel === "NEW"
         ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-950/30 text-cyan-200 border border-cyan-800/40">NEW</span>`
         : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-900/60 text-zinc-200 border border-zinc-700">SEEN</span>`;
+      const up = formatBytes(conn.uplink_bytes);
+      const down = formatBytes(conn.downlink_bytes);
+      const total = formatBytes(conn.total_bytes);
       return `
         <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
-          <td class="px-2 py-1.5 font-mono text-xs">${conn.proto}</td>
-          <td class="px-2 py-1.5">${deviceCell}</td>
-          <td class="px-2 py-1.5">${src}</td>
-          <td class="px-2 py-1.5">${dst}</td>
-          <td class="px-2 py-1.5 font-mono text-xs">${conn.state || ""}</td>
-          <td class="px-2 py-1.5 font-mono text-xs">${conn.flags || ""}</td>
-          <td class="px-2 py-1.5 text-right">${conn.uplink_bytes}</td>
-          <td class="px-2 py-1.5 text-right">${conn.downlink_bytes}</td>
-          <td class="px-2 py-1.5 text-right">${conn.total_bytes}</td>
-          <td class="px-2 py-1.5"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${scoreClass}">${score}</span></td>
-          <td class="px-2 py-1.5 max-w-[260px] truncate" title="${reasons}">${reasons}</td>
-          <td class="px-2 py-1.5">${allowButton}</td>
-          <td class="px-2 py-1.5">${conn.seen_age || "unknown"}</td>
-          <td class="px-2 py-1.5 max-w-[260px] truncate" title="${conn.rdns_name || ""}">${conn.rdns_name || "--"}</td>
-          <td class="px-2 py-1.5 max-w-[260px] truncate" title="${conn.whois_raw_line || ""}">${conn.whois_name || "--"}</td>
-          <td class="px-2 py-1.5">${seenBadge}</td>
+          <td class="px-2 py-1.5 font-mono text-xs" data-col="proto">${conn.proto}</td>
+          <td class="px-2 py-1.5" data-col="device">${deviceCell}</td>
+          <td class="px-2 py-1.5" data-col="source">${src}</td>
+          <td class="px-2 py-1.5" data-col="destination">${dst}</td>
+          <td class="px-2 py-1.5 font-mono text-xs" data-col="state">${conn.state || ""}</td>
+          <td class="px-2 py-1.5 font-mono text-xs" data-col="flags">${conn.flags || ""}</td>
+          <td class="px-2 py-1.5 text-right" data-col="up" title="${conn.uplink_bytes}">${up}</td>
+          <td class="px-2 py-1.5 text-right" data-col="down" title="${conn.downlink_bytes}">${down}</td>
+          <td class="px-2 py-1.5 text-right" data-col="total" title="${conn.total_bytes}">${total}</td>
+          <td class="px-2 py-1.5" data-col="score"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${scoreClass}">${score}</span></td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="reasons" title="${reasons}">${reasons}</td>
+          <td class="px-2 py-1.5" data-col="allow">${allowButton}</td>
+          <td class="px-2 py-1.5" data-col="age">${conn.seen_age || "unknown"}</td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="rdns" title="${conn.rdns_name || ""}">${conn.rdns_name || "--"}</td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="whois" title="${conn.whois_raw_line || ""}">${conn.whois_name || "--"}</td>
+          <td class="px-2 py-1.5" data-col="dst_port">${conn.dst_port ?? ""}</td>
+          <td class="px-2 py-1.5" data-col="seen">${seenBadge}</td>
         </tr>
       `;
     }
@@ -376,6 +554,8 @@
       const hide = form.querySelector("input[name='hide_time_wait']")?.checked;
       const onlyNew = form.querySelector("input[name='only_new']")?.checked;
       const minScore = form.querySelector("select[name='min_score']")?.value;
+      const sort = form.querySelector("input[name='sort']")?.value;
+      const dir = form.querySelector("input[name='dir']")?.value;
 
       if (src) params.set("src_ip", src);
       if (dst) params.set("dst_ip", dst);
@@ -384,6 +564,8 @@
       if (hide) params.set("hide_time_wait", "true");
       if (onlyNew) params.set("only_new", "true");
       if (minScore) params.set("min_score", minScore);
+      if (sort) params.set("sort", sort);
+      if (dir) params.set("dir", dir);
 
       const query = params.toString();
       return query ? `?${query}` : "";
@@ -398,6 +580,7 @@
         .then((resp) => resp.json())
         .then((data) => {
           body.innerHTML = data.map(renderRow).join("");
+          applyColumnVisibility();
         })
         .catch(() => {});
     }
@@ -471,10 +654,24 @@
     const uplinkBytesEl = document.getElementById("metric-uplink-bytes");
     const newAsnsEl = document.getElementById("metric-new-asns");
     const anomaliesEl = document.getElementById("metric-anomalies");
+    const metricsUpdatedEl = document.getElementById("metrics-updated");
     const detailEl = document.getElementById("metric-detail");
     const detailTitleEl = document.getElementById("metric-detail-title");
     const detailBodyEl = document.getElementById("metric-detail-body");
     const rarePortsList = document.getElementById("panel-rare-ports");
+    const drilldownOverlay = document.getElementById("drilldown-overlay");
+    const drilldownClose = document.getElementById("drilldown-close");
+    const drilldownTitle = document.getElementById("drilldown-title");
+    const drilldownWindow = document.getElementById("drilldown-window");
+    const drilldownGenerated = document.getElementById("drilldown-generated");
+    const drilldownBody = document.getElementById("drilldown-body");
+    const drilldownWarning = document.getElementById("drilldown-warning");
+    const drilldownCopyPorts = document.getElementById("drilldown-copy-ports");
+    const drilldownCopyIps = document.getElementById("drilldown-copy-ips");
+    const chartModal = document.getElementById("chart-modal");
+    const chartModalClose = document.getElementById("chart-modal-close");
+    const chartModalTitle = document.getElementById("chart-modal-title");
+    const chartModalCanvas = document.getElementById("chart-modal-canvas");
 
     let lastAnalytics = null;
 
@@ -493,6 +690,143 @@
       detailTitleEl.textContent = title;
       detailBodyEl.innerHTML = html;
       detailEl.classList.remove("hidden");
+    }
+
+    function closeDrilldown() {
+      if (drilldownOverlay) drilldownOverlay.classList.add("hidden");
+    }
+
+    function openDrilldown(kind, window, title, options = {}) {
+      if (!drilldownOverlay) return;
+      if (drilldownTitle) drilldownTitle.textContent = title;
+      if (drilldownWindow) drilldownWindow.textContent = `Window: ${window}`;
+      if (drilldownGenerated) drilldownGenerated.textContent = "Generated: --";
+      if (drilldownBody) drilldownBody.innerHTML = "<div class=\"text-sm text-zinc-200\">Loading...</div>";
+      if (drilldownWarning) drilldownWarning.classList.add("hidden");
+      if (drilldownCopyPorts) drilldownCopyPorts.classList.add("hidden");
+      if (drilldownCopyIps) drilldownCopyIps.classList.add("hidden");
+      drilldownOverlay.classList.remove("hidden");
+
+      const params = new URLSearchParams();
+      params.set("window", window);
+      if (options.deviceId) params.set("device_id", options.deviceId);
+
+      fetch(`/drilldowns/${kind}.json?${params.toString()}`)
+        .then((resp) => resp.json())
+        .then((data) => {
+          if (drilldownGenerated && data.generated_at) {
+            drilldownGenerated.textContent = `Generated: ${data.generated_at}`;
+          }
+          const rows = (data.rows || []).filter((row) => {
+            if (options.port && row.dst_port != null) {
+              return String(row.dst_port) === String(options.port);
+            }
+            return true;
+          });
+          if (drilldownWarning) {
+            if (data.limited) drilldownWarning.classList.remove("hidden");
+            else drilldownWarning.classList.add("hidden");
+          }
+
+          const ports = rows.map((row) => row.dst_port).filter((p) => p != null);
+          const ips = rows.map((row) => row.dst_ip).filter((ip) => ip);
+          if (drilldownCopyPorts) {
+            if (ports.length > 0) drilldownCopyPorts.classList.remove("hidden");
+            else drilldownCopyPorts.classList.add("hidden");
+            drilldownCopyPorts.onclick = () => {
+              navigator.clipboard?.writeText([...new Set(ports)].join("\n"));
+            };
+          }
+          if (drilldownCopyIps) {
+            if (ips.length > 0) drilldownCopyIps.classList.remove("hidden");
+            else drilldownCopyIps.classList.add("hidden");
+            drilldownCopyIps.onclick = () => {
+              navigator.clipboard?.writeText([...new Set(ips)].join("\n"));
+            };
+          }
+
+          const html = rows.map((row, index) => {
+            const bytes = formatBytes(row.bytes);
+            const port = row.dst_port != null ? row.dst_port : "--";
+            const ipLink = row.dst_ip ? `<a class="text-cyan-200 hover:text-cyan-100" href="/remote_hosts/${row.dst_ip}" target="_blank" rel="noopener">${row.dst_ip}</a>` : "--";
+            const count = row.count != null ? row.count : null;
+            const firstSeen = row.first_seen_at || "--";
+            const lastSeen = row.last_seen_at || "--";
+            const ipsList = (row.ips || []).map((ip) => `<a class="text-cyan-200 hover:text-cyan-100 mr-2" href="/remote_hosts/${ip}" target="_blank" rel="noopener">${ip}</a>`).join("");
+            const ipsSection = row.ips && row.ips.length > 0
+              ? `<div class="mt-2 text-xs text-zinc-300">
+                   <button type="button" class="text-cyan-200 hover:text-cyan-100 drilldown-ips-toggle" data-index="${index}">View IPs (${row.ips.length})</button>
+                   <div class="hidden mt-1" id="drilldown-ips-${index}">${ipsList}</div>
+                 </div>`
+              : "";
+            const timingSection = count != null
+              ? `<div class="mt-2 text-xs text-zinc-300">First Seen: ${firstSeen} · Last Seen: ${lastSeen} · Count: ${count}</div>`
+              : "";
+            return `
+              <div class="border border-zinc-800/60 rounded-xl p-3 bg-black/60">
+                <div class="grid grid-cols-2 gap-2 text-sm text-zinc-200">
+                  <div><span class="text-xs uppercase tracking-wider text-zinc-500">Timestamp</span><div>${row.timestamp || "--"}</div></div>
+                  <div><span class="text-xs uppercase tracking-wider text-zinc-500">Device</span><div>${row.device || "--"}</div></div>
+                  <div><span class="text-xs uppercase tracking-wider text-zinc-500">Proto</span><div>${row.proto || "--"}</div></div>
+                  <div><span class="text-xs uppercase tracking-wider text-zinc-500">Dst</span><div>${ipLink}</div></div>
+                  <div><span class="text-xs uppercase tracking-wider text-zinc-500">Port</span><div>${port}</div></div>
+                  <div><span class="text-xs uppercase tracking-wider text-zinc-500">Bytes</span><div title="${row.bytes || 0}">${bytes}</div></div>
+                </div>
+                <div class="mt-2 text-xs text-emerald-200">Why: ${row.reason || kind}</div>
+                ${timingSection}
+                ${ipsSection}
+              </div>
+            `;
+          }).join("");
+
+          drilldownBody.innerHTML = html || "<div class=\"text-sm text-zinc-200\">No results.</div>";
+          drilldownBody.querySelectorAll(".drilldown-ips-toggle").forEach((button) => {
+            button.addEventListener("click", () => {
+              const idx = button.dataset.index;
+              const panel = document.getElementById(`drilldown-ips-${idx}`);
+              if (!panel) return;
+              panel.classList.toggle("hidden");
+            });
+          });
+        })
+        .catch(() => {
+          if (drilldownBody) drilldownBody.innerHTML = "<div class=\"text-sm text-zinc-200\">Failed to load drilldown.</div>";
+        });
+    }
+
+    if (drilldownClose) {
+      drilldownClose.addEventListener("click", closeDrilldown);
+    }
+    if (drilldownOverlay) {
+      drilldownOverlay.addEventListener("click", (event) => {
+        if (event.target && event.target.classList.contains("drilldown-backdrop")) closeDrilldown();
+      });
+    }
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeDrilldown();
+        closeChartModal();
+      }
+    });
+
+    function closeChartModal() {
+      if (chartModal) chartModal.classList.add("hidden");
+    }
+
+    function openChartModal(title, points, color, windowLabel) {
+      if (!chartModal || !chartModalCanvas) return;
+      chartModalTitle.textContent = `${title} (${windowLabel || "10m"})`;
+      drawLineWithScale(chartModalCanvas, points, color || "#22d3ee");
+      chartModal.classList.remove("hidden");
+    }
+
+    if (chartModalClose) {
+      chartModalClose.addEventListener("click", closeChartModal);
+    }
+    if (chartModal) {
+      chartModal.addEventListener("click", (event) => {
+        if (event.target && event.target.classList.contains("chart-backdrop")) closeChartModal();
+      });
     }
 
     const graphs = {
@@ -555,6 +889,9 @@
     }
 
     function renderMetrics(payload) {
+      if (metricsUpdatedEl && payload.timestamp) {
+        metricsUpdatedEl.textContent = payload.timestamp;
+      }
       if (loadavgEl && payload.loadavg) {
         const { one, five, fifteen } = payload.loadavg;
         loadavgEl.textContent = `${one ?? "--"} / ${five ?? "--"} / ${fifteen ?? "--"}`;
@@ -579,18 +916,14 @@
       }
       if (ifacesEl) {
         const lines = (payload.interfaces || []).map((iface) => {
-          return `${iface.name}: rx ${iface.rx_bytes ?? 0}, tx ${iface.tx_bytes ?? 0}`;
+          return `${iface.name}: rx ${formatBytes(iface.rx_bytes ?? 0)}, tx ${formatBytes(iface.tx_bytes ?? 0)}`;
         });
         ifacesEl.textContent = lines.length > 0 ? lines.join(" | ") : "--";
       }
 
       if (payload.analytics) {
         lastAnalytics = payload.analytics;
-        if (newDstEl) newDstEl.textContent = payload.analytics.new_dst_ips_last_10m ?? "--";
-        if (uniqueDportsEl) uniqueDportsEl.textContent = payload.analytics.unique_dports_last_10m ?? "--";
-        if (uplinkBytesEl) uplinkBytesEl.textContent = payload.analytics.uplink_bytes_last_10m ?? "--";
-        if (newAsnsEl) newAsnsEl.textContent = payload.analytics.new_asns_last_1h ?? "--";
-
+        // Stat cards are updated via series fetches to respect per-card windows.
         if (anomaliesEl) {
           const list = (payload.analytics.anomalies || []).map((a) => a.rule);
           const asns = payload.analytics.new_asns_list || [];
@@ -604,28 +937,22 @@
 
     if (newDstEl) {
       newDstEl.addEventListener("click", () => {
-        const hosts = lastAnalytics?.new_dst_hosts || [];
-        showDetail("New DST IPs (10m)", renderHostList(hosts));
+        const window = document.querySelector(".stat-window[data-series='new_dst_ips_last_10m']")?.value || "10m";
+        openDrilldown("new_dst", window, "New DST IPs");
       });
     }
 
     if (uniqueDportsEl) {
       uniqueDportsEl.addEventListener("click", () => {
-        const ports = lastAnalytics?.unique_dports_hosts || [];
-        const html = ports.map((row) => {
-          return `<div class="text-sm text-cyan-200 mb-1"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
-        }).join("");
-        showDetail("Unique DPorts (10m)", html || "<div class=\"text-sm text-zinc-200\">None</div>");
+        const window = document.querySelector(".stat-window[data-series='unique_dports_last_10m']")?.value || "10m";
+        openDrilldown("unique_ports", window, "Unique DPorts");
       });
     }
 
     if (newAsnsEl) {
       newAsnsEl.addEventListener("click", () => {
-        const asns = lastAnalytics?.new_asns_hosts || [];
-        const html = asns.map((row) => {
-          return `<div class="text-sm text-cyan-200 mb-1"><strong>${row.asn}</strong></div>${renderHostList(row.hosts)}`;
-        }).join("");
-        showDetail("New ASNs (1h)", html || "<div class=\"text-sm text-zinc-200\">None</div>");
+        const window = document.querySelector(".stat-window[data-series='new_asns_last_1h']")?.value || "1h";
+        openDrilldown("new_asns", window, "New ASNs");
       });
     }
 
@@ -634,18 +961,12 @@
         const target = event.target;
         if (!target || !target.classList.contains("rare-port-item")) return;
         const port = target.dataset.port;
-        const ports = lastAnalytics?.rare_ports_hosts || [];
+        const window = document.querySelector(".panel-window[data-panel='rare']")?.value || "24h";
         if (port === "all") {
-          const html = ports.map((row) => {
-            return `<div class="text-sm text-cyan-200 mb-1"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
-          }).join("");
-          showDetail("Rare Ports (24h)", html || "<div class=\"text-sm text-zinc-200\">None</div>");
-          return;
+          openDrilldown("rare_ports", window, "Rare Ports");
+        } else {
+          openDrilldown("rare_ports", window, `Rare Port ${port}`, { port: port });
         }
-        const row = ports.find((item) => String(item.port) === port);
-        if (!row) return;
-        const html = `<div class="text-sm text-cyan-200 mb-1"><strong>Port ${row.port} (${row.count})</strong></div>${renderHostList(row.hosts)}`;
-        showDetail(`Rare Port ${row.port} (24h)`, html);
       });
     }
 
@@ -668,6 +989,40 @@
         metricsTimer = setTimeout(refreshMetrics, 200);
       });
     }
+
+    function updateStatCard(seriesKey, window, el, formatter) {
+      if (!el) return Promise.resolve();
+      return fetchSeries(window).then((series) => {
+        const points = series[seriesKey] || [];
+        const last = points.length > 0 ? points[points.length - 1] : 0;
+        const value = formatter ? formatter(last) : last;
+        el.textContent = value;
+        el.title = last;
+      });
+    }
+
+    function refreshStatSeries() {
+      document.querySelectorAll(".stat-window").forEach((select) => {
+        const seriesKey = select.dataset.series;
+        const window = select.value;
+        if (seriesKey === "uplink_bytes_last_10m") {
+          updateStatCard(seriesKey, window, uplinkBytesEl, formatBytes);
+        } else if (seriesKey === "new_dst_ips_last_10m") {
+          updateStatCard(seriesKey, window, newDstEl);
+        } else if (seriesKey === "unique_dports_last_10m") {
+          updateStatCard(seriesKey, window, uniqueDportsEl);
+        } else if (seriesKey === "new_asns_last_1h") {
+          updateStatCard(seriesKey, window, newAsnsEl);
+        }
+      });
+    }
+
+    refreshStatSeries();
+    setInterval(refreshStatSeries, 10000);
+
+    document.querySelectorAll(".stat-window").forEach((select) => {
+      select.addEventListener("change", refreshStatSeries);
+    });
 
     function refreshGraphSeries() {
       document.querySelectorAll(".graph-window").forEach((select) => {
@@ -697,7 +1052,12 @@
     function updateGraph(canvas, seriesKey, points, windowLabel) {
       const color = Object.values(graphs).find((g) => g.canvas === canvas)?.color || "#36c";
       drawLineWithScale(canvas, points || [], color);
+      if (canvas) canvas.dataset.color = color;
       graphSeriesState[seriesKey] = { points: points || [], window: windowLabel };
+      if (canvas && windowLabel) {
+        const label = document.querySelector(`[data-range-label="${canvas.id}"]`);
+        if (label) label.textContent = `Last ${windowLabel}`;
+      }
     }
 
     document.querySelectorAll(".graph-window").forEach((select) => {
@@ -727,15 +1087,134 @@
         const seriesKey = seriesKeyFromCanvas(graph.canvas);
         const state = graphSeriesState[seriesKey];
         if (!state || state.points.length === 0) return;
-        const points = state.points;
-        const min = Math.min(...points);
-        const max = Math.max(...points);
-        const last = points[points.length - 1];
-        const title = `${seriesKey.replace(/_/g, " ")} (${state.window || "10m"})`;
-        const html = `<div class="text-sm text-zinc-200 mb-1">Min: ${min}</div><div class="text-sm text-zinc-200 mb-1">Max: ${max}</div><div class="text-sm text-zinc-200 mb-1">Last: ${last}</div><div class="text-sm text-zinc-200">Points: ${points.length}</div>`;
-        showDetail(title, html);
+        const title = seriesKey.replace(/_/g, " ");
+        const color = graph.canvas.dataset.color || graph.color;
+        openChartModal(title, state.points, color, state.window);
       });
     });
+
+    const systemSeriesState = {};
+
+    function fetchSystemSeries(metric, window) {
+      return fetch(`/system/series.json?metric=${encodeURIComponent(metric)}&window=${encodeURIComponent(window)}`)
+        .then((resp) => resp.json());
+    }
+
+    function updateSystemGraph(canvas, metric, points, windowLabel) {
+      const color = "#22d3ee";
+      drawLineWithScale(canvas, points || [], color);
+      systemSeriesState[metric] = { points: points || [], window: windowLabel };
+      if (canvas && windowLabel) {
+        const label = document.querySelector(`[data-range-label="${canvas.id}"]`);
+        if (label) label.textContent = `Last ${windowLabel}`;
+      }
+    }
+
+    function refreshSystemGraphs() {
+      document.querySelectorAll(".system-window").forEach((select) => {
+        const metric = select.dataset.metric;
+        const window = select.value;
+        fetchSystemSeries(metric, window).then((series) => {
+          const points = series.values || [];
+          const canvas = document.querySelector(`canvas[data-metric="${metric}"]`);
+          updateSystemGraph(canvas, metric, points, window);
+        }).catch(() => {});
+      });
+    }
+
+    refreshSystemGraphs();
+    setInterval(refreshSystemGraphs, 10000);
+
+    document.querySelectorAll(".system-window").forEach((select) => {
+      select.addEventListener("change", refreshSystemGraphs);
+    });
+
+    document.querySelectorAll("canvas[data-metric]").forEach((canvas) => {
+      canvas.addEventListener("click", () => {
+        const metric = canvas.dataset.metric;
+        const state = systemSeriesState[metric];
+        if (!state || state.points.length === 0) return;
+        const title = metric.replace(/_/g, " ");
+        openChartModal(title, state.points, "#22d3ee", state.window);
+      });
+    });
+
+    const columnStorageKey = "netmon.columns.connections";
+    const columnsConfig = [
+      { key: "proto", label: "Proto" },
+      { key: "device", label: "Device" },
+      { key: "source", label: "Source" },
+      { key: "destination", label: "Destination" },
+      { key: "dst_port", label: "Dst Port" },
+      { key: "state", label: "State" },
+      { key: "flags", label: "Flags" },
+      { key: "up", label: "Up" },
+      { key: "down", label: "Down" },
+      { key: "total", label: "Total" },
+      { key: "score", label: "Score" },
+      { key: "reasons", label: "Reasons" },
+      { key: "allow", label: "Allow" },
+      { key: "age", label: "Age" },
+      { key: "rdns", label: "rDNS" },
+      { key: "whois", label: "WHOIS" },
+      { key: "seen", label: "Seen" }
+    ];
+    const defaultColumns = ["proto", "device", "destination", "dst_port", "total", "score", "reasons", "whois"];
+    let enabledColumns = [];
+
+    function loadColumnPreferences() {
+      try {
+        const stored = JSON.parse(localStorage.getItem(columnStorageKey) || "null");
+        if (Array.isArray(stored) && stored.length > 0) {
+          enabledColumns = stored;
+          return;
+        }
+      } catch (e) {}
+      enabledColumns = defaultColumns.slice();
+      localStorage.setItem(columnStorageKey, JSON.stringify(enabledColumns));
+    }
+
+    function applyColumnVisibility() {
+      const enabled = new Set(enabledColumns);
+      document.querySelectorAll("[data-col]").forEach((el) => {
+        const key = el.dataset.col;
+        if (!key) return;
+        if (enabled.has(key)) el.classList.remove("hidden");
+        else el.classList.add("hidden");
+      });
+    }
+
+    function renderColumnToggles() {
+      const container = document.getElementById("columns-toggle");
+      if (!container) return;
+      container.innerHTML = columnsConfig.map((col) => {
+        const checked = enabledColumns.includes(col.key) ? "checked" : "";
+        return `
+          <label class="flex items-center gap-2">
+            <input type="checkbox" class="rounded border-zinc-700 bg-black text-cyan-400" data-column="${col.key}" ${checked}>
+            <span>${col.label}</span>
+          </label>
+        `;
+      }).join("");
+
+      container.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
+        checkbox.addEventListener("change", () => {
+          const key = checkbox.dataset.column;
+          if (!key) return;
+          if (checkbox.checked) {
+            if (!enabledColumns.includes(key)) enabledColumns.push(key);
+          } else {
+            enabledColumns = enabledColumns.filter((col) => col !== key);
+          }
+          localStorage.setItem(columnStorageKey, JSON.stringify(enabledColumns));
+          applyColumnVisibility();
+        });
+      });
+    }
+
+    loadColumnPreferences();
+    renderColumnToggles();
+    applyColumnVisibility();
 
     const topRemoteHostsEl = document.getElementById("panel-top-remote-hosts");
     const newestRemoteHostsEl = document.getElementById("panel-newest-remote-hosts");
@@ -768,13 +1247,14 @@
         .then((resp) => resp.json())
         .then((data) => {
           const topRemote = (data.top_remote_hosts || []).map((row) => {
-            return `<a href="/remote_hosts/${row.ip}">${row.ip}</a> (${row.total_bytes} bytes)`;
+            const formatted = formatBytes(row.total_bytes);
+            return `<a href="/remote_hosts/${row.ip}">${row.ip}</a> (<span title="${row.total_bytes}">${formatted}</span>)`;
           });
           const newest = (data.newest_remote_hosts || []).map((row) => {
             const label = `${row.ip}${row.port ? `:${row.port}` : ""}`;
             return `<a href="/remote_hosts/${row.ip}">${label}</a>`;
           });
-          const topDevices = (data.top_devices_egress || []).map((row) => `${row.label} (${row.total_uplink} bytes)`);
+          const topDevices = (data.top_devices_egress || []).map((row) => `${row.label} (<span title="${row.total_uplink}">${formatBytes(row.total_uplink)}</span>)`);
           renderPanelList(topRemoteHostsEl, topRemote);
           renderPanelList(newestRemoteHostsEl, newest);
           if (newestViewAllEl) {

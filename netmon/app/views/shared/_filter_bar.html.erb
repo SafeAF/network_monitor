@@ -1,5 +1,12 @@
-<div class="rounded-xl border border-zinc-800/80 bg-zinc-950/70 p-3 shadow-[0_0_0_1px_rgba(16,185,129,0.10)]">
-  <div class="flex flex-wrap items-end gap-3">
+<% storage_key = local_assigns[:storage_key].presence || "netmon.filterbar.collapsed" %>
+<div class="rounded-xl border border-zinc-800/80 bg-zinc-950/70 p-3 shadow-[0_0_0_1px_rgba(16,185,129,0.10)]" data-controller="collapse" data-collapse-storage-key="<%= storage_key %>">
+  <div class="flex items-center justify-between mb-2">
+    <div class="text-xs uppercase tracking-wider text-zinc-500">Filters</div>
+    <button type="button" class="text-cyan-200 hover:text-cyan-100 text-xs" data-action="collapse#toggle">
+      <span data-collapse-target="icon">▾</span>
+    </button>
+  </div>
+  <div class="flex flex-wrap items-end gap-3" data-collapse-target="content">
     <%= yield %>
   </div>
 </div>

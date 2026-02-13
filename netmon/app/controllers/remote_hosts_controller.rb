@@ -8,7 +8,16 @@ class RemoteHostsController < ApplicationController
     @page = [params[:page].to_i, 1].max
     start_time = window_start(@window)
 
-    scope = RemoteHost.where("first_seen_at >= ?", start_time).order(first_seen_at: :desc)
+    scope = RemoteHost.where("first_seen_at >= ?", start_time)
+    sort = params[:sort].to_s
+    dir = params[:dir].to_s == "asc" ? :asc : :desc
+    scope = case sort
+            when "first_seen_at" then scope.order(first_seen_at: dir)
+            when "last_seen_at" then scope.order(last_seen_at: dir)
+            when "whois_name" then scope.order(Arel.sql("COALESCE(whois_name, '') #{dir.to_s.upcase}"))
+            when "tag" then scope.order(Arel.sql("COALESCE(tag, '') #{dir.to_s.upcase}"))
+            else scope.order(first_seen_at: :desc)
+            end
     @total = scope.count
     @total_pages = (@total / PER_PAGE.to_f).ceil
     @hosts = scope.offset((@page - 1) * PER_PAGE).limit(PER_PAGE)

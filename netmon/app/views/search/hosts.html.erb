@@ -5,7 +5,7 @@
 <h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Search Hosts</h1>
 
 <form method="get" class="mb-4">
-  <%= render "shared/filter_bar" do %>
+  <%= render "shared/filter_bar", storage_key: "netmon.filterbar.search_hosts" do %>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">IP <input class="<%= input_class %>" name="ip" value="<%= @filters[:ip].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">WHOIS Name <input class="<%= input_class %>" name="whois_name" value="<%= @filters[:whois_name].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">WHOIS ASN <input class="<%= input_class %>" name="whois_asn" value="<%= @filters[:whois_asn].to_s %>"></label>
@@ -41,6 +41,20 @@
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Total Bytes <input class="<%= input_class %>" name="min_total_bytes_ever" value="<%= @filters[:min_total_bytes_ever].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Max Score <input class="<%= input_class %>" name="min_max_score_ever" value="<%= @filters[:min_max_score_ever].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Tag
+      <select class="<%= input_class %>" name="tag">
+        <option value="" <%= "selected" if @filters[:tag].to_s.empty? %>>Any</option>
+        <option value="unknown" <%= "selected" if @filters[:tag] == "unknown" %>>Unknown</option>
+        <option value="cloud" <%= "selected" if @filters[:tag] == "cloud" %>>Cloud</option>
+        <option value="cdn" <%= "selected" if @filters[:tag] == "cdn" %>>CDN</option>
+        <option value="microsoft" <%= "selected" if @filters[:tag] == "microsoft" %>>Microsoft</option>
+        <option value="google" <%= "selected" if @filters[:tag] == "google" %>>Google</option>
+        <option value="suspicious" <%= "selected" if @filters[:tag] == "suspicious" %>>Suspicious</option>
+        <option value="trusted" <%= "selected" if @filters[:tag] == "trusted" %>>Trusted</option>
+        <option value="known_good" <%= "selected" if @filters[:tag] == "known_good" %>>Known Good</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
       Sort
       <select class="<%= input_class %>" name="sort">
         <option value="last_seen_desc" <%= "selected" if @filters[:sort].to_s == "last_seen_desc" %>>Last Seen</option>
@@ -56,6 +70,13 @@
   <% end %>
 </form>
 
+<div class="flex flex-wrap items-center gap-2 mb-4 text-xs">
+  <% tag_chips = [["Unknown", "unknown"], ["Cloud", "cloud"], ["CDN", "cdn"], ["Microsoft", "microsoft"], ["Google", "google"], ["Suspicious", "suspicious"], ["Trusted", "trusted"]] %>
+  <% tag_chips.each do |label, value| %>
+    <a class="px-2 py-1 rounded-full border border-emerald-700/40 text-emerald-200 hover:text-emerald-100" href="/search/hosts?<%= request.query_parameters.merge(tag: value, page: nil).to_query %>"><%= label %></a>
+  <% end %>
+</div>
+
 <%= render "saved_queries" %>
 
 <%= render "shared/table" do %>
@@ -67,6 +88,7 @@
       <th class="px-2 py-1.5 text-left">rDNS</th>
       <th class="px-2 py-1.5 text-left">First Seen</th>
       <th class="px-2 py-1.5 text-left">Last Seen</th>
+      <th class="px-2 py-1.5 text-left">Tag</th>
       <th class="px-2 py-1.5 text-right">Total Bytes</th>
       <th class="px-2 py-1.5 text-right">Max Score</th>
     </tr>
@@ -80,7 +102,8 @@
         <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.rdns_name.to_s %>"><%= host.rdns_name || "--" %></td>
         <td class="px-2 py-1.5"><%= host.first_seen_at %></td>
         <td class="px-2 py-1.5"><%= host.last_seen_at %></td>
-        <td class="px-2 py-1.5 text-right"><%= host.try(:total_bytes).to_i %></td>
+        <td class="px-2 py-1.5"><%= host.tag || "--" %></td>
+        <td class="px-2 py-1.5 text-right" title="<%= host.try(:total_bytes).to_i %>"><%= format_bytes(host.try(:total_bytes).to_i) %></td>
         <td class="px-2 py-1.5 text-right"><%= host.try(:max_score).to_i %></td>
       </tr>
     <% end %>

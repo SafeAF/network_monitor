@@ -5,7 +5,7 @@
 <h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Search Anomalies</h1>
 
 <form method="get" class="mb-4">
-  <%= render "shared/filter_bar" do %>
+  <%= render "shared/filter_bar", storage_key: "netmon.filterbar.search_anomalies" do %>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Device <input class="<%= input_class %>" name="device" value="<%= @filters[:device].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Dst IP <input class="<%= input_class %>" name="dst_ip" value="<%= @filters[:dst_ip].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Dst Port <input class="<%= input_class %>" name="dst_port" value="<%= @filters[:dst_port].to_s %>"></label>

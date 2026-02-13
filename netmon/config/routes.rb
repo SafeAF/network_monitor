@@ -16,12 +16,18 @@ Rails.application.routes.draw do
   get "connections" => "connections#index", defaults: { format: :json }
   get "metrics" => "metrics#index", defaults: { format: :json }
   get "metrics/series" => "metrics#series", defaults: { format: :json }
+  get "system/series" => "system_metrics#series", defaults: { format: :json }
+  get "drilldowns/new_dst" => "drilldowns#new_dst", defaults: { format: :json }
+  get "drilldowns/unique_ports" => "drilldowns#unique_ports", defaults: { format: :json }
+  get "drilldowns/new_asns" => "drilldowns#new_asns", defaults: { format: :json }
+  get "drilldowns/rare_ports" => "drilldowns#rare_ports", defaults: { format: :json }
   resources :devices, only: [:index, :update]
   get "anomalies" => "anomalies#index"
   patch "anomalies/:id" => "anomalies#update"
   get "incidents" => "incidents#index"
   get "incidents/:id" => "incidents#show"
   post "incidents/:id/ack" => "incidents#ack"
+  get "help" => "help#index"
   get "remote_hosts" => "remote_hosts#index"
   get "remote_hosts/:ip" => "remote_hosts#show", constraints: { ip: /[^\/]+/ }
   patch "remote_hosts/:ip" => "remote_hosts#update", constraints: { ip: /[^\/]+/ }
