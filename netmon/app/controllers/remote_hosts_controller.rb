@@ -26,16 +26,17 @@ class RemoteHostsController < ApplicationController
   def show
     @ip = params[:ip]
     @host = RemoteHost.find_by(ip: @ip)
-    @connections = Connection.where(dst_ip: @ip)
+    @connections = Connection.where(dst_ip: @ip).order(last_seen_at: :desc).limit(200)
     @ports = @connections.where.not(dst_port: nil).distinct.order(:dst_port).pluck(:dst_port)
     @port_history = if @host
                       RemoteHostPort.where(remote_host_id: @host.id).order(:dst_port)
                     else
                       []
                     end
-    @traffic = @connections.sum("uplink_bytes + downlink_bytes")
-    @first_seen = @host&.first_seen_at || @connections.minimum(:first_seen_at)
-    @last_seen = @host&.last_seen_at || @connections.maximum(:last_seen_at)
+    traffic_scope = Connection.where(dst_ip: @ip)
+    @traffic = traffic_scope.sum("uplink_bytes + downlink_bytes")
+    @first_seen = @host&.first_seen_at || traffic_scope.minimum(:first_seen_at)
+    @last_seen = @host&.last_seen_at || traffic_scope.maximum(:last_seen_at)
     @rdns = @host&.rdns_name
     @whois = @host&.whois_name
     @whois_raw = @host&.respond_to?(:whois_raw_line) ? @host.whois_raw_line : nil

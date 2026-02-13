@@ -816,8 +816,10 @@
     function openChartModal(title, points, color, windowLabel) {
       if (!chartModal || !chartModalCanvas) return;
       chartModalTitle.textContent = `${title} (${windowLabel || "10m"})`;
-      drawLineWithScale(chartModalCanvas, points, color || "#22d3ee");
       chartModal.classList.remove("hidden");
+      requestAnimationFrame(() => {
+        drawLineWithScale(chartModalCanvas, points, color || "#22d3ee");
+      });
     }
 
     if (chartModalClose) {
@@ -1001,6 +1003,42 @@
       });
     }
 
+    const windowStorageKey = "netmon.graph.windows";
+
+    function loadWindowSelections() {
+      let stored = {};
+      try {
+        stored = JSON.parse(localStorage.getItem(windowStorageKey) || "{}");
+      } catch (e) {
+        stored = {};
+      }
+      document.querySelectorAll(".graph-window").forEach((select) => {
+        const key = `graph:${select.dataset.series}`;
+        if (stored[key]) select.value = stored[key];
+      });
+      document.querySelectorAll(".system-window").forEach((select) => {
+        const key = `system:${select.dataset.metric}`;
+        if (stored[key]) select.value = stored[key];
+      });
+      document.querySelectorAll(".stat-window").forEach((select) => {
+        const key = `stat:${select.dataset.series}`;
+        if (stored[key]) select.value = stored[key];
+      });
+    }
+
+    function persistWindowSelection(kind, key, value) {
+      let stored = {};
+      try {
+        stored = JSON.parse(localStorage.getItem(windowStorageKey) || "{}");
+      } catch (e) {
+        stored = {};
+      }
+      stored[`${kind}:${key}`] = value;
+      localStorage.setItem(windowStorageKey, JSON.stringify(stored));
+    }
+
+    loadWindowSelections();
+
     function refreshStatSeries() {
       document.querySelectorAll(".stat-window").forEach((select) => {
         const seriesKey = select.dataset.series;
@@ -1021,13 +1059,18 @@
     setInterval(refreshStatSeries, 10000);
 
     document.querySelectorAll(".stat-window").forEach((select) => {
-      select.addEventListener("change", refreshStatSeries);
+      select.addEventListener("change", () => {
+        const seriesKey = select.dataset.series;
+        persistWindowSelection("stat", seriesKey, select.value);
+        refreshStatSeries();
+      });
     });
 
     function refreshGraphSeries() {
       document.querySelectorAll(".graph-window").forEach((select) => {
         const seriesKey = select.dataset.series;
         const window = select.value;
+        if (window) persistWindowSelection("graph", seriesKey, window);
         fetchSeries(window).then((series) => {
           const points = series[seriesKey] || [];
           const canvas = document.querySelector(`canvas[data-series="${seriesKey}"]`);
@@ -1064,6 +1107,7 @@
       select.addEventListener("change", () => {
         const window = select.value;
         const seriesKey = select.dataset.series;
+        persistWindowSelection("graph", seriesKey, window);
         if (graphSeriesState[seriesKey]) {
           graphSeriesState[seriesKey].window = window;
         } else {
@@ -1114,6 +1158,7 @@
       document.querySelectorAll(".system-window").forEach((select) => {
         const metric = select.dataset.metric;
         const window = select.value;
+        if (window) persistWindowSelection("system", metric, window);
         fetchSystemSeries(metric, window).then((series) => {
           const points = series.values || [];
           const canvas = document.querySelector(`canvas[data-metric="${metric}"]`);
@@ -1126,7 +1171,11 @@
     setInterval(refreshSystemGraphs, 10000);
 
     document.querySelectorAll(".system-window").forEach((select) => {
-      select.addEventListener("change", refreshSystemGraphs);
+      select.addEventListener("change", () => {
+        const metric = select.dataset.metric;
+        persistWindowSelection("system", metric, select.value);
+        refreshSystemGraphs();
+      });
     });
 
     document.querySelectorAll("canvas[data-metric]").forEach((canvas) => {
