@@ -2,23 +2,27 @@
 
 class DrilldownsController < ApplicationController
   ROW_LIMIT = 200
+  PAGE_SIZE = 50
 
   def new_dst
     now = Time.current
     window = params[:window].presence || "10m"
     start_time = window_start(window, now)
     device = device_filter
+    page = [params[:page].to_i, 1].max
 
     hosts = RemoteHost.where("first_seen_at >= ?", start_time)
     if device
       hosts = hosts.joins("INNER JOIN connections ON connections.dst_ip = remote_hosts.ip")
                    .where("connections.src_ip = ?", device.ip)
     end
+    total_count = hosts.count
+    total_pages = (total_count / PAGE_SIZE.to_f).ceil
     hosts = hosts.order(first_seen_at: :desc)
-                 .limit(ROW_LIMIT + 1)
+                 .limit(PAGE_SIZE)
+                 .offset((page - 1) * PAGE_SIZE)
 
-    limited = hosts.length > ROW_LIMIT
-    hosts = hosts.first(ROW_LIMIT)
+    limited = total_count > ROW_LIMIT
 
     rows = hosts.map do |host|
       conn = Connection.where(dst_ip: host.ip)
@@ -37,7 +41,15 @@ class DrilldownsController < ApplicationController
       }
     end
 
-    render json: { window: window, generated_at: now.iso8601, limited: limited, rows: rows }
+    render json: {
+      window: window,
+      generated_at: now.iso8601,
+      limited: limited,
+      page: page,
+      total_pages: total_pages,
+      total_count: total_count,
+      rows: rows
+    }
   end
 
   def unique_ports
@@ -45,20 +57,24 @@ class DrilldownsController < ApplicationController
     window = params[:window].presence || "10m"
     start_time = window_start(window, now)
     device = device_filter
+    page = [params[:page].to_i, 1].max
 
     ports_scope = Connection.where("last_seen_at >= ?", start_time)
                             .where.not(dst_port: nil)
     ports_scope = ports_scope.where(src_ip: device.ip) if device
 
-    ports = ports_scope.group(:dst_port)
-                       .order(Arel.sql("COUNT(*) DESC"))
-                       .limit(ROW_LIMIT + 1)
-                       .pluck(:dst_port, Arel.sql("COUNT(*)"), Arel.sql("MIN(last_seen_at)"), Arel.sql("MAX(last_seen_at)"))
+    grouped = ports_scope.select("dst_port, COUNT(*) AS total_count, MIN(last_seen_at) AS first_seen_at, MAX(last_seen_at) AS last_seen_at")
+                         .group(:dst_port)
+                         .order(Arel.sql("total_count DESC"))
+    total_count = grouped.count.length
+    total_pages = (total_count / PAGE_SIZE.to_f).ceil
+    limited = total_count > ROW_LIMIT
 
-    limited = ports.length > ROW_LIMIT
-    ports = ports.first(ROW_LIMIT)
-
-    rows = ports.map do |port, count, first_seen_at, last_seen_at|
+    rows = grouped.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE).map do |row|
+      port = row.dst_port
+      count = row.total_count
+      first_seen_at = row.first_seen_at
+      last_seen_at = row.last_seen_at
       conn = Connection.where("last_seen_at >= ?", start_time)
                        .where(dst_port: port)
                        .yield_self { |scope| device ? scope.where(src_ip: device.ip) : scope }
@@ -86,7 +102,15 @@ class DrilldownsController < ApplicationController
       }
     end
 
-    render json: { window: window, generated_at: now.iso8601, limited: limited, rows: rows }
+    render json: {
+      window: window,
+      generated_at: now.iso8601,
+      limited: limited,
+      page: page,
+      total_pages: total_pages,
+      total_count: total_count,
+      rows: rows
+    }
   end
 
   def new_asns
@@ -94,6 +118,7 @@ class DrilldownsController < ApplicationController
     window = params[:window].presence || "1h"
     start_time = window_start(window, now)
     device = device_filter
+    page = [params[:page].to_i, 1].max
 
     hosts = RemoteHost.where("first_seen_at >= ?", start_time)
                       .where.not(whois_asn: nil)
@@ -101,11 +126,13 @@ class DrilldownsController < ApplicationController
       hosts = hosts.joins("INNER JOIN connections ON connections.dst_ip = remote_hosts.ip")
                    .where("connections.src_ip = ?", device.ip)
     end
+    total_count = hosts.count
+    total_pages = (total_count / PAGE_SIZE.to_f).ceil
     hosts = hosts.order(first_seen_at: :desc)
-                 .limit(ROW_LIMIT + 1)
+                 .limit(PAGE_SIZE)
+                 .offset((page - 1) * PAGE_SIZE)
 
-    limited = hosts.length > ROW_LIMIT
-    hosts = hosts.first(ROW_LIMIT)
+    limited = total_count > ROW_LIMIT
 
     rows = hosts.map do |host|
       conn = Connection.where(dst_ip: host.ip)
@@ -125,7 +152,15 @@ class DrilldownsController < ApplicationController
       }
     end
 
-    render json: { window: window, generated_at: now.iso8601, limited: limited, rows: rows }
+    render json: {
+      window: window,
+      generated_at: now.iso8601,
+      limited: limited,
+      page: page,
+      total_pages: total_pages,
+      total_count: total_count,
+      rows: rows
+    }
   end
 
   def rare_ports
@@ -134,20 +169,24 @@ class DrilldownsController < ApplicationController
     start_time = window_start(window, now)
     device = device_filter
     common_ports = Array(load_config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
+    page = [params[:page].to_i, 1].max
 
     ports_scope = Connection.where("last_seen_at >= ?", start_time)
                             .where.not(dst_port: nil)
                             .where.not(dst_port: common_ports)
     ports_scope = ports_scope.where(src_ip: device.ip) if device
-    ports = ports_scope.group(:dst_port)
-                       .order(Arel.sql("COUNT(*) DESC"))
-                       .limit(ROW_LIMIT + 1)
-                       .pluck(:dst_port, Arel.sql("COUNT(*)"), Arel.sql("MIN(last_seen_at)"), Arel.sql("MAX(last_seen_at)"))
+    grouped = ports_scope.select("dst_port, COUNT(*) AS total_count, MIN(last_seen_at) AS first_seen_at, MAX(last_seen_at) AS last_seen_at")
+                         .group(:dst_port)
+                         .order(Arel.sql("total_count DESC"))
+    total_count = grouped.count.length
+    total_pages = (total_count / PAGE_SIZE.to_f).ceil
+    limited = total_count > ROW_LIMIT
 
-    limited = ports.length > ROW_LIMIT
-    ports = ports.first(ROW_LIMIT)
-
-    rows = ports.map do |port, count, first_seen_at, last_seen_at|
+    rows = grouped.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE).map do |row|
+      port = row.dst_port
+      count = row.total_count
+      first_seen_at = row.first_seen_at
+      last_seen_at = row.last_seen_at
       conn = Connection.where("last_seen_at >= ?", start_time)
                        .where(dst_port: port)
                        .yield_self { |scope| device ? scope.where(src_ip: device.ip) : scope }
@@ -175,7 +214,15 @@ class DrilldownsController < ApplicationController
       }
     end
 
-    render json: { window: window, generated_at: now.iso8601, limited: limited, rows: rows }
+    render json: {
+      window: window,
+      generated_at: now.iso8601,
+      limited: limited,
+      page: page,
+      total_pages: total_pages,
+      total_count: total_count,
+      rows: rows
+    }
   end
 
   private

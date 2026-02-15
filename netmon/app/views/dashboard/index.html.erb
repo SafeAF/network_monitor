@@ -215,6 +215,11 @@
       <button type="button" id="drilldown-copy-ports" class="bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25 rounded-lg px-3 py-1 text-sm hidden">Copy Ports</button>
       <button type="button" id="drilldown-copy-ips" class="bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25 rounded-lg px-3 py-1 text-sm hidden">Copy IPs</button>
     </div>
+    <div class="flex items-center gap-2 mb-3 text-sm text-zinc-400" id="drilldown-pagination">
+      <button type="button" id="drilldown-prev" class="bg-zinc-900/60 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm" disabled>Prev</button>
+      <span id="drilldown-page">Page 1</span>
+      <button type="button" id="drilldown-next" class="bg-zinc-900/60 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm" disabled>Next</button>
+    </div>
     <div id="drilldown-body" class="space-y-2"></div>
   </div>
 </div>
@@ -668,6 +673,9 @@
     const drilldownWarning = document.getElementById("drilldown-warning");
     const drilldownCopyPorts = document.getElementById("drilldown-copy-ports");
     const drilldownCopyIps = document.getElementById("drilldown-copy-ips");
+    const drilldownPrev = document.getElementById("drilldown-prev");
+    const drilldownNext = document.getElementById("drilldown-next");
+    const drilldownPageEl = document.getElementById("drilldown-page");
     const chartModal = document.getElementById("chart-modal");
     const chartModalClose = document.getElementById("chart-modal-close");
     const chartModalTitle = document.getElementById("chart-modal-title");
@@ -696,8 +704,15 @@
       if (drilldownOverlay) drilldownOverlay.classList.add("hidden");
     }
 
+    const drilldownState = { kind: null, window: null, title: null, options: {}, page: 1, totalPages: 1 };
+
     function openDrilldown(kind, window, title, options = {}) {
       if (!drilldownOverlay) return;
+      drilldownState.kind = kind;
+      drilldownState.window = window;
+      drilldownState.title = title;
+      drilldownState.options = options;
+      drilldownState.page = 1;
       if (drilldownTitle) drilldownTitle.textContent = title;
       if (drilldownWindow) drilldownWindow.textContent = `Window: ${window}`;
       if (drilldownGenerated) drilldownGenerated.textContent = "Generated: --";
@@ -705,21 +720,31 @@
       if (drilldownWarning) drilldownWarning.classList.add("hidden");
       if (drilldownCopyPorts) drilldownCopyPorts.classList.add("hidden");
       if (drilldownCopyIps) drilldownCopyIps.classList.add("hidden");
+      if (drilldownPrev) drilldownPrev.disabled = true;
+      if (drilldownNext) drilldownNext.disabled = true;
+      if (drilldownPageEl) drilldownPageEl.textContent = "Page 1";
       drilldownOverlay.classList.remove("hidden");
 
-      const params = new URLSearchParams();
-      params.set("window", window);
-      if (options.deviceId) params.set("device_id", options.deviceId);
+      loadDrilldownPage(1);
+    }
 
-      fetch(`/drilldowns/${kind}.json?${params.toString()}`)
+    function loadDrilldownPage(page) {
+      if (!drilldownState.kind) return;
+      drilldownState.page = page;
+      const params = new URLSearchParams();
+      params.set("window", drilldownState.window);
+      params.set("page", drilldownState.page);
+      if (drilldownState.options.deviceId) params.set("device_id", drilldownState.options.deviceId);
+
+      fetch(`/drilldowns/${drilldownState.kind}.json?${params.toString()}`)
         .then((resp) => resp.json())
         .then((data) => {
           if (drilldownGenerated && data.generated_at) {
             drilldownGenerated.textContent = `Generated: ${data.generated_at}`;
           }
           const rows = (data.rows || []).filter((row) => {
-            if (options.port && row.dst_port != null) {
-              return String(row.dst_port) === String(options.port);
+            if (drilldownState.options.port && row.dst_port != null) {
+              return String(row.dst_port) === String(drilldownState.options.port);
             }
             return true;
           });
@@ -727,6 +752,12 @@
             if (data.limited) drilldownWarning.classList.remove("hidden");
             else drilldownWarning.classList.add("hidden");
           }
+          drilldownState.totalPages = data.total_pages || 1;
+          if (drilldownPageEl) {
+            drilldownPageEl.textContent = `Page ${data.page || 1} of ${drilldownState.totalPages}`;
+          }
+          if (drilldownPrev) drilldownPrev.disabled = (data.page || 1) <= 1;
+          if (drilldownNext) drilldownNext.disabled = (data.page || 1) >= drilldownState.totalPages;
 
           const ports = rows.map((row) => row.dst_port).filter((p) => p != null);
           const ips = rows.map((row) => row.dst_ip).filter((ip) => ip);
@@ -772,7 +803,7 @@
                   <div><span class="text-xs uppercase tracking-wider text-zinc-500">Port</span><div>${port}</div></div>
                   <div><span class="text-xs uppercase tracking-wider text-zinc-500">Bytes</span><div title="${row.bytes || 0}">${bytes}</div></div>
                 </div>
-                <div class="mt-2 text-xs text-emerald-200">Why: ${row.reason || kind}</div>
+                <div class="mt-2 text-xs text-emerald-200">Why: ${row.reason || drilldownState.kind}</div>
                 ${timingSection}
                 ${ipsSection}
               </div>
@@ -796,6 +827,16 @@
 
     if (drilldownClose) {
       drilldownClose.addEventListener("click", closeDrilldown);
+    }
+    if (drilldownPrev) {
+      drilldownPrev.addEventListener("click", () => {
+        if (drilldownState.page > 1) loadDrilldownPage(drilldownState.page - 1);
+      });
+    }
+    if (drilldownNext) {
+      drilldownNext.addEventListener("click", () => {
+        if (drilldownState.page < drilldownState.totalPages) loadDrilldownPage(drilldownState.page + 1);
+      });
     }
     if (drilldownOverlay) {
       drilldownOverlay.addEventListener("click", (event) => {

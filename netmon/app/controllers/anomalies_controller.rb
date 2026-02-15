@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class AnomaliesController < ApplicationController
-  RESULTS_LIMIT = 200
+  RESULTS_LIMIT = 100
 
   def index
     @filters = filter_params
