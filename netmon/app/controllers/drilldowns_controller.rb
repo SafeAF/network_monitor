@@ -66,7 +66,7 @@ class DrilldownsController < ApplicationController
     grouped = ports_scope.select("dst_port, COUNT(*) AS total_count, MIN(last_seen_at) AS first_seen_at, MAX(last_seen_at) AS last_seen_at")
                          .group(:dst_port)
                          .order(Arel.sql("total_count DESC"))
-    total_count = grouped.count.length
+    total_count = ports_scope.distinct.count(:dst_port)
     total_pages = (total_count / PAGE_SIZE.to_f).ceil
     limited = total_count > ROW_LIMIT
 
@@ -178,7 +178,7 @@ class DrilldownsController < ApplicationController
     grouped = ports_scope.select("dst_port, COUNT(*) AS total_count, MIN(last_seen_at) AS first_seen_at, MAX(last_seen_at) AS last_seen_at")
                          .group(:dst_port)
                          .order(Arel.sql("total_count DESC"))
-    total_count = grouped.count.length
+    total_count = ports_scope.distinct.count(:dst_port)
     total_pages = (total_count / PAGE_SIZE.to_f).ceil
     limited = total_count > ROW_LIMIT
 
