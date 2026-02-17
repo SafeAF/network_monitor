@@ -1,0 +1,60 @@
+<% button_primary = "bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30 rounded-lg px-4 py-2 text-sm" %>
+<% button_secondary = "bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25 rounded-lg px-4 py-2 text-sm" %>
+<% input_class = "bg-black border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 placeholder:text-zinc-600 focus-visible:ring-2 focus-visible:ring-cyan-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black" %>
+
+<h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-4">Search</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+  <a class="<%= button_primary %> text-center" href="/search/hosts">Hosts</a>
+  <a class="<%= button_primary %> text-center" href="/search/connections">Connections</a>
+  <a class="<%= button_primary %> text-center" href="/search/anomalies">Anomalies</a>
+</div>
+
+<div class="mb-6">
+  <div class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Quick Search</div>
+  <form id="quick-search" class="flex flex-wrap items-center gap-2">
+    <input id="quick-search-input" class="<%= input_class %> flex-1" placeholder="IP, :443, port=443, code:RARE_PORT">
+    <button type="submit" class="<%= button_secondary %>">Go</button>
+  </form>
+</div>
+
+<%= render "shared/card" do %>
+  <div class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Recent Saved Searches</div>
+  <ul class="space-y-1 text-sm">
+    <% @recent_saved_queries.each do |saved| %>
+      <% url = saved.path + (saved.params_hash.present? ? "?#{saved.params_hash.to_query}" : "") %>
+      <li><a href="<%= url %>"><%= saved.name %></a> <span class="text-xs text-zinc-500">(<%= saved.kind %>)</span></li>
+    <% end %>
+  </ul>
+<% end %>
+
+<script>
+  (function() {
+    const form = document.getElementById("quick-search");
+    const input = document.getElementById("quick-search-input");
+    if (!form || !input) return;
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const raw = input.value.trim();
+      if (!raw) return;
+
+      const lower = raw.toLowerCase();
+      if (lower.startsWith("code:")) {
+        const code = raw.split(":")[1] || "";
+        window.location = `/search/anomalies?code=${encodeURIComponent(code)}`;
+        return;
+      }
+      if (lower.startsWith(":") || lower.startsWith("port=")) {
+        const port = lower.startsWith(":") ? lower.slice(1) : lower.split("=")[1];
+        window.location = `/search/connections?dst_port=${encodeURIComponent(port)}`;
+        return;
+      }
+      if (raw.match(/\d+\.\d+\.\d+\.\d+/)) {
+        window.location = `/search/hosts?ip=${encodeURIComponent(raw)}`;
+        return;
+      }
+      window.location = `/search/hosts?ip=${encodeURIComponent(raw)}`;
+    });
+  })();
+</script>

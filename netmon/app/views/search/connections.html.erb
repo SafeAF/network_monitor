@@ -11,36 +11,37 @@
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Dst IP <input class="<%= input_class %>" name="dst_ip" value="<%= @filters[:dst_ip].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Dst Port <input class="<%= input_class %>" name="dst_port" value="<%= @filters[:dst_port].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Proto <input class="<%= input_class %>" name="proto" value="<%= @filters[:proto].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">State <input class="<%= input_class %>" name="state" value="<%= @filters[:state].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Score <input class="<%= input_class %>" name="min_score" value="<%= @filters[:min_score].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Reason <input class="<%= input_class %>" name="reason" value="<%= @filters[:reason].to_s %>"></label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
-      Hide TIME_WAIT
-      <select class="<%= input_class %>" name="hide_time_wait">
-        <option value="" <%= "selected" if @filters[:hide_time_wait].to_s.empty? %>>All</option>
-        <option value="true" <%= "selected" if @filters[:hide_time_wait] == "true" %>>Yes</option>
+      Seen Since
+      <select class="<%= input_class %>" name="seen_since">
+        <option value="">Any</option>
+        <option value="10m" <%= "selected" if @filters[:seen_since] == "10m" %>>10m</option>
+        <option value="1h" <%= "selected" if @filters[:seen_since] == "1h" %>>1h</option>
+        <option value="24h" <%= "selected" if @filters[:seen_since] == "24h" %>>24h</option>
+        <option value="7d" <%= "selected" if @filters[:seen_since] == "7d" %>>7d</option>
+        <option value="30d" <%= "selected" if @filters[:seen_since] == "30d" %>>30d</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Total Bytes <input class="<%= input_class %>" name="min_total_bytes" value="<%= @filters[:min_total_bytes].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Uplink Bytes <input class="<%= input_class %>" name="min_uplink_bytes" value="<%= @filters[:min_uplink_bytes].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Downlink Bytes <input class="<%= input_class %>" name="min_downlink_bytes" value="<%= @filters[:min_downlink_bytes].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Allowlisted
+      <select class="<%= input_class %>" name="allowlisted">
+        <option value="" <%= "selected" if @filters[:allowlisted].to_s.empty? %>>Any</option>
+        <option value="1" <%= "selected" if @filters[:allowlisted] == true %>>Yes</option>
+        <option value="0" <%= "selected" if @filters[:allowlisted] == false %>>No</option>
       </select>
     </label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
-      Min Score
-      <select class="<%= input_class %>" name="min_score">
-        <option value="" <%= "selected" if @filters[:min_score].to_s.empty? %>>All</option>
-        <option value="0" <%= "selected" if @filters[:min_score] == "0" %>>0</option>
-        <option value="20" <%= "selected" if @filters[:min_score] == "20" %>>20</option>
-        <option value="50" <%= "selected" if @filters[:min_score] == "50" %>>50</option>
-      </select>
-    </label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Reason Contains <input class="<%= input_class %>" name="reason_contains" value="<%= @filters[:reason_contains].to_s %>"></label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
-      Only New Dst
-      <select class="<%= input_class %>" name="only_new_dst">
-        <option value="" <%= "selected" if @filters[:only_new_dst].to_s.empty? %>>All</option>
-        <option value="true" <%= "selected" if @filters[:only_new_dst] == "true" %>>Yes</option>
-      </select>
-    </label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
-      Sort
-      <select class="<%= input_class %>" name="sort">
-        <option value="score_desc" <%= "selected" if @filters[:sort].to_s == "score_desc" %>>Score</option>
-        <option value="total_bytes_desc" <%= "selected" if @filters[:sort].to_s == "total_bytes_desc" %>>Total Bytes</option>
-        <option value="last_seen_desc" <%= "selected" if @filters[:sort].to_s == "last_seen_desc" %>>Last Seen</option>
+      Per Page
+      <select class="<%= input_class %>" name="per">
+        <option value="50" <%= "selected" if @per.to_i == 50 %>>50</option>
+        <option value="100" <%= "selected" if @per.to_i == 100 %>>100</option>
+        <option value="200" <%= "selected" if @per.to_i == 200 %>>200</option>
       </select>
     </label>
     <div class="flex flex-wrap items-center gap-2 ml-auto">
@@ -50,21 +51,38 @@
   <% end %>
 </form>
 
+<div class="flex flex-wrap items-center gap-2 mb-4 text-xs">
+  <a class="px-2 py-1 rounded-full border border-cyan-700/40 text-cyan-200 hover:text-cyan-100" href="/search/connections?<%= request.query_parameters.merge(min_score: 50, page: nil).to_query %>">Score 50+</a>
+  <% [22, 53, 123, 443].each do |port| %>
+    <a class="px-2 py-1 rounded-full border border-emerald-700/40 text-emerald-200 hover:text-emerald-100" href="/search/connections?<%= request.query_parameters.merge(dst_port: port, page: nil).to_query %>">Port <%= port %></a>
+  <% end %>
+</div>
+
 <%= render "saved_queries" %>
+
+<%= render "shared/card" do %>
+  <% start_idx = (@page - 1) * @per + 1 %>
+  <% end_idx = [@page * @per, @total].min %>
+  <div class="text-sm text-zinc-300">Showing <%= start_idx %>–<%= end_idx %> of <%= @total %></div>
+<% end %>
 
 <%= render "shared/table" do %>
   <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th class="px-2 py-1.5 text-left">Device</th>
-      <th class="px-2 py-1.5 text-left">Src</th>
-      <th class="px-2 py-1.5 text-left">Dst</th>
-      <th class="px-2 py-1.5 text-left">Port</th>
       <th class="px-2 py-1.5 text-left">Proto</th>
-      <th class="px-2 py-1.5 text-left">State</th>
-      <th class="px-2 py-1.5 text-left">Score</th>
+      <th class="px-2 py-1.5 text-left">Device</th>
+      <th class="px-2 py-1.5 text-left">Source</th>
+      <th class="px-2 py-1.5 text-left"><%= sortable_th("Dst IP", "dst_ip") %></th>
+      <th class="px-2 py-1.5 text-left"><%= sortable_th("Dst Port", "dst_port") %></th>
+      <th class="px-2 py-1.5 text-right"><%= sortable_th("Up", "uplink_bytes") %></th>
+      <th class="px-2 py-1.5 text-right"><%= sortable_th("Down", "downlink_bytes") %></th>
+      <th class="px-2 py-1.5 text-right"><%= sortable_th("Total", "total_bytes") %></th>
+      <th class="px-2 py-1.5 text-left"><%= sortable_th("Score", "anomaly_score") %></th>
       <th class="px-2 py-1.5 text-left">Reasons</th>
-      <th class="px-2 py-1.5 text-right">Total Bytes</th>
-      <th class="px-2 py-1.5 text-left">Last Seen</th>
+      <th class="px-2 py-1.5 text-left"><%= sortable_th("Last Seen", "last_seen_at") %></th>
+      <th class="px-2 py-1.5 text-left">Age</th>
+      <th class="px-2 py-1.5 text-left">rDNS</th>
+      <th class="px-2 py-1.5 text-left">WHOIS</th>
     </tr>
   </thead>
   <tbody>
@@ -77,18 +95,34 @@
       <% reason_codes = reasons.map { |reason| reason["code"] }.compact %>
       <% score = conn.anomaly_score.to_i %>
       <% score_badge = score >= 70 ? "alert" : (score >= 50 ? "warn" : (score >= 20 ? "info" : "neutral")) %>
+      <% host = @hosts_by_ip[conn.dst_ip] %>
+      <% device = @devices_by_ip[conn.src_ip] %>
+      <% total_bytes = conn.uplink_bytes + conn.downlink_bytes %>
+      <% age_seconds = Time.current - conn.last_seen_at %>
+      <% age_label = if age_seconds < 60
+                       "#{age_seconds.to_i}s"
+                     elsif age_seconds < 3600
+                       "#{(age_seconds / 60).to_i}m"
+                     elsif age_seconds < 86_400
+                       "#{(age_seconds / 3600).to_i}h"
+                     else
+                       "#{(age_seconds / 86_400).to_i}d"
+                     end %>
       <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
-        <td class="px-2 py-1.5"><%= conn.src_ip %></td>
-        <td class="px-2 py-1.5"><%= conn.src_ip %></td>
+        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.proto %></td>
+        <td class="px-2 py-1.5"><%= device&.name.presence || conn.src_ip %></td>
+        <td class="px-2 py-1.5"><%= conn.src_ip %><%= conn.src_port ? ":#{conn.src_port}" : "" %></td>
         <td class="px-2 py-1.5"><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a></td>
         <td class="px-2 py-1.5"><%= conn.dst_port %></td>
-        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.proto %></td>
-        <td class="px-2 py-1.5 font-mono text-xs"><%= conn.state %></td>
+        <td class="px-2 py-1.5 text-right" title="<%= conn.uplink_bytes %>"><%= format_bytes(conn.uplink_bytes) %></td>
+        <td class="px-2 py-1.5 text-right" title="<%= conn.downlink_bytes %>"><%= format_bytes(conn.downlink_bytes) %></td>
+        <td class="px-2 py-1.5 text-right" title="<%= total_bytes %>"><%= format_bytes(total_bytes) %></td>
         <td class="px-2 py-1.5"><%= render "shared/badge", text: score, variant: score_badge %></td>
         <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= reason_codes.join(",") %>"><%= reason_codes.join(",") %></td>
-        <% total_bytes = conn.uplink_bytes + conn.downlink_bytes %>
-        <td class="px-2 py-1.5 text-right" title="<%= total_bytes %>"><%= format_bytes(total_bytes) %></td>
         <td class="px-2 py-1.5"><%= conn.last_seen_at %></td>
+        <td class="px-2 py-1.5"><%= age_label %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host&.rdns_name.to_s %>"><%= host&.rdns_name || "--" %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host&.whois_name.to_s %>"><%= host&.whois_name || "--" %></td>
       </tr>
     <% end %>
   </tbody>

@@ -413,7 +413,6 @@
       <th class="px-2 py-1.5 text-left" data-col="age"><%= sortable_th("Age", "age") %></th>
       <th class="px-2 py-1.5 text-left" data-col="rdns">rDNS</th>
       <th class="px-2 py-1.5 text-left" data-col="whois">WHOIS</th>
-      <th class="px-2 py-1.5 text-left" data-col="dst_port"><%= sortable_th("Dst Port", "dst_port") %></th>
       <th class="px-2 py-1.5 text-left" data-col="seen">Seen</th>
     </tr>
   </thead>
@@ -464,7 +463,6 @@
         <td class="px-2 py-1.5" data-col="age"><%= seen_age %></td>
         <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="rdns" title="<%= host&.rdns_name.to_s %>"><%= host&.rdns_name || "--" %></td>
         <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="whois" title="<%= host&.try(:whois_raw_line).to_s %>"><%= host&.whois_name || "--" %></td>
-        <td class="px-2 py-1.5" data-col="dst_port"><%= conn.dst_port %></td>
         <td class="px-2 py-1.5" data-col="seen">
           <% if seen_label == "NEW" %>
             <%= render "shared/badge", text: "NEW", variant: "info" %>
@@ -542,7 +540,6 @@
           <td class="px-2 py-1.5" data-col="age">${conn.seen_age || "unknown"}</td>
           <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="rdns" title="${conn.rdns_name || ""}">${conn.rdns_name || "--"}</td>
           <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="whois" title="${conn.whois_raw_line || ""}">${conn.whois_name || "--"}</td>
-          <td class="px-2 py-1.5" data-col="dst_port">${conn.dst_port ?? ""}</td>
           <td class="px-2 py-1.5" data-col="seen">${seenBadge}</td>
         </tr>
       `;
@@ -1235,7 +1232,6 @@
       { key: "device", label: "Device" },
       { key: "source", label: "Source" },
       { key: "destination", label: "Destination" },
-      { key: "dst_port", label: "Dst Port" },
       { key: "state", label: "State" },
       { key: "flags", label: "Flags" },
       { key: "up", label: "Up" },
@@ -1249,7 +1245,7 @@
       { key: "whois", label: "WHOIS" },
       { key: "seen", label: "Seen" }
     ];
-    const defaultColumns = ["proto", "device", "destination", "dst_port", "total", "score", "reasons", "whois"];
+    const defaultColumns = ["proto", "device", "destination", "total", "score", "reasons", "rdns", "whois"];
     let enabledColumns = [];
 
     function loadColumnPreferences() {
@@ -1262,6 +1258,13 @@
       } catch (e) {}
       enabledColumns = defaultColumns.slice();
       localStorage.setItem(columnStorageKey, JSON.stringify(enabledColumns));
+    }
+
+    function ensureDefaultColumn(key) {
+      if (!enabledColumns.includes(key)) {
+        enabledColumns.push(key);
+        localStorage.setItem(columnStorageKey, JSON.stringify(enabledColumns));
+      }
     }
 
     function applyColumnVisibility() {
@@ -1303,6 +1306,7 @@
     }
 
     loadColumnPreferences();
+    ensureDefaultColumn("rdns");
     renderColumnToggles();
     applyColumnVisibility();
 

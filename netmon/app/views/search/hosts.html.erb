@@ -7,41 +7,7 @@
 <form method="get" class="mb-4">
   <%= render "shared/filter_bar", storage_key: "netmon.filterbar.search_hosts" do %>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">IP <input class="<%= input_class %>" name="ip" value="<%= @filters[:ip].to_s %>"></label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">WHOIS Name <input class="<%= input_class %>" name="whois_name" value="<%= @filters[:whois_name].to_s %>"></label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">WHOIS ASN <input class="<%= input_class %>" name="whois_asn" value="<%= @filters[:whois_asn].to_s %>"></label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">rDNS <input class="<%= input_class %>" name="rdns" value="<%= @filters[:rdns].to_s %>"></label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
-      rDNS Missing
-      <select class="<%= input_class %>" name="rdns_missing">
-        <option value="" <%= "selected" if @filters[:rdns_missing].to_s.empty? %>>All</option>
-        <option value="true" <%= "selected" if @filters[:rdns_missing] == "true" %>>Yes</option>
-      </select>
-    </label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
-      First Seen
-      <select class="<%= input_class %>" name="first_seen_within">
-        <option value="">Any</option>
-        <option value="1h" <%= "selected" if @filters[:first_seen_within] == "1h" %>>1h</option>
-        <option value="24h" <%= "selected" if @filters[:first_seen_within] == "24h" %>>24h</option>
-        <option value="7d" <%= "selected" if @filters[:first_seen_within] == "7d" %>>7d</option>
-        <option value="30d" <%= "selected" if @filters[:first_seen_within] == "30d" %>>30d</option>
-      </select>
-    </label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
-      Last Seen
-      <select class="<%= input_class %>" name="last_seen_within">
-        <option value="">Any</option>
-        <option value="1h" <%= "selected" if @filters[:last_seen_within] == "1h" %>>1h</option>
-        <option value="24h" <%= "selected" if @filters[:last_seen_within] == "24h" %>>24h</option>
-        <option value="7d" <%= "selected" if @filters[:last_seen_within] == "7d" %>>7d</option>
-        <option value="30d" <%= "selected" if @filters[:last_seen_within] == "30d" %>>30d</option>
-      </select>
-    </label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Seen Port <input class="<%= input_class %>" name="seen_port" value="<%= @filters[:seen_port].to_s %>"></label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Total Bytes <input class="<%= input_class %>" name="min_total_bytes_ever" value="<%= @filters[:min_total_bytes_ever].to_s %>"></label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Min Max Score <input class="<%= input_class %>" name="min_max_score_ever" value="<%= @filters[:min_max_score_ever].to_s %>"></label>
-    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
-      Tag
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Tag
       <select class="<%= input_class %>" name="tag">
         <option value="" <%= "selected" if @filters[:tag].to_s.empty? %>>Any</option>
         <option value="unknown" <%= "selected" if @filters[:tag] == "unknown" %>>Unknown</option>
@@ -54,13 +20,65 @@
         <option value="known_good" <%= "selected" if @filters[:tag] == "known_good" %>>Known Good</option>
       </select>
     </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">rDNS <input class="<%= input_class %>" name="rdns" value="<%= @filters[:rdns].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">WHOIS <input class="<%= input_class %>" name="whois" value="<%= @filters[:whois].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">ASN <input class="<%= input_class %>" name="asn" value="<%= @filters[:asn].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Notes <input class="<%= input_class %>" name="notes" value="<%= @filters[:notes].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">Dst Port <input class="<%= input_class %>" name="dst_port" value="<%= @filters[:dst_port].to_s %>"></label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Seen Since
+      <select class="<%= input_class %>" name="seen_since">
+        <option value="">Any</option>
+        <option value="10m" <%= "selected" if @filters[:seen_since] == "10m" %>>10m</option>
+        <option value="1h" <%= "selected" if @filters[:seen_since] == "1h" %>>1h</option>
+        <option value="24h" <%= "selected" if @filters[:seen_since] == "24h" %>>24h</option>
+        <option value="7d" <%= "selected" if @filters[:seen_since] == "7d" %>>7d</option>
+        <option value="30d" <%= "selected" if @filters[:seen_since] == "30d" %>>30d</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      First Seen Since
+      <select class="<%= input_class %>" name="first_seen_since">
+        <option value="">Any</option>
+        <option value="10m" <%= "selected" if @filters[:first_seen_since] == "10m" %>>10m</option>
+        <option value="1h" <%= "selected" if @filters[:first_seen_since] == "1h" %>>1h</option>
+        <option value="24h" <%= "selected" if @filters[:first_seen_since] == "24h" %>>24h</option>
+        <option value="7d" <%= "selected" if @filters[:first_seen_since] == "7d" %>>7d</option>
+        <option value="30d" <%= "selected" if @filters[:first_seen_since] == "30d" %>>30d</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Has rDNS
+      <select class="<%= input_class %>" name="has_rdns">
+        <option value="" <%= "selected" if @filters[:has_rdns].to_s.empty? %>>Any</option>
+        <option value="1" <%= "selected" if @filters[:has_rdns] == true %>>Yes</option>
+        <option value="0" <%= "selected" if @filters[:has_rdns] == false %>>No</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Has WHOIS
+      <select class="<%= input_class %>" name="has_whois">
+        <option value="" <%= "selected" if @filters[:has_whois].to_s.empty? %>>Any</option>
+        <option value="1" <%= "selected" if @filters[:has_whois] == true %>>Yes</option>
+        <option value="0" <%= "selected" if @filters[:has_whois] == false %>>No</option>
+      </select>
+    </label>
+    <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
+      Per Page
+      <select class="<%= input_class %>" name="per">
+        <option value="50" <%= "selected" if @per.to_i == 50 %>>50</option>
+        <option value="100" <%= "selected" if @per.to_i == 100 %>>100</option>
+        <option value="200" <%= "selected" if @per.to_i == 200 %>>200</option>
+      </select>
+    </label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-500">
       Sort
       <select class="<%= input_class %>" name="sort">
-        <option value="last_seen_desc" <%= "selected" if @filters[:sort].to_s == "last_seen_desc" %>>Last Seen</option>
-        <option value="first_seen_desc" <%= "selected" if @filters[:sort].to_s == "first_seen_desc" %>>First Seen</option>
-        <option value="max_total_bytes_desc" <%= "selected" if @filters[:sort].to_s == "max_total_bytes_desc" %>>Max Total Bytes</option>
-        <option value="max_score_desc" <%= "selected" if @filters[:sort].to_s == "max_score_desc" %>>Max Score</option>
+        <option value="last_seen_at" <%= "selected" if @filters[:sort].to_s == "last_seen_at" %>>Last Seen</option>
+        <option value="first_seen_at" <%= "selected" if @filters[:sort].to_s == "first_seen_at" %>>First Seen</option>
+        <option value="ip" <%= "selected" if @filters[:sort].to_s == "ip" %>>IP</option>
+        <option value="tag" <%= "selected" if @filters[:sort].to_s == "tag" %>>Tag</option>
+        <option value="whois_name" <%= "selected" if @filters[:sort].to_s == "whois_name" %>>WHOIS</option>
       </select>
     </label>
     <div class="flex flex-wrap items-center gap-2 ml-auto">
@@ -79,32 +97,40 @@
 
 <%= render "saved_queries" %>
 
+<%= render "shared/card" do %>
+  <% start_idx = (@page - 1) * @per + 1 %>
+  <% end_idx = [@page * @per, @total].min %>
+  <div class="text-sm text-zinc-300">Showing <%= start_idx %>–<%= end_idx %> of <%= @total %></div>
+<% end %>
+
 <%= render "shared/table" do %>
   <thead class="bg-zinc-950 text-zinc-400 text-xs uppercase tracking-wider">
     <tr>
-      <th class="px-2 py-1.5 text-left">IP</th>
-      <th class="px-2 py-1.5 text-left">WHOIS</th>
-      <th class="px-2 py-1.5 text-left">ASN</th>
+      <th class="px-2 py-1.5 text-left"><%= sortable_th("IP", "ip") %></th>
+      <th class="px-2 py-1.5 text-left"><%= sortable_th("Tag", "tag") %></th>
       <th class="px-2 py-1.5 text-left">rDNS</th>
-      <th class="px-2 py-1.5 text-left">First Seen</th>
-      <th class="px-2 py-1.5 text-left">Last Seen</th>
-      <th class="px-2 py-1.5 text-left">Tag</th>
-      <th class="px-2 py-1.5 text-right">Total Bytes</th>
-      <th class="px-2 py-1.5 text-right">Max Score</th>
+      <th class="px-2 py-1.5 text-left"><%= sortable_th("WHOIS", "whois_name") %></th>
+      <th class="px-2 py-1.5 text-left">ASN</th>
+      <th class="px-2 py-1.5 text-left"><%= sortable_th("First Seen", "first_seen_at") %></th>
+      <th class="px-2 py-1.5 text-left"><%= sortable_th("Last Seen", "last_seen_at") %></th>
+      <th class="px-2 py-1.5 text-left">Ports Seen</th>
     </tr>
   </thead>
   <tbody>
     <% @hosts.each do |host| %>
+      <% ports = (@ports_by_host[host.id] || []).sort_by { |row| -row.seen_count.to_i } %>
+      <% top_ports = ports.first(3).map(&:dst_port) %>
+      <% port_summary = top_ports.join(", ") %>
+      <% port_suffix = ports.size > top_ports.size ? " (+#{ports.size - top_ports.size})" : "" %>
       <tr class="odd:bg-black even:bg-zinc-950/30 hover:bg-zinc-900/50">
         <td class="px-2 py-1.5"><a href="/remote_hosts/<%= host.ip %>"><%= host.ip %></a></td>
+        <td class="px-2 py-1.5"><%= render "shared/badge", text: host.tag || "unknown", variant: "neutral" %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.rdns_name.to_s %>"><%= host.rdns_name || "--" %></td>
         <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.whois_name.to_s %>"><%= host.whois_name || "--" %></td>
         <td class="px-2 py-1.5"><%= host.whois_asn || "--" %></td>
-        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.rdns_name.to_s %>"><%= host.rdns_name || "--" %></td>
         <td class="px-2 py-1.5"><%= host.first_seen_at %></td>
         <td class="px-2 py-1.5"><%= host.last_seen_at %></td>
-        <td class="px-2 py-1.5"><%= host.tag || "--" %></td>
-        <td class="px-2 py-1.5 text-right" title="<%= host.try(:total_bytes).to_i %>"><%= format_bytes(host.try(:total_bytes).to_i) %></td>
-        <td class="px-2 py-1.5 text-right"><%= host.try(:max_score).to_i %></td>
+        <td class="px-2 py-1.5"><a href="/remote_hosts/<%= host.ip %>"><%= port_summary.presence || "--" %><%= port_suffix %></a></td>
       </tr>
     <% end %>
   </tbody>

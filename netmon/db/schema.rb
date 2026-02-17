@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_11_124000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_15_190000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -199,7 +199,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_11_124000) do
     t.index ["first_seen_at"], name: "index_remote_hosts_on_first_seen_at"
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
     t.index ["last_seen_at"], name: "index_remote_hosts_on_last_seen_at"
+    t.index ["tag", "last_seen_at"], name: "index_remote_hosts_on_tag_and_last_seen_at"
     t.index ["tag"], name: "index_remote_hosts_on_tag"
+    t.index ["whois_asn"], name: "index_remote_hosts_on_whois_asn"
   end
 
   create_table "saved_queries", force: :cascade do |t|

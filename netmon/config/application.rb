@@ -23,6 +23,8 @@ module Netmon
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+    config.autoload_paths << Rails.root.join("app/lib")
+    config.eager_load_paths << Rails.root.join("app/lib")
     config.generators do |g|
       g.test_framework :rspec
     end

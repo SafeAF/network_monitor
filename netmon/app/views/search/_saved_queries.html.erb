@@ -8,7 +8,8 @@
       <%= form.text_field :name, value: "", placeholder: "Name", class: input_class %>
       <%= form.hidden_field :path, value: request.path %>
       <%= form.hidden_field :kind, value: @saved_query_kind %>
-      <%= form.hidden_field :params_json, value: request.query_parameters.to_json %>
+      <% params_payload = defined?(@saved_query_params) && @saved_query_params.present? ? @saved_query_params : request.query_parameters %>
+      <%= form.hidden_field :params_json, value: params_payload.to_json %>
       <%= form.submit "Save", id: "saved-query-submit", class: button_primary %>
     <% end %>
   <% end %>
