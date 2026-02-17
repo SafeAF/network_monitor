@@ -77,10 +77,10 @@ module Netmon
 
       record = SystemMinute.find_or_initialize_by(bucket_ts: bucket_ts)
       record.loadavg1 = loadavg1
-      record.disk_read_bytes = delta_disk_read
-      record.disk_write_bytes = delta_disk_write
-      record.rx_bytes = delta_rx
-      record.tx_bytes = delta_tx
+      record.disk_read_bytes = record.disk_read_bytes.to_i + delta_disk_read
+      record.disk_write_bytes = record.disk_write_bytes.to_i + delta_disk_write
+      record.rx_bytes = record.rx_bytes.to_i + delta_rx
+      record.tx_bytes = record.tx_bytes.to_i + delta_tx
       record.save!
     end
 
