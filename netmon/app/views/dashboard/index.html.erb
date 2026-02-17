@@ -176,17 +176,17 @@
   <%= render "shared/card" do %>
     <div class="flex items-center justify-between gap-2 mb-2">
       <div>
-        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Download Bytes</h3>
-        <div class="text-xs text-zinc-500" data-range-label="graph-download">Last 10m</div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">New DST IPs</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-new-dst">Last 10m</div>
       </div>
-      <select class="system-window <%= input_class %> text-xs" data-metric="rx_bytes">
+      <select class="graph-window <%= input_class %> text-xs" data-series="new_dst_ips_last_10m">
         <option value="10m" selected>10m</option>
         <option value="1h">1h</option>
         <option value="24h">24h</option>
         <option value="1w">1w</option>
       </select>
     </div>
-    <canvas id="graph-download" data-metric="rx_bytes" class="w-full h-32"></canvas>
+    <canvas id="graph-new-dst" data-series="new_dst_ips_last_10m" class="w-full h-32"></canvas>
   <% end %>
 </section>
 
@@ -239,17 +239,32 @@
   <%= render "shared/card" do %>
     <div class="flex items-center justify-between gap-2 mb-2">
       <div>
-        <h3 class="text-xs uppercase tracking-wider text-zinc-500">New DST IPs</h3>
-        <div class="text-xs text-zinc-500" data-range-label="graph-new-dst">Last 10m</div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Uplink Bytes</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-uplink-bytes">Last 10m</div>
       </div>
-      <select class="graph-window <%= input_class %> text-xs" data-series="new_dst_ips_last_10m">
+      <select class="graph-window <%= input_class %> text-xs" data-series="uplink_bytes_last_10m">
         <option value="10m" selected>10m</option>
         <option value="1h">1h</option>
         <option value="24h">24h</option>
         <option value="1w">1w</option>
       </select>
     </div>
-    <canvas id="graph-new-dst" data-series="new_dst_ips_last_10m" class="w-full h-32"></canvas>
+    <canvas id="graph-uplink-bytes" data-series="uplink_bytes_last_10m" class="w-full h-32"></canvas>
+  <% end %>
+  <%= render "shared/card" do %>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <div>
+        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Download Bytes</h3>
+        <div class="text-xs text-zinc-500" data-range-label="graph-download">Last 10m</div>
+      </div>
+      <select class="system-window <%= input_class %> text-xs" data-metric="rx_bytes">
+        <option value="10m" selected>10m</option>
+        <option value="1h">1h</option>
+        <option value="24h">24h</option>
+        <option value="1w">1w</option>
+      </select>
+    </div>
+    <canvas id="graph-download" data-metric="rx_bytes" class="w-full h-32"></canvas>
   <% end %>
   <%= render "shared/card" do %>
     <div class="flex items-center justify-between gap-2 mb-2">
@@ -265,21 +280,6 @@
       </select>
     </div>
     <canvas id="graph-unique-dports" data-series="unique_dports_last_10m" class="w-full h-32"></canvas>
-  <% end %>
-  <%= render "shared/card" do %>
-    <div class="flex items-center justify-between gap-2 mb-2">
-      <div>
-        <h3 class="text-xs uppercase tracking-wider text-zinc-500">Uplink Bytes</h3>
-        <div class="text-xs text-zinc-500" data-range-label="graph-uplink-bytes">Last 10m</div>
-      </div>
-      <select class="graph-window <%= input_class %> text-xs" data-series="uplink_bytes_last_10m">
-        <option value="10m" selected>10m</option>
-        <option value="1h">1h</option>
-        <option value="24h">24h</option>
-        <option value="1w">1w</option>
-      </select>
-    </div>
-    <canvas id="graph-uplink-bytes" data-series="uplink_bytes_last_10m" class="w-full h-32"></canvas>
   <% end %>
   <%= render "shared/card" do %>
     <div class="flex items-center justify-between gap-2 mb-2">
@@ -441,7 +441,13 @@
           <% end %>
         </td>
         <td class="px-2 py-1.5" data-col="source"><a href="/remote_hosts/<%= conn.src_ip %>"><%= conn.src_ip %></a>:<%= conn.src_port %></td>
-        <td class="px-2 py-1.5" data-col="destination"><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %></td>
+        <td class="px-2 py-1.5" data-col="destination">
+          <% if conn.src_port %>
+            <a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %> (<%= conn.src_port %>)
+          <% else %>
+            <a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %>
+          <% end %>
+        </td>
         <td class="px-2 py-1.5 font-mono text-xs" data-col="state"><%= conn.state %></td>
         <td class="px-2 py-1.5 font-mono text-xs" data-col="flags"><%= conn.flags %></td>
         <td class="px-2 py-1.5 text-right" data-col="up" title="<%= conn.uplink_bytes %>"><%= format_bytes(conn.uplink_bytes) %></td>
@@ -498,7 +504,7 @@
         ? `<a href="/remote_hosts/${conn.src_ip}">${conn.src_ip}</a>:${conn.src_port}`
         : `<a href="/remote_hosts/${conn.src_ip}">${conn.src_ip}</a>`;
       const dst = conn.dst_port
-        ? `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>:${conn.dst_port}`
+        ? `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>:${conn.dst_port}${conn.src_port ? ` (${conn.src_port})` : ""}`
         : `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>`;
       const seenLabel = conn.is_new ? "NEW" : "SEEN";
       const score = Number(conn.anomaly_score || 0);
@@ -1245,7 +1251,7 @@
       { key: "whois", label: "WHOIS" },
       { key: "seen", label: "Seen" }
     ];
-    const defaultColumns = ["proto", "device", "destination", "total", "score", "reasons", "rdns", "whois"];
+    const defaultColumns = ["proto", "device", "destination", "up", "down", "total", "score", "reasons", "rdns", "whois"];
     let enabledColumns = [];
 
     function loadColumnPreferences() {
@@ -1306,6 +1312,8 @@
     }
 
     loadColumnPreferences();
+    ensureDefaultColumn("up");
+    ensureDefaultColumn("down");
     ensureDefaultColumn("rdns");
     renderColumnToggles();
     applyColumnVisibility();
