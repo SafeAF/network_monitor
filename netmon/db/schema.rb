@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_15_190000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_17_110000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -77,6 +77,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_15_190000) do
     t.integer "anomaly_score", default: 0, null: false
     t.text "anomaly_reasons_json", default: "[]", null: false
     t.index ["anomaly_score"], name: "index_connections_on_anomaly_score"
+    t.index ["dst_ip", "last_seen_at"], name: "index_connections_on_dst_ip_and_last_seen_at"
+    t.index ["dst_ip"], name: "index_connections_on_dst_ip"
     t.index ["last_seen_at"], name: "index_connections_on_last_seen_at"
     t.index ["proto", "src_ip", "src_port", "dst_ip", "dst_port"], name: "index_connections_on_5_tuple", unique: true
   end

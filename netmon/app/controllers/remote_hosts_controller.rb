@@ -82,10 +82,10 @@ class RemoteHostsController < ApplicationController
   end
 
   def geo_lookup(ip)
-    stdout = run_cmd(["geoiplookup", ip], timeout: 4)
-    return nil if stdout.nil?
-
-    stdout.strip
+    Rails.cache.fetch("geoip:#{ip}", expires_in: 24.hours) do
+      stdout = run_cmd(["geoiplookup", ip], timeout: 4)
+      stdout&.strip
+    end
   end
 
   def run_cmd(command, timeout:)
