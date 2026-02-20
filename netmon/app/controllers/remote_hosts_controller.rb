@@ -34,9 +34,17 @@ class RemoteHostsController < ApplicationController
                       []
                     end
     traffic_scope = Connection.where(dst_ip: @ip)
-    @traffic = traffic_scope.sum("uplink_bytes + downlink_bytes")
-    @first_seen = @host&.first_seen_at || traffic_scope.minimum(:first_seen_at)
-    @last_seen = @host&.last_seen_at || traffic_scope.maximum(:last_seen_at)
+    if @host
+      minutes_total = RemoteHostMinute.where(remote_host_id: @host.id)
+                                      .sum("uplink_bytes + downlink_bytes")
+      @traffic = minutes_total
+      @first_seen = @host.first_seen_at
+      @last_seen = @host.last_seen_at
+    else
+      @traffic = traffic_scope.sum("uplink_bytes + downlink_bytes")
+      @first_seen = traffic_scope.minimum(:first_seen_at)
+      @last_seen = traffic_scope.maximum(:last_seen_at)
+    end
     @rdns = @host&.rdns_name
     @whois = @host&.whois_name
     @whois_raw = @host&.respond_to?(:whois_raw_line) ? @host.whois_raw_line : nil
@@ -83,7 +91,7 @@ class RemoteHostsController < ApplicationController
 
   def geo_lookup(ip)
     Rails.cache.fetch("geoip:#{ip}", expires_in: 24.hours) do
-      stdout = run_cmd(["geoiplookup", ip], timeout: 4)
+      stdout = run_cmd(["geoiplookup", ip], timeout: 1)
       stdout&.strip
     end
   end

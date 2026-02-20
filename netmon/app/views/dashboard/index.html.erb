@@ -443,7 +443,7 @@
         <td class="px-2 py-1.5" data-col="source"><a href="/remote_hosts/<%= conn.src_ip %>"><%= conn.src_ip %></a>:<%= conn.src_port %></td>
         <td class="px-2 py-1.5" data-col="destination">
           <% if conn.src_port %>
-            <a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %> (<%= conn.src_port %>)
+            <%= conn.src_port %>:<a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %>
           <% else %>
             <a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a>:<%= conn.dst_port %>
           <% end %>
@@ -504,7 +504,7 @@
         ? `<a href="/remote_hosts/${conn.src_ip}">${conn.src_ip}</a>:${conn.src_port}`
         : `<a href="/remote_hosts/${conn.src_ip}">${conn.src_ip}</a>`;
       const dst = conn.dst_port
-        ? `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>:${conn.dst_port}${conn.src_port ? ` (${conn.src_port})` : ""}`
+        ? `${conn.src_port ? `${conn.src_port}:` : ""}<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>:${conn.dst_port}`
         : `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>`;
       const seenLabel = conn.is_new ? "NEW" : "SEEN";
       const score = Number(conn.anomaly_score || 0);
