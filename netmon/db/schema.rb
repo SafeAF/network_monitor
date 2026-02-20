@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_17_110000) do
+ActiveRecord::Schema[8.0].define(version: 2026_02_20_103000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -157,6 +157,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_17_110000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["captured_at"], name: "index_metric_samples_on_captured_at"
+  end
+
+  create_table "netmon_events", force: :cascade do |t|
+    t.string "event_type", null: false
+    t.datetime "ts", null: false
+    t.string "router_id", null: false
+    t.json "data", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_type"], name: "index_netmon_events_on_event_type"
+    t.index ["router_id"], name: "index_netmon_events_on_router_id"
+    t.index ["ts"], name: "index_netmon_events_on_ts"
   end
 
   create_table "remote_host_minutes", force: :cascade do |t|

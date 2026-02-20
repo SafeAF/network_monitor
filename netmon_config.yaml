@@ -1,0 +1,35 @@
+# /etc/netmon-agent/config.yaml
+
+router_id: "router-01"
+
+# Rails server on LAN. Example:
+# rails_base_url: "http://192.168.1.10:3000"
+rails_base_url: "http://CHANGE_ME:3000"
+
+# Must match what Rails expects
+auth_token: "CHANGE_ME"
+
+# NFLOG groups you configured in iptables rules
+nflog_groups: [10, 11]
+
+# dnsmasq query log file
+dnsmasq_log_path: "/var/log/dnsmasq.log"
+
+# Batching
+batch_max_events: 250
+batch_flush_seconds: 1
+
+# Spool (for when Rails is down)
+spool_dir: "/var/lib/netmon-agent/spool"
+spool_max_bytes: 52428800  # 50MB
+
+# Metrics server
+metrics_bind: "127.0.0.1:9109"
+
+# DNS behavior
+dns_bucket_seconds: 60
+dns_max_distinct_qnames_per_client_per_bucket: 200
+dns_hash_salt: "CHANGE_ME_TO_RANDOM_LONG_STRING"
+
+# Optional: only emit conntrack DESTROY by default (recommended)
+conntrack_emit_new: false

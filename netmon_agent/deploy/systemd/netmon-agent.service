@@ -1,0 +1,15 @@
+[Unit]
+Description=Netmon Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/netmon-agent
+ExecStartPre=/bin/mkdir -p /var/lib/netmon-agent/spool
+ExecStart=/opt/netmon-agent/netmon_agent -config /etc/netmon-agent/config.yaml
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

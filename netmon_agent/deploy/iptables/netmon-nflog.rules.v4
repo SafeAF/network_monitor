@@ -1,0 +1,26 @@
+*filter
+:NETMON_INPUT_DROPLOG - [0:0]
+:NETMON_FORWARD_DROPLOG - [0:0]
+
+# TCP SYN attempts to router on WAN (rate-limited per source IP)
+-A NETMON_INPUT_DROPLOG -i enp2s0 -p tcp --syn -m conntrack --ctstate NEW \
+  -m hashlimit --hashlimit-name nm_in_syn --hashlimit-mode srcip \
+  --hashlimit 5/second --hashlimit-burst 20 \
+  -j NFLOG --nflog-group 10 --nflog-prefix "DROP_IN_SYN "
+-A NETMON_INPUT_DROPLOG -i enp2s0 -p tcp --syn -m conntrack --ctstate NEW -j DROP
+
+# UDP NEW to router on WAN (optional)
+-A NETMON_INPUT_DROPLOG -i enp2s0 -p udp -m conntrack --ctstate NEW \
+  -m hashlimit --hashlimit-name nm_in_udp --hashlimit-mode srcip \
+  --hashlimit 2/second --hashlimit-burst 10 \
+  -j NFLOG --nflog-group 10 --nflog-prefix "DROP_IN_UDP "
+-A NETMON_INPUT_DROPLOG -i enp2s0 -p udp -m conntrack --ctstate NEW -j DROP
+
+# FORWARD WAN -> LAN drops
+-A NETMON_FORWARD_DROPLOG -i enp2s0 -o enp3s0 -p tcp --syn -m conntrack --ctstate NEW \
+  -m hashlimit --hashlimit-name nm_fwd_syn --hashlimit-mode srcip \
+  --hashlimit 5/second --hashlimit-burst 20 \
+  -j NFLOG --nflog-group 11 --nflog-prefix "DROP_FWD_SYN "
+-A NETMON_FORWARD_DROPLOG -i enp2s0 -o enp3s0 -p tcp --syn -m conntrack --ctstate NEW -j DROP
+
+COMMIT

@@ -1,0 +1,32 @@
+[Unit]
+Description=netmon Go agent (NFLOG + conntrack + dnsmasq)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/netmon-agent --config /etc/netmon-agent/config.yaml
+Restart=always
+RestartSec=2
+WorkingDirectory=/
+User=root
+Group=root
+
+# Make failure modes obvious
+Environment=GODEBUG=madvdontneed=1
+
+# Basic hardening (still root)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/etc/netmon-agent /var/lib/netmon-agent /var/log/netmon-agent /var/log/dnsmasq.log
+MemoryMax=250M
+CPUQuota=30%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

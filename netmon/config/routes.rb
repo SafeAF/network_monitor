@@ -39,4 +39,12 @@ Rails.application.routes.draw do
   post "saved_queries" => "saved_queries#create"
   resources :allowlist_rules, only: [:create]
   resources :suppression_rules, only: [:create]
+
+  namespace :api do
+    namespace :v1 do
+      namespace :netmon do
+        post "events/batch" => "events#batch"
+      end
+    end
+  end
 end
