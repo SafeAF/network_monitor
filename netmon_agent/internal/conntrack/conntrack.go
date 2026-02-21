@@ -7,6 +7,7 @@ import (
   "time"
 
   ct "github.com/ti-mo/conntrack"
+  "github.com/ti-mo/netfilter"
 
   "netmon_agent/internal/config"
   "netmon_agent/internal/event"
@@ -36,6 +37,15 @@ func (c *Collector) Start(ctx context.Context, out chan<- event.Event) error {
   }()
 
   evCh := make(chan ct.Event, 1024)
+  errCh, err := conn.Listen(evCh, 1, netfilter.GroupsCT)
+  if err != nil {
+    return err
+  }
+  go func() {
+    for err := range errCh {
+      _ = err
+    }
+  }()
   go func() {
     for ev := range evCh {
       if ev.Type == ct.EventDestroy || (ev.Type == ct.EventNew && c.cfg.EmitConntrackNew) {
@@ -44,11 +54,11 @@ func (c *Collector) Start(ctx context.Context, out chan<- event.Event) error {
     }
   }()
 
-  return conn.Subscribe(evCh, ct.SubscriptionOptions{Namespace: 0})
+  return nil
 }
 
 func (c *Collector) handleEvent(ev ct.Event, out chan<- event.Event) {
-  if ev.Flow == nil || ev.Flow.TupleOrig == nil || ev.Flow.TupleReply == nil {
+  if ev.Flow == nil {
     c.metrics.ConntrackParseErrors.Inc()
     return
   }
@@ -64,9 +74,7 @@ func (c *Collector) handleEvent(ev ct.Event, out chan<- event.Event) {
 
   firstSeen := time.Now().UTC()
   lastSeen := time.Now().UTC()
-  if ev.Flow.Timeouts != nil {
-    // Placeholder: conntrack doesn't always provide first/last; keep now.
-  }
+  // conntrack v0.6.0 doesn't expose per-flow first/last seen timestamps; keep now.
 
   flow := event.Flow{
     Event:       ev.Type.String(),

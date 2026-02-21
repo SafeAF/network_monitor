@@ -4,6 +4,7 @@ package nflog
 
 import (
   "context"
+  "net"
   "strconv"
   "time"
 
@@ -25,7 +26,7 @@ type Handler struct {
 
 func Start(ctx context.Context, group int, hook string, metrics *metrics.Metrics, out chan<- event.Event) error {
   h := &Handler{group: group, hook: hook, metrics: metrics, out: out}
-  cfg := nflog.Config{Group: uint16(group), CopyMode: nflog.NfUlnlCopyPacket, Bufsize: 128}
+  cfg := nflog.Config{Group: uint16(group), Copymode: nflog.NfUlnlCopyPacket, Bufsize: 128}
   n, err := nflog.Open(&cfg)
   if err != nil {
     return err
@@ -34,19 +35,20 @@ func Start(ctx context.Context, group int, hook string, metrics *metrics.Metrics
     <-ctx.Done()
     _ = n.Close()
   }()
-  return n.Register(h.cb)
+  return n.Register(ctx, h.cb)
 }
 
-func (h *Handler) cb(a nflog.Attribute) int {
+func (h *Handler) cb(m nflog.Msg) int {
   defer func() {
     if recover() != nil {
       h.metrics.NFLogParseErrors.Inc()
     }
   }()
-  if a.Payload == nil {
+  raw, ok := m[nflog.AttrPayload].([]byte)
+  if !ok || len(raw) == 0 {
     return 0
   }
-  pkt := gopacket.NewPacket(*a.Payload, layers.LayerTypeIPv4, gopacket.Default)
+  pkt := gopacket.NewPacket(raw, layers.LayerTypeIPv4, gopacket.Default)
   ipLayer := pkt.Layer(layers.LayerTypeIPv4)
   if ipLayer == nil {
     h.metrics.NFLogParseErrors.Inc()
@@ -74,16 +76,20 @@ func (h *Handler) cb(a nflog.Attribute) int {
   }
 
   var ifIn, ifOut string
-  if a.InDev != nil {
-    ifIn = *a.InDev
+  if idx, ok := m[nflog.AttrIfindexIndev].(uint32); ok {
+    if iface, err := net.InterfaceByIndex(int(idx)); err == nil {
+      ifIn = iface.Name
+    }
   }
-  if a.OutDev != nil {
-    ifOut = *a.OutDev
+  if idx, ok := m[nflog.AttrIfindexOutdev].(uint32); ok {
+    if iface, err := net.InterfaceByIndex(int(idx)); err == nil {
+      ifOut = iface.Name
+    }
   }
 
   tag := ""
-  if a.Prefix != nil {
-    tag = string(*a.Prefix)
+  if pfx, ok := m[nflog.AttrPrefix].(string); ok {
+    tag = pfx
   }
 
   h.metrics.NFLogEventsTotal.WithLabelValues(strconv.Itoa(h.group), tag).Inc()
