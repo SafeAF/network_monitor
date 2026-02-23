@@ -4,6 +4,7 @@ package conntrack
 
 import (
   "context"
+  "fmt"
   "time"
 
   ct "github.com/ti-mo/conntrack"
@@ -78,6 +79,8 @@ func (c *Collector) handleEvent(ev ct.Event, out chan<- event.Event) {
 
   flow := event.Flow{
     Event:       ev.Type.String(),
+    State:       conntrackState(ev),
+    Flags:       conntrackFlags(ev),
     SrcIP:       srcIP,
     DstIP:       dstIP,
     SrcPort:     srcPort,
@@ -97,4 +100,74 @@ func (c *Collector) handleEvent(ev ct.Event, out chan<- event.Event) {
   }
 
   util.TrySend(out, c.metrics, "flow", event.Event{Type: "flow", TS: time.Now().UTC(), Data: flow})
+}
+
+func conntrackState(ev ct.Event) string {
+  if ev.Flow != nil && ev.Flow.ProtoInfo.TCP != nil {
+    return tcpStateName(ev.Flow.ProtoInfo.TCP.State)
+  }
+  switch ev.Type {
+  case ct.EventNew:
+    return "NEW"
+  case ct.EventDestroy:
+    return "DESTROY"
+  default:
+    return ev.Type.String()
+  }
+}
+
+func conntrackFlags(ev ct.Event) string {
+  parts := []string{}
+  if ev.Flow != nil {
+    if s := ev.Flow.Status.String(); s != "" && s != "NONE" {
+      parts = append(parts, s)
+    }
+    if ev.Flow.ProtoInfo.TCP != nil {
+      of := ev.Flow.ProtoInfo.TCP.OriginalFlags
+      rf := ev.Flow.ProtoInfo.TCP.ReplyFlags
+      if of != 0 || rf != 0 {
+        parts = append(parts, fmt.Sprintf("TCP_FLAGS=%#x/%#x", of, rf))
+      }
+    }
+  }
+  if len(parts) == 0 {
+    return ""
+  }
+  return joinParts(parts)
+}
+
+func joinParts(parts []string) string {
+  if len(parts) == 1 {
+    return parts[0]
+  }
+  out := parts[0]
+  for i := 1; i < len(parts); i++ {
+    out += "|" + parts[i]
+  }
+  return out
+}
+
+func tcpStateName(state uint8) string {
+  switch state {
+  case 1:
+    return "SYN_SENT"
+  case 2:
+    return "SYN_RECV"
+  case 3:
+    return "ESTABLISHED"
+  case 4:
+    return "FIN_WAIT"
+  case 5:
+    return "CLOSE_WAIT"
+  case 6:
+    return "LAST_ACK"
+  case 7:
+    return "TIME_WAIT"
+  case 8:
+    return "CLOSE"
+  case 9:
+    return "LISTEN"
+  default:
+    return fmt.Sprintf("TCP_STATE_%d", state)
+  }
 }

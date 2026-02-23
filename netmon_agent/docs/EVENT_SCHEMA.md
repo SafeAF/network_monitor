@@ -38,6 +38,8 @@ POST `/api/v1/netmon/events/batch`
 ```json
 {
   "event": "DESTROY",
+  "state": "ESTABLISHED",
+  "flags": "ASSURED|SEEN_REPLY|TCP_FLAGS=0x12/0x10",
   "src_ip": "192.168.1.50",
   "dst_ip": "142.250.72.46",
   "src_port": 51422,

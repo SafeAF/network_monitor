@@ -30,6 +30,8 @@ type FirewallDrop struct {
 
 type Flow struct {
   Event       string    `json:"event"`
+  State       string    `json:"state,omitempty"`
+  Flags       string    `json:"flags,omitempty"`
   SrcIP       string    `json:"src_ip"`
   DstIP       string    `json:"dst_ip"`
   SrcPort     int       `json:"src_port"`
