@@ -27,6 +27,7 @@ type Config struct {
   QnameHashSalt   string        `yaml:"qname_hash_salt"`
   QnameHashCap    int           `yaml:"qname_hash_cap"`
   EmitConntrackNew bool         `yaml:"emit_conntrack_new"`
+  HttpTimeout     time.Duration `yaml:"http_timeout"`
 }
 
 func Load(path string) (*Config, error) {
@@ -69,6 +70,9 @@ func (c *Config) applyDefaults() {
   }
   if c.QnameHashCap == 0 {
     c.QnameHashCap = 200
+  }
+  if c.HttpTimeout == 0 {
+    c.HttpTimeout = 5 * time.Second
   }
 }
 

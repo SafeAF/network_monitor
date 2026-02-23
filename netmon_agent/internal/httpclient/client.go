@@ -22,11 +22,12 @@ type Client struct {
   batchWait time.Duration
   metrics   *metrics.Metrics
   spool     *spool.Spool
+  httpClient *http.Client
 
   inCh chan event.Event
 }
 
-func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *metrics.Metrics, spool *spool.Spool, queueDepth int) *Client {
+func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *metrics.Metrics, spool *spool.Spool, queueDepth int, httpTimeout time.Duration) *Client {
   return &Client{
     baseURL: baseURL,
     token: token,
@@ -34,6 +35,7 @@ func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *
     batchWait: batchWait,
     metrics: metrics,
     spool: spool,
+    httpClient: &http.Client{Timeout: httpTimeout},
     inCh: make(chan event.Event, queueDepth),
   }
 }
@@ -131,7 +133,7 @@ func (c *Client) post(ctx context.Context, payload []byte) error {
   req.Header.Set("Authorization", "Bearer "+c.token)
   req.Header.Set("Content-Type", "application/json")
 
-  resp, err := http.DefaultClient.Do(req)
+  resp, err := c.httpClient.Do(req)
   if err != nil {
     c.metrics.HTTPSendErrors.WithLabelValues("net").Inc()
     return err

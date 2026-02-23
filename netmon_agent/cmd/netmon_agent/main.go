@@ -49,7 +49,7 @@ func main() {
     log.Fatalf("spool init failed: %v", err)
   }
 
-  httpClient := httpclient.New(cfg.RailsBaseURL, cfg.AuthToken, cfg.BatchMaxEvents, cfg.BatchMaxWait, m, sp, cfg.QueueDepth)
+  httpClient := httpclient.New(cfg.RailsBaseURL, cfg.AuthToken, cfg.BatchMaxEvents, cfg.BatchMaxWait, m, sp, cfg.QueueDepth, cfg.HttpTimeout)
   httpClient.Start(ctx, cfg.RouterID)
 
   // Metrics endpoint

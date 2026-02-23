@@ -23,5 +23,5 @@ qname_hash_salt: "secret"
 qname_hash_cap: 200
 emit_conntrack_new: false
 
-
+http_timeout: 5s
 

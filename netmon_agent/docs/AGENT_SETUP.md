@@ -35,6 +35,7 @@ spool_max_bytes: 52428800
 qname_hash_salt: "change-me"
 qname_hash_cap: 200
 emit_conntrack_new: false
+http_timeout: 5s
 ```
 
 Set the Rails API token in the server environment:
