@@ -23,5 +23,8 @@ qname_hash_salt: "secret"
 qname_hash_cap: 200
 emit_conntrack_new: false
 
-http_timeout: 5s
 
+http_timeout: 5s
+http_retry_max: 5
+http_retry_base: 1s
+spool_replay_interval: 5s

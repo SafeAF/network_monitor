@@ -477,10 +477,34 @@
   </tbody>
 <% end %>
 
+<div class="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400 mt-2">
+  <div id="connections-page-info">Page 1</div>
+  <div class="flex items-center gap-2">
+    <button id="connections-prev" class="netmon-button" type="button">Prev</button>
+    <button id="connections-next" class="netmon-button" type="button">Next</button>
+  </div>
+  <div class="flex items-center gap-2">
+    <label class="text-[10px] uppercase text-zinc-400" for="connections-per-page">Per page</label>
+    <select id="connections-per-page" class="netmon-input">
+      <option value="100">100</option>
+      <option value="200" selected>200</option>
+      <option value="500">500</option>
+      <option value="1000">1000</option>
+    </select>
+  </div>
+</div>
+
 <script>
   (function() {
     const body = document.getElementById("connections-body");
     if (!body) return;
+    const pageInfoEl = document.getElementById("connections-page-info");
+    const prevBtn = document.getElementById("connections-prev");
+    const nextBtn = document.getElementById("connections-next");
+    const perPageSelect = document.getElementById("connections-per-page");
+    const perPageStorageKey = "netmon.connections.per_page";
+    let currentPage = 1;
+    let totalRows = 0;
 
     function formatBytes(value) {
       if (value == null) return "--";
@@ -570,6 +594,8 @@
       if (minScore) params.set("min_score", minScore);
       if (sort) params.set("sort", sort);
       if (dir) params.set("dir", dir);
+      params.set("page", currentPage);
+      params.set("per_page", perPageSelect ? perPageSelect.value : "200");
 
       const query = params.toString();
       return query ? `?${query}` : "";
@@ -582,11 +608,62 @@
       const query = buildConnectionsQuery();
       fetch(`/connections.json${query}`)
         .then((resp) => resp.json())
-        .then((data) => {
+        .then((payload) => {
+          const data = Array.isArray(payload) ? payload : payload.data || [];
+          const meta = payload.meta || {};
+          totalRows = meta.total || data.length;
+          const perPage = Number(meta.per_page || (perPageSelect ? perPageSelect.value : 200));
+          const totalPages = perPage > 0 ? Math.max(1, Math.ceil(totalRows / perPage)) : 1;
+          if (currentPage > totalPages) {
+            currentPage = totalPages;
+          }
+          if (pageInfoEl) {
+            pageInfoEl.textContent = `Page ${currentPage} of ${totalPages} (${totalRows} total)`;
+          }
+          if (prevBtn) prevBtn.disabled = currentPage <= 1;
+          if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
           body.innerHTML = data.map(renderRow).join("");
           applyColumnVisibility();
         })
         .catch(() => {});
+    }
+
+    if (perPageSelect) {
+      const savedPerPage = localStorage.getItem(perPageStorageKey);
+      if (savedPerPage) perPageSelect.value = savedPerPage;
+    }
+
+    if (prevBtn) {
+      prevBtn.addEventListener("click", () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          refresh();
+        }
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener("click", () => {
+        currentPage += 1;
+        refresh();
+      });
+    }
+
+    if (perPageSelect) {
+      perPageSelect.addEventListener("change", () => {
+        localStorage.setItem(perPageStorageKey, perPageSelect.value);
+        currentPage = 1;
+        refresh();
+      });
+    }
+
+    const filterForm = document.getElementById("connections-filter");
+    if (filterForm) {
+      filterForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        currentPage = 1;
+        refresh();
+      });
     }
 
     refresh();

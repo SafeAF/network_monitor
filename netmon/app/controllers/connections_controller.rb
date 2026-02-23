@@ -3,8 +3,18 @@
 require "json"
 
 class ConnectionsController < ApplicationController
+  DEFAULT_PER_PAGE = 200
+
   def index
-    connections, threshold = Netmon::ConnectionsQuery.call(params)
+    connections_scope, threshold = Netmon::ConnectionsQuery.call(params)
+    page = params[:page].to_i
+    page = 1 if page < 1
+    per_page = params[:per_page].to_i
+    per_page = DEFAULT_PER_PAGE if per_page <= 0
+    per_page = 1000 if per_page > 1000
+
+    total = connections_scope.count
+    connections = connections_scope.limit(per_page).offset((page - 1) * per_page)
     hosts = RemoteHost.where(ip: connections.map(&:dst_ip)).index_by(&:ip)
     devices = Device.where(ip: connections.map(&:src_ip)).index_by(&:ip)
 
@@ -44,6 +54,13 @@ class ConnectionsController < ApplicationController
       }
     end
 
-    render json: payload
+    render json: {
+      data: payload,
+      meta: {
+        page: page,
+        per_page: per_page,
+        total: total
+      }
+    }
   end
 end
