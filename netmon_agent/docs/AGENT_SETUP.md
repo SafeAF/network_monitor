@@ -36,6 +36,9 @@ qname_hash_salt: "change-me"
 qname_hash_cap: 200
 emit_conntrack_new: false
 http_timeout: 5s
+http_retry_max: 5
+http_retry_base: 1s
+spool_replay_interval: 5s
 ```
 
 Set the Rails API token in the server environment:

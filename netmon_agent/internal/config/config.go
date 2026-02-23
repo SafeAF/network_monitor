@@ -28,6 +28,9 @@ type Config struct {
   QnameHashCap    int           `yaml:"qname_hash_cap"`
   EmitConntrackNew bool         `yaml:"emit_conntrack_new"`
   HttpTimeout     time.Duration `yaml:"http_timeout"`
+  HttpRetryMax    int           `yaml:"http_retry_max"`
+  HttpRetryBase   time.Duration `yaml:"http_retry_base"`
+  SpoolReplayInterval time.Duration `yaml:"spool_replay_interval"`
 }
 
 func Load(path string) (*Config, error) {
@@ -73,6 +76,15 @@ func (c *Config) applyDefaults() {
   }
   if c.HttpTimeout == 0 {
     c.HttpTimeout = 5 * time.Second
+  }
+  if c.HttpRetryMax == 0 {
+    c.HttpRetryMax = 5
+  }
+  if c.HttpRetryBase == 0 {
+    c.HttpRetryBase = 1 * time.Second
+  }
+  if c.SpoolReplayInterval == 0 {
+    c.SpoolReplayInterval = 5 * time.Second
   }
 }
 
