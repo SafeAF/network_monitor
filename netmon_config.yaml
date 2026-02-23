@@ -24,3 +24,8 @@ qname_hash_cap: 200
 emit_conntrack_new: false
 
 
+lsmod | rg "nfnetlink|nfnetlink_log|nf_log|nflog"
+modprobe nfnetlink
+modprobe nfnetlink_log
+modprobe nf_log
+modprobe nflog

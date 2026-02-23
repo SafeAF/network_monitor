@@ -23,6 +23,7 @@ class Api::V1::Netmon::EventsController < ApplicationController
         end
 
         NetmonEvent.create!(event_type: event_type, ts: ts, router_id: router_id, data: data)
+        Netmon::AgentIngest.ingest_event!(event_type: event_type, router_id: router_id, data: data, ts: ts)
         accepted += 1
       rescue StandardError
         rejected += 1

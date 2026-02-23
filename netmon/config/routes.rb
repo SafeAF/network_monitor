@@ -28,6 +28,7 @@ Rails.application.routes.draw do
   get "incidents/:id" => "incidents#show"
   post "incidents/:id/ack" => "incidents#ack"
   get "help" => "help#index"
+  get "agent_events" => "agent_events#index"
   get "remote_hosts" => "remote_hosts#index"
   get "remote_hosts/:ip" => "remote_hosts#show", constraints: { ip: /[^\/]+/ }
   patch "remote_hosts/:ip" => "remote_hosts#update", constraints: { ip: /[^\/]+/ }

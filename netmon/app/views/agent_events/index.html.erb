@@ -1,0 +1,84 @@
+<% content_for :title, "Agent Events" %>
+
+<section class="space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-lg text-emerald-300 font-semibold">Agent Events</h1>
+      <p class="text-xs text-zinc-400">Raw events ingested from the router agent.</p>
+    </div>
+    <div class="text-xs text-zinc-400">
+      Showing <%= [(@page - 1) * @per_page + 1, @total].min %>-<%= [@page * @per_page, @total].min %> of <%= @total %>
+    </div>
+  </div>
+
+  <form class="netmon-card p-3 flex flex-wrap items-end gap-3" method="get" action="/agent_events">
+    <div>
+      <label class="text-[10px] uppercase text-zinc-400 block">Type</label>
+      <select name="event_type" class="netmon-input">
+        <option value="">All</option>
+        <% @event_types.each do |etype| %>
+          <option value="<%= etype %>" <%= "selected" if params[:event_type] == etype %>><%= etype %></option>
+        <% end %>
+      </select>
+    </div>
+    <div>
+      <label class="text-[10px] uppercase text-zinc-400 block">Router</label>
+      <select name="router_id" class="netmon-input">
+        <option value="">All</option>
+        <% @router_ids.each do |rid| %>
+          <option value="<%= rid %>" <%= "selected" if params[:router_id] == rid %>><%= rid %></option>
+        <% end %>
+      </select>
+    </div>
+    <div>
+      <label class="text-[10px] uppercase text-zinc-400 block">Since (ISO8601)</label>
+      <input name="since" value="<%= params[:since].to_s %>" class="netmon-input w-52" placeholder="2026-02-23T00:00:00Z">
+    </div>
+    <div class="flex gap-2">
+      <button class="netmon-button" type="submit">Apply</button>
+      <a class="netmon-button" href="/agent_events">Reset</a>
+    </div>
+  </form>
+
+  <div class="netmon-card overflow-x-auto">
+    <table class="netmon-table text-xs w-full">
+      <thead>
+        <tr>
+          <th class="text-left">TS</th>
+          <th class="text-left">Type</th>
+          <th class="text-left">Router</th>
+          <th class="text-left">Data</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @events.each do |evt| %>
+          <tr class="border-t border-zinc-800/60">
+            <td class="py-2 pr-3 text-zinc-300 whitespace-nowrap"><%= evt.ts&.utc&.iso8601 %></td>
+            <td class="py-2 pr-3 text-emerald-300"><%= evt.event_type %></td>
+            <td class="py-2 pr-3 text-cyan-200"><%= evt.router_id %></td>
+            <td class="py-2 text-zinc-300">
+              <pre class="whitespace-pre-wrap text-[11px] leading-4 text-zinc-300/90"><%= JSON.pretty_generate(evt.data || {}) %></pre>
+            </td>
+          </tr>
+        <% end %>
+        <% if @events.empty? %>
+          <tr>
+            <td class="py-6 text-center text-zinc-400" colspan="4">No events found.</td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flex items-center justify-between text-xs text-zinc-400">
+    <div>Page <%= @page %></div>
+    <div class="flex gap-2">
+      <% if @page > 1 %>
+        <a class="netmon-button" href="<%= url_for(params.permit!.to_h.merge(page: @page - 1)) %>">Prev</a>
+      <% end %>
+      <% if @page * @per_page < @total %>
+        <a class="netmon-button" href="<%= url_for(params.permit!.to_h.merge(page: @page + 1)) %>">Next</a>
+      <% end %>
+    </div>
+  </div>
+</section>
