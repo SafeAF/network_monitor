@@ -79,7 +79,7 @@ func (c *Client) flushLoop(ctx context.Context, routerID string) {
   for {
     select {
     case <-ctx.Done():
-      _ = c.flush(ctx, routerID, batch)
+      c.sendOrSpool(ctx, routerID, batch)
       return
     case ev := <-c.inCh:
       batch = append(batch, ev)

@@ -13,3 +13,6 @@ pagination with first last next and numbered pages
 when i click hide time wait it renders the connections but then i try to uncheck the box and click apply and its still doing the filtering it doesnt reset
 
 show only open connections in table
+
+go mod tidy
+GOCACHE=/tmp/go-build GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o /tmp/netmon_agent_linux_386 ./cmd/netmon_agent

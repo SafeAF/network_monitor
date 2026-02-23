@@ -60,7 +60,7 @@ func main() {
     cfg.HttpTimeout,
     cfg.HttpRetryMax,
     cfg.HttpRetryBase,
-    cfg.SpoolReplayInterval
+    cfg.SpoolReplayInterval,
   )
   httpClient.Start(ctx, cfg.RouterID)
 
