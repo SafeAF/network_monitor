@@ -25,7 +25,11 @@ class Api::V1::Netmon::EventsController < ApplicationController
         NetmonEvent.create!(event_type: event_type, ts: ts, router_id: router_id, data: data)
         Netmon::AgentIngest.ingest_event!(event_type: event_type, router_id: router_id, data: data, ts: ts)
         accepted += 1
-      rescue StandardError
+      rescue StandardError => e
+        Rails.logger.error(
+          "[agent_ingest] failed event_type=#{event_type} router_id=#{router_id} error=#{e.class}: #{e.message}"
+        )
+        Rails.logger.debug(e.backtrace.join("\n")) if e.backtrace
         rejected += 1
       end
     end

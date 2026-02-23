@@ -3,6 +3,7 @@
 module Netmon
   class AgentIngest
     def self.ingest_event!(event_type:, router_id:, data:, ts:)
+      data = normalize_data(data)
       case event_type
       when "flow"
         ingest_flow!(router_id:, data:, ts:)
@@ -145,6 +146,20 @@ module Netmon
       nil
     end
     private_class_method :parse_time
+
+    def self.normalize_data(data)
+      return {} if data.nil?
+      if data.respond_to?(:to_unsafe_h)
+        data = data.to_unsafe_h
+      elsif data.respond_to?(:to_h)
+        data = data.to_h
+      end
+      data = data.transform_keys(&:to_s) if data.is_a?(Hash)
+      data
+    rescue StandardError
+      {}
+    end
+    private_class_method :normalize_data
 
     def self.compute_deltas(connection, cur_up_b:, cur_dn_b:, cur_up_p:, cur_dn_p:)
       if connection.new_record?
