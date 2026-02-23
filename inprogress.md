@@ -16,3 +16,7 @@ show only open connections in table
 
 go mod tidy
 GOCACHE=/tmp/go-build GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o /tmp/netmon_agent_linux_386 ./cmd/netmon_agent
+
+k that worked. im a bit concerned about keeping all these connections in the connections main table that are stale and past time_wait. those should go into search/connections but not be on the main page table if they are long since dead.
+
+go agent collector is dying after a couple minutes of running

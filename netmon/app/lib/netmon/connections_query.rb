@@ -2,6 +2,8 @@
 
 module Netmon
   class ConnectionsQuery
+    DEFAULT_WINDOW = 10.minutes
+
     def self.call(params, now: Time.current)
       threshold = now - RemoteHost::NEW_WINDOW
       scope = Connection.all
@@ -19,6 +21,9 @@ module Netmon
       scope = scope.where("anomaly_score >= ?", min_score.to_i) if min_score.match?(/\A\d+\z/)
 
       scope = scope.where.not(state: "TIME_WAIT") if truthy_param?(params[:hide_time_wait])
+      unless truthy_param?(params[:include_stale])
+        scope = scope.where("last_seen_at >= ?", now - DEFAULT_WINDOW)
+      end
 
       if truthy_param?(params[:only_new])
         scope = scope.joins("INNER JOIN remote_hosts ON remote_hosts.ip = connections.dst_ip")

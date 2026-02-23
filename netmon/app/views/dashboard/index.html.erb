@@ -32,6 +32,10 @@
       <input type="checkbox" class="<%= checkbox_class %>" name="only_new" value="true" <%= "checked" if params[:only_new].present? %>>
       Only NEW
     </label>
+    <label class="flex items-center gap-2 text-xs uppercase tracking-wider text-zinc-400 mt-4">
+      <input type="checkbox" class="<%= checkbox_class %>" name="include_stale" value="true" <%= "checked" if params[:include_stale].present? %>>
+      Include stale
+    </label>
     <label class="flex flex-col gap-1 text-xs uppercase tracking-wider text-zinc-400">
       Min Score
       <select class="<%= input_class %>" name="min_score">
@@ -581,6 +585,7 @@
       const proto = form.querySelector("input[name='proto']")?.value.trim();
       const hide = form.querySelector("input[name='hide_time_wait']")?.checked;
       const onlyNew = form.querySelector("input[name='only_new']")?.checked;
+      const includeStale = form.querySelector("input[name='include_stale']")?.checked;
       const minScore = form.querySelector("select[name='min_score']")?.value;
       const sort = form.querySelector("input[name='sort']")?.value;
       const dir = form.querySelector("input[name='dir']")?.value;
@@ -591,6 +596,7 @@
       if (proto) params.set("proto", proto);
       if (hide) params.set("hide_time_wait", "true");
       if (onlyNew) params.set("only_new", "true");
+      if (includeStale) params.set("include_stale", "true");
       if (minScore) params.set("min_score", minScore);
       if (sort) params.set("sort", sort);
       if (dir) params.set("dir", dir);
