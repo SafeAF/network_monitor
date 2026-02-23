@@ -10,4 +10,6 @@ graphs are resetting to 10 min still shows the selected timescale but reverts to
 
 pagination with first last next and numbered pages
 
-test
+when i click hide time wait it renders the connections but then i try to uncheck the box and click apply and its still doing the filtering it doesnt reset
+
+show only open connections in table

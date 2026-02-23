@@ -69,6 +69,11 @@ module Netmon
       connection.last_delta_at = now
       connection.last_seen_at = parse_time(data["last_seen"]) || now
 
+      state = normalize_state(data["state"] || data["event"])
+      flags = normalize_flags(data["flags"] || data["dir"])
+      connection.state = state if state
+      connection.flags = flags if flags
+
       baseline = DeviceBaseline.find_by(device_id: device.id)
       stats = Netmon::Anomaly::DeviceStats.current(device.id, now: now)
       anomaly = Netmon::Anomaly::Scorer.score_connection(
@@ -122,6 +127,20 @@ module Netmon
       end
     end
     private_class_method :normalize_proto
+
+    def self.normalize_state(value)
+      return nil if value.blank?
+
+      value.to_s.gsub(/\AEvent/i, "").upcase
+    end
+    private_class_method :normalize_state
+
+    def self.normalize_flags(value)
+      return nil if value.blank?
+
+      value.to_s.upcase
+    end
+    private_class_method :normalize_flags
 
     def self.parse_int(value)
       Integer(value)

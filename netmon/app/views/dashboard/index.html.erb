@@ -1324,7 +1324,7 @@
       { key: "whois", label: "WHOIS" },
       { key: "seen", label: "Seen" }
     ];
-    const defaultColumns = ["proto", "device", "destination", "up", "down", "total", "score", "reasons", "rdns", "whois"];
+    const defaultColumns = ["proto", "device", "destination", "state", "flags", "up", "down", "total", "score", "reasons", "rdns", "whois"];
     let enabledColumns = [];
 
     function loadColumnPreferences() {
@@ -1387,6 +1387,8 @@
     loadColumnPreferences();
     ensureDefaultColumn("up");
     ensureDefaultColumn("down");
+    ensureDefaultColumn("state");
+    ensureDefaultColumn("flags");
     ensureDefaultColumn("rdns");
     renderColumnToggles();
     applyColumnVisibility();
