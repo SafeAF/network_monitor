@@ -126,7 +126,7 @@ func conntrackFlags(ev ct.Event) string {
       of := ev.Flow.ProtoInfo.TCP.OriginalFlags
       rf := ev.Flow.ProtoInfo.TCP.ReplyFlags
       if of != 0 || rf != 0 {
-        parts = append(parts, fmt.Sprintf("TCP_FLAGS=%#x/%#x", of, rf))
+        parts = append(parts, fmt.Sprintf("TCP_FLAGS=%s/%s", tcpFlagNames(of), tcpFlagNames(rf)))
       }
     }
   }
@@ -170,4 +170,33 @@ func tcpStateName(state uint8) string {
   default:
     return fmt.Sprintf("TCP_STATE_%d", state)
   }
+}
+
+func tcpFlagNames(flags uint16) string {
+  if flags == 0 {
+    return "NONE"
+  }
+  names := []struct {
+    bit  uint16
+    name string
+  }{
+    {0x01, "FIN"},
+    {0x02, "SYN"},
+    {0x04, "RST"},
+    {0x08, "PSH"},
+    {0x10, "ACK"},
+    {0x20, "URG"},
+    {0x40, "ECE"},
+    {0x80, "CWR"},
+  }
+  out := []string{}
+  for _, n := range names {
+    if flags&n.bit != 0 {
+      out = append(out, n.name)
+    }
+  }
+  if len(out) == 0 {
+    return fmt.Sprintf("0x%x", flags)
+  }
+  return joinParts(out)
 }
