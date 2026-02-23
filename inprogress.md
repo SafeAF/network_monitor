@@ -9,3 +9,5 @@ pagination on connections main page
 graphs are resetting to 10 min still shows the selected timescale but reverts to 10min graph
 
 pagination with first last next and numbered pages
+
+test
