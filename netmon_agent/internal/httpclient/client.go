@@ -7,6 +7,7 @@ import (
   "errors"
   "fmt"
   "io"
+  "log"
   "math/rand"
   "net/http"
   "time"
@@ -66,13 +67,31 @@ func (c *Client) QueueDepth() int {
 }
 
 func (c *Client) Start(ctx context.Context, routerID string) {
-  go c.flushLoop(ctx, routerID)
+  go c.flushSupervisor(ctx, routerID)
   go c.spoolReplayLoop(ctx)
+}
+
+func (c *Client) flushSupervisor(ctx context.Context, routerID string) {
+  for {
+    if ctx.Err() != nil {
+      return
+    }
+    c.flushLoop(ctx, routerID)
+    if ctx.Err() != nil {
+      return
+    }
+    time.Sleep(1 * time.Second)
+  }
 }
 
 func (c *Client) flushLoop(ctx context.Context, routerID string) {
   ticker := time.NewTicker(c.batchWait)
   defer ticker.Stop()
+  defer func() {
+    if r := recover(); r != nil {
+      log.Printf("httpclient flushLoop panic: %v", r)
+    }
+  }()
 
   batch := make([]event.Event, 0, c.batchMax)
 
@@ -90,7 +109,6 @@ func (c *Client) flushLoop(ctx context.Context, routerID string) {
       if len(batch) > 0 {
         batch = c.sendOrSpool(ctx, routerID, batch)
       }
-      c.replaySpool(ctx, routerID)
     }
   }
 }
@@ -113,7 +131,7 @@ func (c *Client) flushOnce(ctx context.Context, routerID string, batch []event.E
   if err != nil {
     return err
   }
-  return c.post(ctx, payload)
+  return c.postWithRetry(ctx, payload)
 }
 
 func (c *Client) postWithRetry(ctx context.Context, payload []byte) error {

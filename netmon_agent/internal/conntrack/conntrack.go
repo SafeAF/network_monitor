@@ -5,6 +5,7 @@ package conntrack
 import (
   "context"
   "fmt"
+  "log"
   "time"
 
   ct "github.com/ti-mo/conntrack"
@@ -28,33 +29,7 @@ func New(cfg *config.Config, metrics *metrics.Metrics, dns *dns.Correlator) *Col
 }
 
 func (c *Collector) Start(ctx context.Context, out chan<- event.Event) error {
-  conn, err := ct.Dial(nil)
-  if err != nil {
-    return err
-  }
-  go func() {
-    <-ctx.Done()
-    _ = conn.Close()
-  }()
-
-  evCh := make(chan ct.Event, 1024)
-  errCh, err := conn.Listen(evCh, 1, netfilter.GroupsCT)
-  if err != nil {
-    return err
-  }
-  go func() {
-    for err := range errCh {
-      _ = err
-    }
-  }()
-  go func() {
-    for ev := range evCh {
-      if ev.Type == ct.EventDestroy || (ev.Type == ct.EventNew && c.cfg.EmitConntrackNew) {
-        c.handleEvent(ev, out)
-      }
-    }
-  }()
-
+  go c.run(ctx, out)
   return nil
 }
 
@@ -100,6 +75,65 @@ func (c *Collector) handleEvent(ev ct.Event, out chan<- event.Event) {
   }
 
   util.TrySend(out, c.metrics, "flow", event.Event{Type: "flow", TS: time.Now().UTC(), Data: flow})
+}
+
+func (c *Collector) run(ctx context.Context, out chan<- event.Event) {
+  backoff := 1 * time.Second
+  maxBackoff := 30 * time.Second
+
+  for {
+    if ctx.Err() != nil {
+      return
+    }
+
+    conn, err := ct.Dial(nil)
+    if err != nil {
+      log.Printf("conntrack dial failed: %v", err)
+      time.Sleep(backoff)
+      backoff = nextBackoff(backoff, maxBackoff)
+      continue
+    }
+
+    evCh := make(chan ct.Event, 1024)
+    errCh, err := conn.Listen(evCh, 1, netfilter.GroupsCT)
+    if err != nil {
+      _ = conn.Close()
+      log.Printf("conntrack listen failed: %v", err)
+      time.Sleep(backoff)
+      backoff = nextBackoff(backoff, maxBackoff)
+      continue
+    }
+
+    backoff = 1 * time.Second
+
+    done := make(chan struct{})
+    go func() {
+      defer close(done)
+      for ev := range evCh {
+        if ev.Type == ct.EventDestroy || (ev.Type == ct.EventNew && c.cfg.EmitConntrackNew) {
+          c.handleEvent(ev, out)
+        }
+      }
+    }()
+
+    select {
+    case <-ctx.Done():
+      _ = conn.Close()
+      return
+    case err := <-errCh:
+      _ = conn.Close()
+      log.Printf("conntrack stream error: %v", err)
+      <-done
+    }
+  }
+}
+
+func nextBackoff(cur, max time.Duration) time.Duration {
+  next := cur * 2
+  if next > max {
+    return max
+  }
+  return next
 }
 
 func conntrackState(ev ct.Event) string {

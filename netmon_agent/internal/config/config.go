@@ -31,6 +31,7 @@ type Config struct {
   HttpRetryMax    int           `yaml:"http_retry_max"`
   HttpRetryBase   time.Duration `yaml:"http_retry_base"`
   SpoolReplayInterval time.Duration `yaml:"spool_replay_interval"`
+  HeartbeatInterval time.Duration `yaml:"heartbeat_interval"`
 }
 
 func Load(path string) (*Config, error) {
@@ -85,6 +86,9 @@ func (c *Config) applyDefaults() {
   }
   if c.SpoolReplayInterval == 0 {
     c.SpoolReplayInterval = 5 * time.Second
+  }
+  if c.HeartbeatInterval == 0 {
+    c.HeartbeatInterval = 30 * time.Second
   }
 }
 

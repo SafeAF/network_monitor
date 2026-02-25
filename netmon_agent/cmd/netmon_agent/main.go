@@ -82,6 +82,24 @@ func main() {
     }
   }()
 
+  // Heartbeat
+  go func() {
+    ticker := time.NewTicker(cfg.HeartbeatInterval)
+    defer ticker.Stop()
+    for {
+      select {
+      case <-ctx.Done():
+        return
+      case <-ticker.C:
+        httpClient.Ingest(event.Event{
+          Type: "heartbeat",
+          TS:   time.Now().UTC(),
+          Data: map[string]interface{}{"router_id": cfg.RouterID},
+        })
+      }
+    }
+  }()
+
   // DNS tail + correlate
   dnsLines := make(chan string, cfg.QueueDepth)
   dnsCorr := dns.NewCorrelator(cfg, m)

@@ -10,7 +10,8 @@ POST `/api/v1/netmon/events/batch`
     { "type": "firewall_drop", "ts": "2026-02-20T14:21:33.123Z", "data": { } },
     { "type": "flow",          "ts": "2026-02-20T14:21:34.000Z", "data": { } },
     { "type": "dns_bucket",    "ts": "2026-02-20T14:22:00.000Z", "data": { } },
-    { "type": "host_identity", "ts": "2026-02-20T14:22:00.000Z", "data": { } }
+    { "type": "host_identity", "ts": "2026-02-20T14:22:00.000Z", "data": { } },
+    { "type": "heartbeat",     "ts": "2026-02-20T14:22:30.000Z", "data": { "router_id": "router-01" } }
   ]
 }
 ```
