@@ -524,6 +524,8 @@
     }
 
     function renderRow(conn) {
+      const hideState = enabledColumns.length > 0 && !enabledColumns.includes("state") ? " hidden" : "";
+      const hideFlags = enabledColumns.length > 0 && !enabledColumns.includes("flags") ? " hidden" : "";
       const src = conn.src_port
         ? `<a href="/remote_hosts/${conn.src_ip}">${conn.src_ip}</a>:${conn.src_port}`
         : `<a href="/remote_hosts/${conn.src_ip}">${conn.src_ip}</a>`;
@@ -559,8 +561,8 @@
           <td class="px-2 py-1.5" data-col="device">${deviceCell}</td>
           <td class="px-2 py-1.5" data-col="source">${src}</td>
           <td class="px-2 py-1.5" data-col="destination">${dst}</td>
-          <td class="px-2 py-1.5 font-mono text-xs" data-col="state">${conn.state || ""}</td>
-          <td class="px-2 py-1.5 font-mono text-xs" data-col="flags">${conn.flags || ""}</td>
+          <td class="px-2 py-1.5 font-mono text-xs${hideState}" data-col="state">${conn.state || ""}</td>
+          <td class="px-2 py-1.5 font-mono text-xs${hideFlags}" data-col="flags">${conn.flags || ""}</td>
           <td class="px-2 py-1.5 text-right" data-col="up" title="${conn.uplink_bytes}">${up}</td>
           <td class="px-2 py-1.5 text-right" data-col="down" title="${conn.downlink_bytes}">${down}</td>
           <td class="px-2 py-1.5 text-right" data-col="total" title="${conn.total_bytes}">${total}</td>

@@ -12,9 +12,9 @@ import (
   "github.com/ti-mo/netfilter"
 
   "netmon_agent/internal/config"
+  "netmon_agent/internal/dns"
   "netmon_agent/internal/event"
   "netmon_agent/internal/metrics"
-  "netmon_agent/internal/dns"
   "netmon_agent/internal/util"
 )
 
@@ -93,9 +93,22 @@ func (c *Collector) run(ctx context.Context, out chan<- event.Event) {
       backoff = nextBackoff(backoff, maxBackoff)
       continue
     }
+    if c.cfg.ConntrackReadBuffer > 0 {
+      if err := conn.SetReadBuffer(c.cfg.ConntrackReadBuffer); err != nil {
+        log.Printf("conntrack SetReadBuffer failed: %v", err)
+      }
+    }
 
-    evCh := make(chan ct.Event, 1024)
-    errCh, err := conn.Listen(evCh, 1, netfilter.GroupsCT)
+    evCh := make(chan ct.Event, c.cfg.ConntrackEventBuffer)
+    workers := uint8(1)
+    if c.cfg.ConntrackWorkers > 0 {
+      if c.cfg.ConntrackWorkers > 8 {
+        workers = 8
+      } else {
+        workers = uint8(c.cfg.ConntrackWorkers)
+      }
+    }
+    errCh, err := conn.Listen(evCh, workers, netfilter.GroupsCT)
     if err != nil {
       _ = conn.Close()
       log.Printf("conntrack listen failed: %v", err)

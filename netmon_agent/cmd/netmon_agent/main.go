@@ -40,6 +40,10 @@ func main() {
   go func() {
     <-sigCh
     cancel()
+    go func() {
+      time.Sleep(5 * time.Second)
+      os.Exit(1)
+    }()
   }()
 
   m := metrics.New()

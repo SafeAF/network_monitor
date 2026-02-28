@@ -32,6 +32,9 @@ type Config struct {
   HttpRetryBase   time.Duration `yaml:"http_retry_base"`
   SpoolReplayInterval time.Duration `yaml:"spool_replay_interval"`
   HeartbeatInterval time.Duration `yaml:"heartbeat_interval"`
+  ConntrackReadBuffer int `yaml:"conntrack_read_buffer"`
+  ConntrackWorkers int `yaml:"conntrack_workers"`
+  ConntrackEventBuffer int `yaml:"conntrack_event_buffer"`
 }
 
 func Load(path string) (*Config, error) {
@@ -89,6 +92,15 @@ func (c *Config) applyDefaults() {
   }
   if c.HeartbeatInterval == 0 {
     c.HeartbeatInterval = 30 * time.Second
+  }
+  if c.ConntrackReadBuffer == 0 {
+    c.ConntrackReadBuffer = 4 * 1024 * 1024
+  }
+  if c.ConntrackWorkers == 0 {
+    c.ConntrackWorkers = 2
+  }
+  if c.ConntrackEventBuffer == 0 {
+    c.ConntrackEventBuffer = 4096
   }
 }
 

@@ -40,6 +40,9 @@ http_retry_max: 5
 http_retry_base: 1s
 spool_replay_interval: 5s
 heartbeat_interval: 30s
+conntrack_read_buffer: 4194304
+conntrack_workers: 2
+conntrack_event_buffer: 4096
 ```
 
 Set the Rails API token in the server environment:
