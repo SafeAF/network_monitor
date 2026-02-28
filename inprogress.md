@@ -29,6 +29,18 @@ how to hide 10.0.0.1:53 and the like connections
 
 ui jitters when changing columns on main connections table
 
+clear all incidents and anomalies
+
+should be able to change rate of refresh on table and or pause it
+
+sometimes i have to hard refresh to get a remote_host/ip page to load
+
+show time in my local timezone so i can read the time.
+
+be able to hide graphs.
+
+get load disk read download bytes from router not server.
+
 
 NetmonEvent.order(created_at: :desc).limit(3).pluck(:event_type, :created_at)
 # 1) Metrics snapshot

@@ -16,6 +16,10 @@ module Netmon
       analytics = Netmon::MetricsReporter.current(now:)
       series = Netmon::MetricsReporter.series
       last_ingest = Rails.cache.read("netmon:last_ingest_at")
+      latest_event = NetmonEvent.maximum(:created_at)&.to_i
+      if latest_event && (last_ingest.nil? || latest_event > last_ingest.to_i)
+        last_ingest = latest_event
+      end
       if last_ingest.nil?
         fallback = Connection.maximum(:last_seen_at) || RemoteHost.maximum(:last_seen_at)
         last_ingest = fallback&.to_i
