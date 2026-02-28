@@ -4,10 +4,11 @@ module Netmon
   class AgentIngest
     def self.ingest_event!(event_type:, router_id:, data:, ts:)
       data = normalize_data(data)
-      Rails.cache.write("netmon:last_ingest_at", (ts || Time.current).to_i)
       case event_type
       when "flow"
         ingest_flow!(router_id:, data:, ts:)
+      when "heartbeat"
+        # collector heartbeat only
       else
         # no-op for now
       end

@@ -131,6 +131,10 @@
   <% end %>
 </section>
 
+<div id="collector-warning" class="hidden mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+  Collector stale — pausing agent-driven updates.
+</div>
+
 <section class="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4">
   <%= render "shared/card" do %>
     <div class="flex items-center justify-between gap-2 mb-2">
@@ -507,6 +511,7 @@
     const nextBtn = document.getElementById("connections-next");
     const perPageSelect = document.getElementById("connections-per-page");
     const perPageStorageKey = "netmon.connections.per_page";
+    let collectorIsStale = false;
     let currentPage = 1;
     let totalRows = 0;
 
@@ -609,8 +614,11 @@
       return query ? `?${query}` : "";
     }
 
-    function refresh() {
+    function refresh(force = false) {
       if (document.activeElement && document.activeElement.classList.contains("device-name-input")) {
+        return;
+      }
+      if (collectorIsStale && !force) {
         return;
       }
       const query = buildConnectionsQuery();
@@ -645,7 +653,7 @@
       prevBtn.addEventListener("click", () => {
         if (currentPage > 1) {
           currentPage -= 1;
-          refresh();
+          refresh(true);
         }
       });
     }
@@ -653,7 +661,7 @@
     if (nextBtn) {
       nextBtn.addEventListener("click", () => {
         currentPage += 1;
-        refresh();
+        refresh(true);
       });
     }
 
@@ -661,7 +669,7 @@
       perPageSelect.addEventListener("change", () => {
         localStorage.setItem(perPageStorageKey, perPageSelect.value);
         currentPage = 1;
-        refresh();
+        refresh(true);
       });
     }
 
@@ -670,12 +678,12 @@
       filterForm.addEventListener("submit", (event) => {
         event.preventDefault();
         currentPage = 1;
-        refresh();
+        refresh(true);
       });
     }
 
-    refresh();
-    setInterval(refresh, 1000);
+    refresh(true);
+    setInterval(() => refresh(), 1000);
 
     const csrfToken = document.querySelector("meta[name='csrf-token']")?.content;
     let pendingSave = null;
@@ -735,6 +743,7 @@
 
     const loadavgEl = document.getElementById("metric-loadavg");
     const collectorEl = document.getElementById("metric-collector");
+    const collectorWarningEl = document.getElementById("collector-warning");
     const memEl = document.getElementById("metric-mem");
     const ifacesEl = document.getElementById("metric-ifaces");
     const interfacesInput = document.getElementById("metric-interfaces");
@@ -1025,14 +1034,19 @@
       }
       if (collectorEl) {
         const age = payload.collector?.age_seconds;
+        const stale = payload.collector?.stale ?? (age != null ? age > 10 : null);
+        collectorIsStale = stale === true;
         if (age == null) {
           collectorEl.textContent = "Unknown";
           collectorEl.className = "text-zinc-200";
         } else {
-          const statusClass = age <= 10 ? "text-emerald-300" : "text-red-300";
-          const label = age <= 10 ? "OK" : "Stale";
+          const statusClass = stale ? "text-red-300" : "text-emerald-300";
+          const label = stale ? "Stale" : "OK";
           collectorEl.textContent = `${label} (${age}s ago)`;
           collectorEl.className = statusClass;
+        }
+        if (collectorWarningEl) {
+          collectorWarningEl.classList.toggle("hidden", !collectorIsStale);
         }
       }
       if (memEl && payload.meminfo) {
@@ -1164,7 +1178,8 @@
 
     loadWindowSelections();
 
-    function refreshStatSeries() {
+    function refreshStatSeries(force = false) {
+      if (collectorIsStale && !force) return;
       document.querySelectorAll(".stat-window").forEach((select) => {
         const seriesKey = select.dataset.series;
         const window = select.value;
@@ -1180,18 +1195,19 @@
       });
     }
 
-    refreshStatSeries();
-    setInterval(refreshStatSeries, 10000);
+    refreshStatSeries(true);
+    setInterval(() => refreshStatSeries(), 10000);
 
     document.querySelectorAll(".stat-window").forEach((select) => {
       select.addEventListener("change", () => {
         const seriesKey = select.dataset.series;
         persistWindowSelection("stat", seriesKey, select.value);
-        refreshStatSeries();
+        refreshStatSeries(true);
       });
     });
 
-    function refreshGraphSeries() {
+    function refreshGraphSeries(force = false) {
+      if (collectorIsStale && !force) return;
       document.querySelectorAll(".graph-window").forEach((select) => {
         const seriesKey = select.dataset.series;
         const window = select.value;
@@ -1204,8 +1220,8 @@
       });
     }
 
-    refreshGraphSeries();
-    setInterval(refreshGraphSeries, 10000);
+    refreshGraphSeries(true);
+    setInterval(() => refreshGraphSeries(), 10000);
 
 
     function seriesKeyFromCanvas(canvas) {
@@ -1248,7 +1264,7 @@
       });
     });
 
-    window.addEventListener("popstate", refreshGraphSeries);
+    window.addEventListener("popstate", () => refreshGraphSeries(true));
 
     Object.values(graphs).forEach((graph) => {
       if (!graph.canvas) return;
@@ -1347,13 +1363,6 @@
       localStorage.setItem(columnStorageKey, JSON.stringify(enabledColumns));
     }
 
-    function ensureDefaultColumn(key) {
-      if (!enabledColumns.includes(key)) {
-        enabledColumns.push(key);
-        localStorage.setItem(columnStorageKey, JSON.stringify(enabledColumns));
-      }
-    }
-
     function applyColumnVisibility() {
       const enabled = new Set(enabledColumns);
       document.querySelectorAll("[data-col]").forEach((el) => {
@@ -1393,11 +1402,6 @@
     }
 
     loadColumnPreferences();
-    ensureDefaultColumn("up");
-    ensureDefaultColumn("down");
-    ensureDefaultColumn("state");
-    ensureDefaultColumn("flags");
-    ensureDefaultColumn("rdns");
     renderColumnToggles();
     applyColumnVisibility();
 
@@ -1413,7 +1417,8 @@
       el.innerHTML = items.map((item) => `<li>${item}</li>`).join("");
     }
 
-    function refreshTopPanels() {
+    function refreshTopPanels(force = false) {
+      if (collectorIsStale && !force) return;
       const panelParams = new URLSearchParams();
       let newestWindow = "10m";
       document.querySelectorAll(".panel-window").forEach((select) => {
@@ -1472,11 +1477,11 @@
         .catch(() => {});
     }
 
-    refreshTopPanels();
-    setInterval(refreshTopPanels, 2000);
+    refreshTopPanels(true);
+    setInterval(() => refreshTopPanels(), 2000);
 
     document.querySelectorAll(".panel-window").forEach((select) => {
-      select.addEventListener("change", refreshTopPanels);
+      select.addEventListener("change", () => refreshTopPanels(true));
     });
   })();
 </script>
