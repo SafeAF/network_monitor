@@ -132,7 +132,7 @@
 </section>
 
 <div id="collector-warning" class="hidden mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
-  Collector stale — pausing agent-driven updates.
+  Collector stale — data may be delayed.
 </div>
 
 <section class="grid grid-cols-1 lg:grid-cols-4 gap-3 mb-4">
@@ -614,11 +614,8 @@
       return query ? `?${query}` : "";
     }
 
-    function refresh(force = false) {
+    function refresh() {
       if (document.activeElement && document.activeElement.classList.contains("device-name-input")) {
-        return;
-      }
-      if (collectorIsStale && !force) {
         return;
       }
       const query = buildConnectionsQuery();
@@ -653,7 +650,7 @@
       prevBtn.addEventListener("click", () => {
         if (currentPage > 1) {
           currentPage -= 1;
-          refresh(true);
+          refresh();
         }
       });
     }
@@ -661,7 +658,7 @@
     if (nextBtn) {
       nextBtn.addEventListener("click", () => {
         currentPage += 1;
-        refresh(true);
+        refresh();
       });
     }
 
@@ -669,7 +666,7 @@
       perPageSelect.addEventListener("change", () => {
         localStorage.setItem(perPageStorageKey, perPageSelect.value);
         currentPage = 1;
-        refresh(true);
+        refresh();
       });
     }
 
@@ -678,11 +675,11 @@
       filterForm.addEventListener("submit", (event) => {
         event.preventDefault();
         currentPage = 1;
-        refresh(true);
+        refresh();
       });
     }
 
-    refresh(true);
+    refresh();
     setInterval(() => refresh(), 1000);
 
     const csrfToken = document.querySelector("meta[name='csrf-token']")?.content;
@@ -1178,8 +1175,7 @@
 
     loadWindowSelections();
 
-    function refreshStatSeries(force = false) {
-      if (collectorIsStale && !force) return;
+    function refreshStatSeries() {
       document.querySelectorAll(".stat-window").forEach((select) => {
         const seriesKey = select.dataset.series;
         const window = select.value;
@@ -1195,19 +1191,18 @@
       });
     }
 
-    refreshStatSeries(true);
+    refreshStatSeries();
     setInterval(() => refreshStatSeries(), 10000);
 
     document.querySelectorAll(".stat-window").forEach((select) => {
       select.addEventListener("change", () => {
         const seriesKey = select.dataset.series;
         persistWindowSelection("stat", seriesKey, select.value);
-        refreshStatSeries(true);
+        refreshStatSeries();
       });
     });
 
-    function refreshGraphSeries(force = false) {
-      if (collectorIsStale && !force) return;
+    function refreshGraphSeries() {
       document.querySelectorAll(".graph-window").forEach((select) => {
         const seriesKey = select.dataset.series;
         const window = select.value;
@@ -1220,7 +1215,7 @@
       });
     }
 
-    refreshGraphSeries(true);
+    refreshGraphSeries();
     setInterval(() => refreshGraphSeries(), 10000);
 
 
@@ -1264,7 +1259,7 @@
       });
     });
 
-    window.addEventListener("popstate", () => refreshGraphSeries(true));
+    window.addEventListener("popstate", () => refreshGraphSeries());
 
     Object.values(graphs).forEach((graph) => {
       if (!graph.canvas) return;
@@ -1417,8 +1412,7 @@
       el.innerHTML = items.map((item) => `<li>${item}</li>`).join("");
     }
 
-    function refreshTopPanels(force = false) {
-      if (collectorIsStale && !force) return;
+    function refreshTopPanels() {
       const panelParams = new URLSearchParams();
       let newestWindow = "10m";
       document.querySelectorAll(".panel-window").forEach((select) => {
@@ -1477,11 +1471,11 @@
         .catch(() => {});
     }
 
-    refreshTopPanels(true);
+    refreshTopPanels();
     setInterval(() => refreshTopPanels(), 2000);
 
     document.querySelectorAll(".panel-window").forEach((select) => {
-      select.addEventListener("change", () => refreshTopPanels(true));
+      select.addEventListener("change", () => refreshTopPanels());
     });
   })();
 </script>

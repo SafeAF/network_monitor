@@ -17,7 +17,7 @@ module Netmon
       series = Netmon::MetricsReporter.series
       last_heartbeat = NetmonEvent.where(event_type: "heartbeat").maximum(:created_at)&.to_i
       age_seconds = last_heartbeat ? (now.to_i - last_heartbeat.to_i) : nil
-      stale = age_seconds ? age_seconds > 10 : nil
+      stale = age_seconds ? age_seconds > 90 : nil
 
       {
         timestamp: now.iso8601,

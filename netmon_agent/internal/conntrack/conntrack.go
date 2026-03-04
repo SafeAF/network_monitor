@@ -133,10 +133,20 @@ func (c *Collector) run(ctx context.Context, out chan<- event.Event) {
     case <-ctx.Done():
       _ = conn.Close()
       return
-    case err := <-errCh:
+    case err, ok := <-errCh:
       _ = conn.Close()
-      log.Printf("conntrack stream error: %v", err)
-      <-done
+      if !ok {
+        log.Printf("conntrack stream error: channel closed")
+      } else {
+        log.Printf("conntrack stream error: %v", err)
+      }
+      // Avoid hanging forever if evCh never closes after error.
+      select {
+      case <-done:
+      case <-time.After(1 * time.Second):
+      case <-ctx.Done():
+        return
+      }
     }
   }
 }

@@ -41,6 +41,9 @@ be able to hide graphs.
 
 get load disk read download bytes from router not server.
 
+devices by egress select 24h and it ping pongs between showing 10min and 24h
+
+bittorrent shouldnt trigger anomalies
 
 NetmonEvent.order(created_at: :desc).limit(3).pluck(:event_type, :created_at)
 # 1) Metrics snapshot
@@ -51,3 +54,14 @@ rails c
 NetmonEvent.order(created_at: :desc).limit(5).pluck(:event_type, :created_at)
 date -u
 curl -s http://127.0.0.1:9109/metrics | rg "http_batches_sent_total|http_send_errors_total|spool_bytes|spool_batches|conntrack_destroy_total|nflog_events_total|dns_lines_total"
+
+go mod tidy
+GOCACHE=/tmp/go-build GOOS=linux GOARCH=386 CGO_ENABLED=0 go build -o /tmp/netmon_agent_linux_386 ./cmd/netmon_agent
+
+ps aux | rg "netmon|reconcile|conntrack"
+tail -n 200 log/development.log | rg "reconcile_snapshot|conntrack|collector"
+
+date -u
+ps aux | rg netmon_agent
+curl -s http://127.0.0.1:9109/metrics | rg "http_batches_sent_total|http_send_errors_total|spool_bytes|spool_batches"
+
