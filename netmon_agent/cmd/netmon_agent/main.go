@@ -82,24 +82,33 @@ func main() {
   eventCh := make(chan event.Event, cfg.QueueDepth)
   go func() {
     for ev := range eventCh {
-      httpClient.Ingest(ev)
+      if !httpClient.Ingest(ev) {
+        log.Printf("http batch queue full; dropped event type=%s", ev.Type)
+      }
     }
   }()
 
   // Heartbeat
   go func() {
-    ticker := time.NewTicker(cfg.HeartbeatInterval)
+    interval := cfg.HeartbeatInterval
+    if interval <= 0 {
+      interval = 30 * time.Second
+    }
+    ticker := time.NewTicker(interval)
     defer ticker.Stop()
     for {
       select {
       case <-ctx.Done():
         return
       case <-ticker.C:
-        httpClient.Ingest(event.Event{
+        ev := event.Event{
           Type: "heartbeat",
           TS:   time.Now().UTC(),
           Data: map[string]interface{}{"router_id": cfg.RouterID},
-        })
+        }
+        if !httpClient.Ingest(ev) {
+          log.Printf("http batch queue full; dropped heartbeat")
+        }
       }
     }
   }()

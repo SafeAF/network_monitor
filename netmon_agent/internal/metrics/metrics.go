@@ -14,6 +14,9 @@ type Metrics struct {
   DroppedLocalTotal   *prometheus.CounterVec
   HTTPBatchesSent     prometheus.Counter
   HTTPSendErrors      *prometheus.CounterVec
+  HTTPLastEnqueue     prometheus.Gauge
+  HTTPLastSendSuccess prometheus.Gauge
+  HTTPLastSendError   prometheus.Gauge
   SpoolBytes          prometheus.Gauge
   SpoolBatches        prometheus.Gauge
   SpoolDroppedTotal   prometheus.Counter
@@ -65,6 +68,18 @@ func New() *Metrics {
       Name: "http_send_errors_total",
       Help: "HTTP send errors",
     }, []string{"code"}),
+    HTTPLastEnqueue: prometheus.NewGauge(prometheus.GaugeOpts{
+      Name: "http_last_enqueue_ts",
+      Help: "Unix timestamp of last enqueue to HTTP batcher",
+    }),
+    HTTPLastSendSuccess: prometheus.NewGauge(prometheus.GaugeOpts{
+      Name: "http_last_send_success_ts",
+      Help: "Unix timestamp of last successful HTTP batch send",
+    }),
+    HTTPLastSendError: prometheus.NewGauge(prometheus.GaugeOpts{
+      Name: "http_last_send_error_ts",
+      Help: "Unix timestamp of last HTTP batch send error",
+    }),
     SpoolBytes: prometheus.NewGauge(prometheus.GaugeOpts{
       Name: "spool_bytes",
       Help: "Spool size in bytes",
@@ -91,6 +106,9 @@ func New() *Metrics {
     m.DroppedLocalTotal,
     m.HTTPBatchesSent,
     m.HTTPSendErrors,
+    m.HTTPLastEnqueue,
+    m.HTTPLastSendSuccess,
+    m.HTTPLastSendError,
     m.SpoolBytes,
     m.SpoolBatches,
     m.SpoolDroppedTotal,

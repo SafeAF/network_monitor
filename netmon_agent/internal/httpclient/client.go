@@ -53,6 +53,9 @@ func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *
 }
 
 func (c *Client) Ingest(event event.Event) bool {
+  if c.metrics != nil {
+    c.metrics.HTTPLastEnqueue.Set(float64(time.Now().Unix()))
+  }
   select {
   case c.inCh <- event:
     return true
@@ -76,7 +79,14 @@ func (c *Client) flushSupervisor(ctx context.Context, routerID string) {
     if ctx.Err() != nil {
       return
     }
-    c.flushLoop(ctx, routerID)
+    func() {
+      defer func() {
+        if r := recover(); r != nil {
+          log.Printf("httpclient flushSupervisor panic: %v", r)
+        }
+      }()
+      c.flushLoop(ctx, routerID)
+    }()
     if ctx.Err() != nil {
       return
     }
@@ -85,7 +95,11 @@ func (c *Client) flushSupervisor(ctx context.Context, routerID string) {
 }
 
 func (c *Client) flushLoop(ctx context.Context, routerID string) {
-  ticker := time.NewTicker(c.batchWait)
+  wait := c.batchWait
+  if wait <= 0 {
+    wait = 1 * time.Second
+  }
+  ticker := time.NewTicker(wait)
   defer ticker.Stop()
   defer func() {
     if r := recover(); r != nil {
@@ -166,15 +180,24 @@ func (c *Client) post(ctx context.Context, payload []byte) error {
   resp, err := c.httpClient.Do(req)
   if err != nil {
     c.metrics.HTTPSendErrors.WithLabelValues("net").Inc()
+    if c.metrics != nil {
+      c.metrics.HTTPLastSendError.Set(float64(time.Now().Unix()))
+    }
     return err
   }
   defer resp.Body.Close()
   _, _ = io.Copy(io.Discard, resp.Body)
   if resp.StatusCode < 200 || resp.StatusCode >= 300 {
     c.metrics.HTTPSendErrors.WithLabelValues(fmt.Sprintf("%d", resp.StatusCode)).Inc()
+    if c.metrics != nil {
+      c.metrics.HTTPLastSendError.Set(float64(time.Now().Unix()))
+    }
     return errors.New("http error")
   }
   c.metrics.HTTPBatchesSent.Inc()
+  if c.metrics != nil {
+    c.metrics.HTTPLastSendSuccess.Set(float64(time.Now().Unix()))
+  }
   return nil
 }
 
@@ -192,7 +215,11 @@ func (c *Client) replaySpool(ctx context.Context, routerID string) {
 }
 
 func (c *Client) spoolReplayLoop(ctx context.Context) {
-  ticker := time.NewTicker(c.spoolReplayInterval)
+  interval := c.spoolReplayInterval
+  if interval <= 0 {
+    interval = 5 * time.Second
+  }
+  ticker := time.NewTicker(interval)
   defer ticker.Stop()
 
   for {
