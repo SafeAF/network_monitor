@@ -34,6 +34,7 @@ type Client struct {
   httpClient *http.Client
 
   inCh chan event.Event
+  priorityCh chan event.Event
 }
 
 func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *metrics.Metrics, spool *spool.Spool, queueDepth int, httpTimeout time.Duration, retryMax int, retryBase time.Duration, spoolReplayInterval time.Duration) *Client {
@@ -49,6 +50,7 @@ func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *
     spool: spool,
     httpClient: &http.Client{Timeout: httpTimeout},
     inCh: make(chan event.Event, queueDepth),
+    priorityCh: make(chan event.Event, 32),
   }
 }
 
@@ -69,9 +71,27 @@ func (c *Client) QueueDepth() int {
   return len(c.inCh)
 }
 
+func (c *Client) PriorityDepth() int {
+  return len(c.priorityCh)
+}
+
 func (c *Client) Start(ctx context.Context, routerID string) {
   go c.flushSupervisor(ctx, routerID)
+  go c.priorityLoop(ctx, routerID)
   go c.spoolReplayLoop(ctx)
+}
+
+func (c *Client) IngestPriority(event event.Event) bool {
+  if c.metrics != nil {
+    c.metrics.HTTPLastEnqueue.Set(float64(time.Now().Unix()))
+  }
+  select {
+  case c.priorityCh <- event:
+    return true
+  default:
+    c.metrics.DroppedLocalTotal.WithLabelValues("http_priority").Inc()
+    return false
+  }
 }
 
 func (c *Client) flushSupervisor(ctx context.Context, routerID string) {
@@ -91,6 +111,19 @@ func (c *Client) flushSupervisor(ctx context.Context, routerID string) {
       return
     }
     time.Sleep(1 * time.Second)
+  }
+}
+
+func (c *Client) priorityLoop(ctx context.Context, routerID string) {
+  for {
+    select {
+    case <-ctx.Done():
+      return
+    case ev := <-c.priorityCh:
+      batch := []event.Event{ev}
+      // Priority events (heartbeats) bypass flow backlog.
+      _ = c.sendOrSpool(ctx, routerID, batch)
+    }
   }
 }
 

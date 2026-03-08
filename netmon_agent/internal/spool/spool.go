@@ -117,7 +117,8 @@ func (s *Spool) Count() int {
 }
 
 func (s *Spool) ensureCap(nextSize int64) error {
-  cur := s.SizeBytes()
+  // caller already holds s.mu; avoid re-locking via SizeBytes() to prevent deadlock
+  cur := s.sizeBytesUnlocked()
   if cur+nextSize <= s.maxBytes {
     return nil
   }
@@ -151,4 +152,23 @@ func (s *Spool) ensureCap(nextSize int64) error {
     return errors.New("spool full")
   }
   return nil
+}
+
+func (s *Spool) sizeBytesUnlocked() int64 {
+  entries, err := os.ReadDir(s.dir)
+  if err != nil {
+    return 0
+  }
+  var total int64
+  for _, e := range entries {
+    if e.IsDir() || !strings.HasPrefix(e.Name(), "batch_") {
+      continue
+    }
+    info, err := e.Info()
+    if err != nil {
+      continue
+    }
+    total += info.Size()
+  }
+  return total
 }

@@ -106,7 +106,7 @@ func main() {
           TS:   time.Now().UTC(),
           Data: map[string]interface{}{"router_id": cfg.RouterID},
         }
-        if !httpClient.Ingest(ev) {
+        if !httpClient.IngestPriority(ev) {
           log.Printf("http batch queue full; dropped heartbeat")
         }
       }
@@ -149,6 +149,7 @@ func main() {
       m.QueueDepth.WithLabelValues("events").Set(float64(len(eventCh)))
       m.QueueDepth.WithLabelValues("dns_lines").Set(float64(len(dnsLines)))
       m.QueueDepth.WithLabelValues("http_batch").Set(float64(httpClient.QueueDepth()))
+      m.QueueDepth.WithLabelValues("http_priority").Set(float64(httpClient.PriorityDepth()))
     }
   }
 }

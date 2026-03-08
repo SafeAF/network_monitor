@@ -65,3 +65,11 @@ date -u
 ps aux | rg netmon_agent
 curl -s http://127.0.0.1:9109/metrics | rg "http_batches_sent_total|http_send_errors_total|spool_bytes|spool_batches"
 
+curl -s http://127.0.0.1:9109/metrics | rg "http_last_|http_batches_sent_total|http_send_errors_total|queue_depth|spool_bytes|spool_batches"
+
+## check if its stuck
+date -u
+curl -s http://127.0.0.1:9109/metrics | rg "http_last_|http_batches_sent_total|http_send_errors_total|queue_depth\\{stream=\"http_batch\"\\}|spool_bytes|spool_batches"
+sleep 45
+date -u
+curl -s http://127.0.0.1:9109/metrics | rg "http_last_|http_batches_sent_total|http_send_errors_total|queue_depth\\{stream=\"http_batch\"\\}|spool_bytes|spool_batches"
