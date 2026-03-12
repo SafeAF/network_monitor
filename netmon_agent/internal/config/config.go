@@ -30,6 +30,7 @@ type Config struct {
   HttpTimeout     time.Duration `yaml:"http_timeout"`
   HttpRetryMax    int           `yaml:"http_retry_max"`
   HttpRetryBase   time.Duration `yaml:"http_retry_base"`
+  HTTPFlushWorkers int          `yaml:"http_flush_workers"`
   SpoolReplayInterval time.Duration `yaml:"spool_replay_interval"`
   HeartbeatInterval time.Duration `yaml:"heartbeat_interval"`
   ConntrackReadBuffer int `yaml:"conntrack_read_buffer"`
@@ -86,6 +87,9 @@ func (c *Config) applyDefaults() {
   }
   if c.HttpRetryBase == 0 {
     c.HttpRetryBase = 1 * time.Second
+  }
+  if c.HTTPFlushWorkers == 0 {
+    c.HTTPFlushWorkers = 2
   }
   if c.SpoolReplayInterval == 0 {
     c.SpoolReplayInterval = 5 * time.Second

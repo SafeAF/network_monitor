@@ -28,6 +28,7 @@ type Client struct {
   batchWait time.Duration
   retryMax  int
   retryBase time.Duration
+  flushWorkers int
   spoolReplayInterval time.Duration
   metrics   *metrics.Metrics
   spool     *spool.Spool
@@ -37,7 +38,10 @@ type Client struct {
   priorityCh chan event.Event
 }
 
-func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *metrics.Metrics, spool *spool.Spool, queueDepth int, httpTimeout time.Duration, retryMax int, retryBase time.Duration, spoolReplayInterval time.Duration) *Client {
+func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *metrics.Metrics, spool *spool.Spool, queueDepth int, httpTimeout time.Duration, retryMax int, retryBase time.Duration, flushWorkers int, spoolReplayInterval time.Duration) *Client {
+  if flushWorkers <= 0 {
+    flushWorkers = 1
+  }
   return &Client{
     baseURL: baseURL,
     token: token,
@@ -45,6 +49,7 @@ func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *
     batchWait: batchWait,
     retryMax: retryMax,
     retryBase: retryBase,
+    flushWorkers: flushWorkers,
     spoolReplayInterval: spoolReplayInterval,
     metrics: metrics,
     spool: spool,
@@ -76,7 +81,9 @@ func (c *Client) PriorityDepth() int {
 }
 
 func (c *Client) Start(ctx context.Context, routerID string) {
-  go c.flushSupervisor(ctx, routerID)
+  for i := 0; i < c.flushWorkers; i++ {
+    go c.flushSupervisor(ctx, routerID)
+  }
   go c.priorityLoop(ctx, routerID)
   go c.spoolReplayLoop(ctx)
 }
@@ -178,7 +185,8 @@ func (c *Client) flushOnce(ctx context.Context, routerID string, batch []event.E
   if err != nil {
     return err
   }
-  return c.postWithRetry(ctx, payload)
+  // Keep live ingest non-blocking: on any transient error, spool and move on.
+  return c.post(ctx, payload)
 }
 
 func (c *Client) postWithRetry(ctx context.Context, payload []byte) error {
@@ -235,7 +243,16 @@ func (c *Client) post(ctx context.Context, payload []byte) error {
 }
 
 func (c *Client) replaySpool(ctx context.Context, routerID string) {
+  // Prefer live traffic: only replay when live queue is mostly empty.
+  if len(c.inCh) > c.batchMax {
+    return
+  }
+  replayed := 0
+  maxPerTick := 10
   for {
+    if replayed >= maxPerTick {
+      return
+    }
     path, payload, err := c.spool.DequeueOldest()
     if err != nil {
       return
@@ -244,6 +261,7 @@ func (c *Client) replaySpool(ctx context.Context, routerID string) {
       return
     }
     _ = c.spool.Ack(path)
+    replayed++
   }
 }
 
