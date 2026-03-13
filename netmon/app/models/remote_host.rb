@@ -7,6 +7,7 @@ class RemoteHost < ApplicationRecord
   validates :tag, inclusion: { in: %w[unknown known_good cloud cdn microsoft google suspicious trusted] }
 
   has_many :remote_host_ports, dependent: :destroy
+  has_many :remote_host_domains, dependent: :destroy
 
   def new?(now: Time.current, window: NEW_WINDOW)
     return false if first_seen_at.nil?
