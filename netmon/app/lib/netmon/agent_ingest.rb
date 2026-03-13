@@ -7,6 +7,8 @@ module Netmon
       case event_type
       when "flow"
         ingest_flow!(router_id:, data:, ts:)
+      when "dns_response"
+        Netmon::Dns::IngestEvent.call(router_id:, data:, ts:)
       when "heartbeat"
         # collector heartbeat only
       else
