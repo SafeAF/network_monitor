@@ -57,4 +57,34 @@ RSpec.describe Search::ConnectionsQuery do
 
     expect(query.results.first.dst_ip).to eq("4.4.4.4")
   end
+
+  it "filters by last_domain substring" do
+    Connection.create!(
+      proto: "tcp",
+      src_ip: "10.0.0.4",
+      dst_ip: "5.5.5.5",
+      dst_port: 443,
+      first_seen_at: 1.hour.ago,
+      last_seen_at: 1.minute.ago,
+      uplink_bytes: 100,
+      downlink_bytes: 100,
+      last_domain: "api.github.com"
+    )
+    Connection.create!(
+      proto: "tcp",
+      src_ip: "10.0.0.5",
+      dst_ip: "6.6.6.6",
+      dst_port: 443,
+      first_seen_at: 1.hour.ago,
+      last_seen_at: 1.minute.ago,
+      uplink_bytes: 100,
+      downlink_bytes: 100,
+      last_domain: "cdn.cloudflare.net"
+    )
+
+    query = described_class.new(domain: "github")
+    results = query.results
+
+    expect(results.map(&:dst_ip)).to eq(["5.5.5.5"])
+  end
 end

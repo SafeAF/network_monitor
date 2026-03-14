@@ -34,6 +34,7 @@ module Search
         :device,
         :src_ip,
         :dst_ip,
+        :domain,
         :dst_port,
         :proto,
         :state,
@@ -56,6 +57,7 @@ module Search
         device: ParamNormalizer.clean_string(raw[:device]),
         src_ip: ParamNormalizer.clean_string(raw[:src_ip]),
         dst_ip: ParamNormalizer.clean_string(raw[:dst_ip]),
+        domain: ParamNormalizer.clean_string(raw[:domain]),
         dst_port: ParamNormalizer.clean_int(raw[:dst_port]),
         proto: ParamNormalizer.clean_downcase(raw[:proto]),
         state: ParamNormalizer.clean_upcase(raw[:state]),
@@ -84,6 +86,7 @@ module Search
 
       scope = apply_ip_filter(scope, "connections.src_ip", params[:src_ip]) if params[:src_ip].present?
       scope = apply_ip_filter(scope, "connections.dst_ip", params[:dst_ip]) if params[:dst_ip].present?
+      scope = scope.where("last_domain LIKE ?", "%#{params[:domain]}%") if params[:domain].present?
 
       scope = scope.where(dst_port: params[:dst_port]) if params[:dst_port].present?
       scope = scope.where("LOWER(proto) = ?", params[:proto]) if params[:proto].present?
