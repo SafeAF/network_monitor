@@ -33,6 +33,7 @@ module Search
       params.slice(
         :ip,
         :tag,
+        :domain,
         :rdns,
         :whois,
         :asn,
@@ -53,6 +54,7 @@ module Search
       {
         ip: ParamNormalizer.clean_string(raw[:ip]),
         tag: ParamNormalizer.clean_downcase(raw[:tag]),
+        domain: ParamNormalizer.clean_string(raw[:domain]),
         rdns: ParamNormalizer.clean_string(raw[:rdns]),
         whois: ParamNormalizer.clean_string(raw[:whois]),
         asn: ParamNormalizer.clean_string(raw[:asn]),
@@ -86,6 +88,11 @@ module Search
       end
 
       scope = scope.where(tag: params[:tag]) if params[:tag].present?
+      if params[:domain].present?
+        scope = scope.joins(:remote_host_domains)
+                     .where("remote_host_domains.domain LIKE ?", "%#{params[:domain]}%")
+                     .distinct
+      end
       scope = scope.where("rdns_name LIKE ?", "%#{params[:rdns]}%") if params[:rdns].present?
       scope = scope.where("whois_name LIKE ?", "%#{params[:whois]}%") if params[:whois].present?
       scope = scope.where("whois_asn LIKE ?", "%#{params[:asn]}%") if params[:asn].present?

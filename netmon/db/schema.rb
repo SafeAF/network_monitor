@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_20_103000) do
+ActiveRecord::Schema[8.0].define(version: 2026_03_08_151000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -76,9 +76,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_20_103000) do
     t.datetime "last_delta_at"
     t.integer "anomaly_score", default: 0, null: false
     t.text "anomaly_reasons_json", default: "[]", null: false
+    t.string "last_domain"
+    t.datetime "last_domain_observed_at"
     t.index ["anomaly_score"], name: "index_connections_on_anomaly_score"
     t.index ["dst_ip", "last_seen_at"], name: "index_connections_on_dst_ip_and_last_seen_at"
     t.index ["dst_ip"], name: "index_connections_on_dst_ip"
+    t.index ["last_domain"], name: "index_connections_on_last_domain"
+    t.index ["last_domain_observed_at"], name: "index_connections_on_last_domain_observed_at"
     t.index ["last_seen_at"], name: "index_connections_on_last_seen_at"
     t.index ["proto", "src_ip", "src_port", "dst_ip", "dst_port"], name: "index_connections_on_5_tuple", unique: true
   end
@@ -127,6 +131,34 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_20_103000) do
     t.index ["name"], name: "index_devices_on_name"
   end
 
+  create_table "dns_event_answers", force: :cascade do |t|
+    t.integer "dns_event_id", null: false
+    t.string "answer_ip", null: false
+    t.string "answer_type", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["answer_ip", "created_at"], name: "index_dns_event_answers_on_answer_ip_and_created_at"
+    t.index ["dns_event_id"], name: "index_dns_event_answers_on_dns_event_id"
+  end
+
+  create_table "dns_events", force: :cascade do |t|
+    t.string "router_id", null: false
+    t.datetime "observed_at", null: false
+    t.string "client_ip", null: false
+    t.string "qname", null: false
+    t.string "qtype", null: false
+    t.string "rcode"
+    t.string "resolver"
+    t.text "answers_json", default: "[]", null: false
+    t.string "dedupe_key", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["client_ip", "observed_at"], name: "index_dns_events_on_client_ip_and_observed_at"
+    t.index ["dedupe_key"], name: "index_dns_events_on_dedupe_key", unique: true
+    t.index ["observed_at"], name: "index_dns_events_on_observed_at"
+    t.index ["qname", "observed_at"], name: "index_dns_events_on_qname_and_observed_at"
+  end
+
   create_table "incidents", force: :cascade do |t|
     t.string "fingerprint", null: false
     t.integer "device_id"
@@ -169,6 +201,19 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_20_103000) do
     t.index ["event_type"], name: "index_netmon_events_on_event_type"
     t.index ["router_id"], name: "index_netmon_events_on_router_id"
     t.index ["ts"], name: "index_netmon_events_on_ts"
+  end
+
+  create_table "remote_host_domains", force: :cascade do |t|
+    t.integer "remote_host_id", null: false
+    t.string "domain", null: false
+    t.datetime "first_seen_at", null: false
+    t.datetime "last_seen_at", null: false
+    t.integer "seen_count", default: 0, null: false
+    t.string "last_device_ip"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["remote_host_id", "domain"], name: "index_remote_host_domains_on_remote_host_id_and_domain", unique: true
+    t.index ["remote_host_id"], name: "index_remote_host_domains_on_remote_host_id"
   end
 
   create_table "remote_host_minutes", force: :cascade do |t|
@@ -260,6 +305,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_20_103000) do
   add_foreign_key "anomaly_hits", "remote_hosts"
   add_foreign_key "device_baselines", "devices"
   add_foreign_key "device_minutes", "devices"
+  add_foreign_key "dns_event_answers", "dns_events"
+  add_foreign_key "remote_host_domains", "remote_hosts"
   add_foreign_key "remote_host_minutes", "remote_hosts"
   add_foreign_key "remote_host_ports", "remote_hosts"
   add_foreign_key "suppression_rules", "devices"

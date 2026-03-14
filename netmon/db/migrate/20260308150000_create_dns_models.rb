@@ -30,7 +30,6 @@ class CreateDnsModels < ActiveRecord::Migration[8.0]
     end
 
     add_index :dns_event_answers, [:answer_ip, :created_at]
-    add_index :dns_event_answers, :dns_event_id
 
     create_table :remote_host_domains do |t|
       t.references :remote_host, null: false, foreign_key: true

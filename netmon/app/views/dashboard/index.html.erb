@@ -410,6 +410,7 @@
       <th class="px-2 py-1.5 text-left" data-col="device">Device</th>
       <th class="px-2 py-1.5 text-left" data-col="source">Source</th>
       <th class="px-2 py-1.5 text-left" data-col="destination"><%= sortable_th("Dst IP", "dst_ip") %></th>
+      <th class="px-2 py-1.5 text-left" data-col="domain">Domain</th>
       <th class="px-2 py-1.5 text-left" data-col="state">State</th>
       <th class="px-2 py-1.5 text-left" data-col="flags">Flags</th>
       <th class="px-2 py-1.5 text-right" data-col="up"><%= sortable_th("Up", "uplink_bytes") %></th>
@@ -451,6 +452,13 @@
         <td class="px-2 py-1.5" data-col="source"><a href="/remote_hosts/<%= conn.src_ip %>"><%= conn.src_ip %></a>:<%= conn.src_port %></td>
         <td class="px-2 py-1.5" data-col="destination">
           <a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a><%= conn.dst_port ? ":#{conn.dst_port}" : "" %>
+        </td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="domain">
+          <% if conn.respond_to?(:last_domain) && conn.last_domain.present? %>
+            <a href="/search/hosts?domain=<%= CGI.escape(conn.last_domain) %>" title="<%= conn.last_domain %>"><%= conn.last_domain %></a>
+          <% else %>
+            --
+          <% end %>
         </td>
         <td class="px-2 py-1.5 font-mono text-xs" data-col="state"><%= conn.state %></td>
         <td class="px-2 py-1.5 font-mono text-xs" data-col="flags"><%= conn.flags %></td>
@@ -538,6 +546,9 @@
         ? `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>:${conn.dst_port}`
         : `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>`;
       const seenLabel = conn.is_new ? "NEW" : "SEEN";
+      const domain = conn.last_domain
+        ? `<a href="/search/hosts?domain=${encodeURIComponent(conn.last_domain)}" title="${conn.last_domain}">${conn.last_domain}</a>`
+        : "--";
       const score = Number(conn.anomaly_score || 0);
       const scoreVariant = score >= 70 ? "alert" : (score >= 50 ? "warn" : (score >= 20 ? "info" : "neutral"));
       const scoreClass = scoreVariant === "alert"
@@ -566,6 +577,7 @@
           <td class="px-2 py-1.5" data-col="device">${deviceCell}</td>
           <td class="px-2 py-1.5" data-col="source">${src}</td>
           <td class="px-2 py-1.5" data-col="destination">${dst}</td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="domain">${domain}</td>
           <td class="px-2 py-1.5 font-mono text-xs${hideState}" data-col="state">${conn.state || ""}</td>
           <td class="px-2 py-1.5 font-mono text-xs${hideFlags}" data-col="flags">${conn.flags || ""}</td>
           <td class="px-2 py-1.5 text-right" data-col="up" title="${conn.uplink_bytes}">${up}</td>
@@ -1330,6 +1342,7 @@
       { key: "device", label: "Device" },
       { key: "source", label: "Source" },
       { key: "destination", label: "Destination" },
+      { key: "domain", label: "Domain" },
       { key: "state", label: "State" },
       { key: "flags", label: "Flags" },
       { key: "up", label: "Up" },

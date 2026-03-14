@@ -48,6 +48,13 @@ class RemoteHostsController < ApplicationController
     @rdns = @host&.rdns_name
     @whois = @host&.whois_name
     @whois_raw = @host&.respond_to?(:whois_raw_line) ? @host.whois_raw_line : nil
+    @recent_domains = if @host
+                        RemoteHostDomain.where(remote_host_id: @host.id)
+                                        .order(last_seen_at: :desc)
+                                        .limit(50)
+                      else
+                        []
+                      end
     @geo = geo_lookup(@ip)
   end
 

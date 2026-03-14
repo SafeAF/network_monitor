@@ -49,6 +49,8 @@ class ConnectionsController < ApplicationController
         rdns_name: host&.rdns_name,
         whois_name: host&.whois_name,
         whois_raw_line: whois_raw_line,
+        last_domain: conn.respond_to?(:last_domain) ? conn.last_domain : nil,
+        last_domain_observed_at: conn.respond_to?(:last_domain_observed_at) ? conn.last_domain_observed_at : nil,
         anomaly_score: conn.anomaly_score.to_i,
         anomaly_reasons: reason_codes
       }
