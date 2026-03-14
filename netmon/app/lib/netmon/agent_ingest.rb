@@ -95,6 +95,15 @@ module Netmon
       connection.anomaly_reasons_json = anomaly[:reasons].to_json
       connection.save!
 
+      if dns_match
+        Netmon::Dns::LinkRemoteHostDomain.call(
+          remote_host: remote_host,
+          domain: dns_match[:domain],
+          device_ip: src_ip,
+          seen_at: dns_match[:observed_at]
+        )
+      end
+
       bucket_ts = now.utc.change(sec: 0)
       device_minute = DeviceMinute.find_or_initialize_by(device_id: device.id, bucket_ts: bucket_ts)
       device_minute.conn_count += 1
