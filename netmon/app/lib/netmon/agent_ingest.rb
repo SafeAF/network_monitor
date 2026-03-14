@@ -77,6 +77,10 @@ module Netmon
       connection.state = state if state
       connection.flags = flags if flags
 
+      dns_match = Netmon::Dns::CorrelateConnection.call(connection: connection, now: now)
+      connection.last_domain = dns_match&.dig(:domain)
+      connection.last_domain_observed_at = dns_match&.dig(:observed_at)
+
       baseline = DeviceBaseline.find_by(device_id: device.id)
       stats = Netmon::Anomaly::DeviceStats.current(device.id, now: now)
       anomaly = Netmon::Anomaly::Scorer.score_connection(
