@@ -453,7 +453,7 @@
         <td class="px-2 py-1.5" data-col="destination">
           <a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a><%= conn.dst_port ? ":#{conn.dst_port}" : "" %>
         </td>
-        <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="domain">
+        <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="domain" title="<%= conn.respond_to?(:last_domain_observed_at) ? conn.last_domain_observed_at.to_s : "" %>">
           <% if conn.respond_to?(:last_domain) && conn.last_domain.present? %>
             <a href="/search/hosts?domain=<%= CGI.escape(conn.last_domain) %>" title="<%= conn.last_domain %>"><%= conn.last_domain %></a>
           <% else %>
@@ -546,8 +546,11 @@
         ? `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>:${conn.dst_port}`
         : `<a href="/remote_hosts/${conn.dst_ip}">${conn.dst_ip}</a>`;
       const seenLabel = conn.is_new ? "NEW" : "SEEN";
+      const domainTitle = conn.last_domain_observed_at
+        ? `${conn.last_domain} (seen ${conn.last_domain_observed_at})`
+        : (conn.last_domain || "");
       const domain = conn.last_domain
-        ? `<a href="/search/hosts?domain=${encodeURIComponent(conn.last_domain)}" title="${conn.last_domain}">${conn.last_domain}</a>`
+        ? `<a href="/search/hosts?domain=${encodeURIComponent(conn.last_domain)}" title="${domainTitle}">${conn.last_domain}</a>`
         : "--";
       const score = Number(conn.anomaly_score || 0);
       const scoreVariant = score >= 70 ? "alert" : (score >= 50 ? "warn" : (score >= 20 ? "info" : "neutral"));
@@ -577,7 +580,7 @@
           <td class="px-2 py-1.5" data-col="device">${deviceCell}</td>
           <td class="px-2 py-1.5" data-col="source">${src}</td>
           <td class="px-2 py-1.5" data-col="destination">${dst}</td>
-          <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="domain">${domain}</td>
+          <td class="px-2 py-1.5 max-w-[260px] truncate" data-col="domain" title="${domainTitle}">${domain}</td>
           <td class="px-2 py-1.5 font-mono text-xs${hideState}" data-col="state">${conn.state || ""}</td>
           <td class="px-2 py-1.5 font-mono text-xs${hideFlags}" data-col="flags">${conn.flags || ""}</td>
           <td class="px-2 py-1.5 text-right" data-col="up" title="${conn.uplink_bytes}">${up}</td>
@@ -1356,7 +1359,7 @@
       { key: "whois", label: "WHOIS" },
       { key: "seen", label: "Seen" }
     ];
-    const defaultColumns = ["proto", "device", "destination", "state", "flags", "up", "down", "total", "score", "reasons", "rdns", "whois"];
+    const defaultColumns = ["proto", "device", "destination", "domain", "state", "flags", "up", "down", "total", "score", "reasons", "rdns", "whois"];
     let enabledColumns = [];
 
     function loadColumnPreferences() {

@@ -74,6 +74,7 @@
       <th class="px-2 py-1.5 text-left">Source</th>
       <th class="px-2 py-1.5 text-left"><%= sortable_th("Dst IP", "dst_ip") %></th>
       <th class="px-2 py-1.5 text-left"><%= sortable_th("Dst Port", "dst_port") %></th>
+      <th class="px-2 py-1.5 text-left">Domain</th>
       <th class="px-2 py-1.5 text-right"><%= sortable_th("Up", "uplink_bytes") %></th>
       <th class="px-2 py-1.5 text-right"><%= sortable_th("Down", "downlink_bytes") %></th>
       <th class="px-2 py-1.5 text-right"><%= sortable_th("Total", "total_bytes") %></th>
@@ -114,6 +115,13 @@
         <td class="px-2 py-1.5"><%= conn.src_ip %><%= conn.src_port ? ":#{conn.src_port}" : "" %></td>
         <td class="px-2 py-1.5"><a href="/remote_hosts/<%= conn.dst_ip %>"><%= conn.dst_ip %></a></td>
         <td class="px-2 py-1.5"><%= conn.dst_port %></td>
+        <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= conn.respond_to?(:last_domain_observed_at) ? conn.last_domain_observed_at.to_s : "" %>">
+          <% if conn.respond_to?(:last_domain) && conn.last_domain.present? %>
+            <a href="/search/hosts?domain=<%= CGI.escape(conn.last_domain) %>" title="<%= conn.last_domain %>"><%= conn.last_domain %></a>
+          <% else %>
+            --
+          <% end %>
+        </td>
         <td class="px-2 py-1.5 text-right" title="<%= conn.uplink_bytes %>"><%= format_bytes(conn.uplink_bytes) %></td>
         <td class="px-2 py-1.5 text-right" title="<%= conn.downlink_bytes %>"><%= format_bytes(conn.downlink_bytes) %></td>
         <td class="px-2 py-1.5 text-right" title="<%= total_bytes %>"><%= format_bytes(total_bytes) %></td>
