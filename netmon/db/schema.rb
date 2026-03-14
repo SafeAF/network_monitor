@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_03_08_151000) do
+ActiveRecord::Schema[8.0].define(version: 2026_03_14_130000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -85,6 +85,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_03_08_151000) do
     t.index ["last_domain_observed_at"], name: "index_connections_on_last_domain_observed_at"
     t.index ["last_seen_at"], name: "index_connections_on_last_seen_at"
     t.index ["proto", "src_ip", "src_port", "dst_ip", "dst_port"], name: "index_connections_on_5_tuple", unique: true
+    t.index ["src_ip", "dst_ip"], name: "index_connections_on_src_ip_and_dst_ip"
+    t.index ["src_ip", "last_seen_at"], name: "index_connections_on_src_ip_and_last_seen_at"
+    t.index ["src_ip"], name: "index_connections_on_src_ip"
   end
 
   create_table "device_baselines", force: :cascade do |t|
@@ -258,9 +261,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_03_08_151000) do
     t.index ["first_seen_at"], name: "index_remote_hosts_on_first_seen_at"
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
     t.index ["last_seen_at"], name: "index_remote_hosts_on_last_seen_at"
+    t.index ["rdns_name"], name: "index_remote_hosts_on_rdns_name"
     t.index ["tag", "last_seen_at"], name: "index_remote_hosts_on_tag_and_last_seen_at"
     t.index ["tag"], name: "index_remote_hosts_on_tag"
     t.index ["whois_asn"], name: "index_remote_hosts_on_whois_asn"
+    t.index ["whois_name"], name: "index_remote_hosts_on_whois_name"
   end
 
   create_table "saved_queries", force: :cascade do |t|

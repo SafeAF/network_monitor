@@ -1,0 +1,9 @@
+puma workers and threads
+
+indexes
+
+check strace -p <ruby pid> to see where its hanging
+
+could be turbo open browser dev tools network tab and look for request stuck in: pending
+
+could also be live RDNS/whois lookups in controller. needs to be background job if it isnt
