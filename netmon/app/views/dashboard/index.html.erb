@@ -522,6 +522,33 @@
     let collectorIsStale = false;
     let currentPage = 1;
     let totalRows = 0;
+    let inFlightConnections = false;
+    let inFlightMetrics = false;
+    let inFlightStatSeries = false;
+    let inFlightGraphSeries = false;
+    let inFlightSystemSeries = false;
+    let inFlightTopPanels = false;
+    const pollControllers = {};
+
+    function shouldPoll(force = false) {
+      return force || !document.hidden;
+    }
+
+    function beginPollRequest(key) {
+      const controller = new AbortController();
+      pollControllers[key] = controller;
+      return controller;
+    }
+
+    function endPollRequest(key, controller) {
+      if (pollControllers[key] === controller) {
+        delete pollControllers[key];
+      }
+    }
+
+    function abortAllPollRequests() {
+      Object.values(pollControllers).forEach((controller) => controller.abort());
+    }
 
     function formatBytes(value) {
       if (value == null) return "--";
@@ -629,12 +656,16 @@
       return query ? `?${query}` : "";
     }
 
-    function refresh() {
+    function refresh(force = false) {
+      if (!shouldPoll(force)) return;
+      if (inFlightConnections) return;
       if (document.activeElement && document.activeElement.classList.contains("device-name-input")) {
         return;
       }
+      inFlightConnections = true;
+      const controller = beginPollRequest("connections");
       const query = buildConnectionsQuery();
-      fetch(`/connections.json${query}`)
+      fetch(`/connections.json${query}`, { signal: controller.signal })
         .then((resp) => resp.json())
         .then((payload) => {
           const data = Array.isArray(payload) ? payload : payload.data || [];
@@ -653,7 +684,15 @@
           body.innerHTML = data.map(renderRow).join("");
           applyColumnVisibility();
         })
-        .catch(() => {});
+        .catch((error) => {
+          if (error?.name !== "AbortError") {
+            // no-op: transient poll failures should not disrupt UI
+          }
+        })
+        .finally(() => {
+          inFlightConnections = false;
+          endPollRequest("connections", controller);
+        });
     }
 
     if (perPageSelect) {
@@ -665,7 +704,7 @@
       prevBtn.addEventListener("click", () => {
         if (currentPage > 1) {
           currentPage -= 1;
-          refresh();
+          refresh(true);
         }
       });
     }
@@ -673,7 +712,7 @@
     if (nextBtn) {
       nextBtn.addEventListener("click", () => {
         currentPage += 1;
-        refresh();
+        refresh(true);
       });
     }
 
@@ -681,7 +720,7 @@
       perPageSelect.addEventListener("change", () => {
         localStorage.setItem(perPageStorageKey, perPageSelect.value);
         currentPage = 1;
-        refresh();
+        refresh(true);
       });
     }
 
@@ -690,12 +729,12 @@
       filterForm.addEventListener("submit", (event) => {
         event.preventDefault();
         currentPage = 1;
-        refresh();
+        refresh(true);
       });
     }
 
-    refresh();
-    setInterval(() => refresh(), 1000);
+    refresh(true);
+    const connectionsPollTimer = setInterval(() => refresh(), 2000);
 
     const csrfToken = document.querySelector("meta[name='csrf-token']")?.content;
     let pendingSave = null;
@@ -1123,29 +1162,41 @@
       });
     }
 
-    function refreshMetrics() {
+    function refreshMetrics(force = false) {
+      if (!shouldPoll(force)) return;
+      if (inFlightMetrics) return;
+      inFlightMetrics = true;
+      const controller = beginPollRequest("metrics");
       const interfaces = interfacesInput ? interfacesInput.value.trim() : "";
       const query = interfaces ? `?interfaces=${encodeURIComponent(interfaces)}` : "";
-      fetch(`/metrics.json${query}`)
+      fetch(`/metrics.json${query}`, { signal: controller.signal })
         .then((resp) => resp.json())
         .then(renderMetrics)
-        .catch(() => {});
+        .catch((error) => {
+          if (error?.name !== "AbortError") {
+            // no-op: transient poll failures should not disrupt UI
+          }
+        })
+        .finally(() => {
+          inFlightMetrics = false;
+          endPollRequest("metrics", controller);
+        });
     }
 
-    refreshMetrics();
-    setInterval(refreshMetrics, 2000);
+    refreshMetrics(true);
+    const metricsPollTimer = setInterval(() => refreshMetrics(), 3000);
 
     if (interfacesInput) {
       let metricsTimer = null;
       interfacesInput.addEventListener("input", () => {
         clearTimeout(metricsTimer);
-        metricsTimer = setTimeout(refreshMetrics, 200);
+        metricsTimer = setTimeout(() => refreshMetrics(true), 200);
       });
     }
 
-    function updateStatCard(seriesKey, window, el, formatter) {
+    function updateStatCard(seriesKey, window, el, formatter, signal = null) {
       if (!el) return Promise.resolve();
-      return fetchSeries(window).then((series) => {
+      return fetchSeries(window, signal).then((series) => {
         const points = series[seriesKey] || [];
         const last = points.length > 0 ? points[points.length - 1] : 0;
         const value = formatter ? formatter(last) : last;
@@ -1190,56 +1241,74 @@
 
     loadWindowSelections();
 
-    function refreshStatSeries() {
+    function refreshStatSeries(force = false) {
+      if (!shouldPoll(force)) return;
+      if (inFlightStatSeries) return;
+      inFlightStatSeries = true;
+      const controller = beginPollRequest("stat_series");
+      const tasks = [];
       document.querySelectorAll(".stat-window").forEach((select) => {
         const seriesKey = select.dataset.series;
         const window = select.value;
         if (seriesKey === "uplink_bytes_last_10m") {
-          updateStatCard(seriesKey, window, uplinkBytesEl, formatBytes);
+          tasks.push(updateStatCard(seriesKey, window, uplinkBytesEl, formatBytes, controller.signal));
         } else if (seriesKey === "new_dst_ips_last_10m") {
-          updateStatCard(seriesKey, window, newDstEl);
+          tasks.push(updateStatCard(seriesKey, window, newDstEl, null, controller.signal));
         } else if (seriesKey === "unique_dports_last_10m") {
-          updateStatCard(seriesKey, window, uniqueDportsEl);
+          tasks.push(updateStatCard(seriesKey, window, uniqueDportsEl, null, controller.signal));
         } else if (seriesKey === "new_asns_last_1h") {
-          updateStatCard(seriesKey, window, newAsnsEl);
+          tasks.push(updateStatCard(seriesKey, window, newAsnsEl, null, controller.signal));
         }
+      });
+      Promise.all(tasks).finally(() => {
+        inFlightStatSeries = false;
+        endPollRequest("stat_series", controller);
       });
     }
 
-    refreshStatSeries();
-    setInterval(() => refreshStatSeries(), 10000);
+    refreshStatSeries(true);
+    const statSeriesPollTimer = setInterval(() => refreshStatSeries(), 15000);
 
     document.querySelectorAll(".stat-window").forEach((select) => {
       select.addEventListener("change", () => {
         const seriesKey = select.dataset.series;
         persistWindowSelection("stat", seriesKey, select.value);
-        refreshStatSeries();
+        refreshStatSeries(true);
       });
     });
 
-    function refreshGraphSeries() {
+    function refreshGraphSeries(force = false) {
+      if (!shouldPoll(force)) return;
+      if (inFlightGraphSeries) return;
+      inFlightGraphSeries = true;
+      const controller = beginPollRequest("graph_series");
+      const tasks = [];
       document.querySelectorAll(".graph-window").forEach((select) => {
         const seriesKey = select.dataset.series;
         const window = select.value;
         if (window) persistWindowSelection("graph", seriesKey, window);
-        fetchSeries(window).then((series) => {
+        tasks.push(fetchSeries(window, controller.signal).then((series) => {
           const points = series[seriesKey] || [];
           const canvas = document.querySelector(`canvas[data-series="${seriesKey}"]`);
           updateGraph(canvas, seriesKey, points, window);
-        }).catch(() => {});
+        }).catch(() => {}));
+      });
+      Promise.all(tasks).finally(() => {
+        inFlightGraphSeries = false;
+        endPollRequest("graph_series", controller);
       });
     }
 
-    refreshGraphSeries();
-    setInterval(() => refreshGraphSeries(), 10000);
+    refreshGraphSeries(true);
+    const graphSeriesPollTimer = setInterval(() => refreshGraphSeries(), 15000);
 
 
     function seriesKeyFromCanvas(canvas) {
       return canvas?.dataset.series;
     }
 
-    function fetchSeries(window) {
-      return fetch(`/metrics/series.json?window=${encodeURIComponent(window)}`)
+    function fetchSeries(window, signal = null) {
+      return fetch(`/metrics/series.json?window=${encodeURIComponent(window)}`, { signal })
         .then((resp) => resp.json());
     }
 
@@ -1274,7 +1343,7 @@
       });
     });
 
-    window.addEventListener("popstate", () => refreshGraphSeries());
+    window.addEventListener("popstate", () => refreshGraphSeries(true));
 
     Object.values(graphs).forEach((graph) => {
       if (!graph.canvas) return;
@@ -1290,8 +1359,8 @@
 
     const systemSeriesState = {};
 
-    function fetchSystemSeries(metric, window) {
-      return fetch(`/system/series.json?metric=${encodeURIComponent(metric)}&window=${encodeURIComponent(window)}`)
+    function fetchSystemSeries(metric, window, signal = null) {
+      return fetch(`/system/series.json?metric=${encodeURIComponent(metric)}&window=${encodeURIComponent(window)}`, { signal })
         .then((resp) => resp.json());
     }
 
@@ -1305,27 +1374,36 @@
       }
     }
 
-    function refreshSystemGraphs() {
+    function refreshSystemGraphs(force = false) {
+      if (!shouldPoll(force)) return;
+      if (inFlightSystemSeries) return;
+      inFlightSystemSeries = true;
+      const controller = beginPollRequest("system_series");
+      const tasks = [];
       document.querySelectorAll(".system-window").forEach((select) => {
         const metric = select.dataset.metric;
         const window = select.value;
         if (window) persistWindowSelection("system", metric, window);
-        fetchSystemSeries(metric, window).then((series) => {
+        tasks.push(fetchSystemSeries(metric, window, controller.signal).then((series) => {
           const points = series.values || [];
           const canvas = document.querySelector(`canvas[data-metric="${metric}"]`);
           updateSystemGraph(canvas, metric, points, window);
-        }).catch(() => {});
+        }).catch(() => {}));
+      });
+      Promise.all(tasks).finally(() => {
+        inFlightSystemSeries = false;
+        endPollRequest("system_series", controller);
       });
     }
 
-    refreshSystemGraphs();
-    setInterval(refreshSystemGraphs, 10000);
+    refreshSystemGraphs(true);
+    const systemSeriesPollTimer = setInterval(() => refreshSystemGraphs(), 15000);
 
     document.querySelectorAll(".system-window").forEach((select) => {
       select.addEventListener("change", () => {
         const metric = select.dataset.metric;
         persistWindowSelection("system", metric, select.value);
-        refreshSystemGraphs();
+        refreshSystemGraphs(true);
       });
     });
 
@@ -1428,7 +1506,11 @@
       el.innerHTML = items.map((item) => `<li>${item}</li>`).join("");
     }
 
-    function refreshTopPanels() {
+    function refreshTopPanels(force = false) {
+      if (!shouldPoll(force)) return;
+      if (inFlightTopPanels) return;
+      inFlightTopPanels = true;
+      const controller = beginPollRequest("top_panels");
       const panelParams = new URLSearchParams();
       let newestWindow = "10m";
       document.querySelectorAll(".panel-window").forEach((select) => {
@@ -1443,7 +1525,7 @@
       });
       const query = panelParams.toString();
       const url = query ? `/dashboard/top_panels.json?${query}` : "/dashboard/top_panels.json";
-      fetch(url)
+      fetch(url, { signal: controller.signal })
         .then((resp) => resp.json())
         .then((data) => {
           const topRemote = (data.top_remote_hosts || []).map((row) => {
@@ -1484,14 +1566,42 @@
             renderPanelList(recentIncidentsEl, incidents);
           }
         })
-        .catch(() => {});
+        .catch((error) => {
+          if (error?.name !== "AbortError") {
+            // no-op: transient poll failures should not disrupt UI
+          }
+        })
+        .finally(() => {
+          inFlightTopPanels = false;
+          endPollRequest("top_panels", controller);
+        });
     }
 
-    refreshTopPanels();
-    setInterval(() => refreshTopPanels(), 2000);
+    refreshTopPanels(true);
+    const topPanelsPollTimer = setInterval(() => refreshTopPanels(), 4000);
 
     document.querySelectorAll(".panel-window").forEach((select) => {
-      select.addEventListener("change", () => refreshTopPanels());
+      select.addEventListener("change", () => refreshTopPanels(true));
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) return;
+      refresh(true);
+      refreshMetrics(true);
+      refreshStatSeries(true);
+      refreshGraphSeries(true);
+      refreshSystemGraphs(true);
+      refreshTopPanels(true);
+    });
+
+    window.addEventListener("pagehide", () => {
+      clearInterval(connectionsPollTimer);
+      clearInterval(metricsPollTimer);
+      clearInterval(statSeriesPollTimer);
+      clearInterval(graphSeriesPollTimer);
+      clearInterval(systemSeriesPollTimer);
+      clearInterval(topPanelsPollTimer);
+      abortAllPollRequests();
     });
   })();
 </script>
