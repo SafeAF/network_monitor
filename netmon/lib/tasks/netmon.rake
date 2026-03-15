@@ -52,4 +52,13 @@ namespace :netmon do
          "anomaly_hits_deleted=#{anomaly_deleted} " \
          "incidents_deleted=#{incident_deleted}"
   end
+
+  desc "Prune raw DNS telemetry older than 30 days"
+  task dns_prune: :environment do
+    result = Netmon::Dns::Prune.call
+
+    puts "dns_events_deleted=#{result.dns_events_deleted} " \
+         "dns_event_answers_deleted=#{result.dns_event_answers_deleted} " \
+         "cutoff=#{result.cutoff.iso8601}"
+  end
 end
