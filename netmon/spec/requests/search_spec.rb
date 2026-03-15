@@ -9,6 +9,27 @@ RSpec.describe "Search pages", type: :request do
     expect(response).to have_http_status(:ok)
   end
 
+  it "renders domain-filtered hosts search results with associated domains" do
+    host = RemoteHost.create!(
+      ip: "203.0.113.31",
+      first_seen_at: 2.hours.ago,
+      last_seen_at: 1.minute.ago
+    )
+    RemoteHostDomain.create!(
+      remote_host: host,
+      domain: "api.github.com",
+      first_seen_at: 30.minutes.ago,
+      last_seen_at: 5.minutes.ago,
+      seen_count: 2
+    )
+
+    get "/search/hosts", params: { domain: "github" }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("api.github.com")
+    expect(response.body).to include(host.ip)
+  end
+
   it "renders connections search" do
     get "/search/connections"
     expect(response).to have_http_status(:ok)
@@ -25,9 +46,7 @@ RSpec.describe "Search pages", type: :request do
       {
         ip: "203.0.113.#{idx}",
         first_seen_at: now - 1.hour,
-        last_seen_at: now,
-        created_at: now,
-        updated_at: now
+        last_seen_at: now
       }
     end
     RemoteHost.insert_all!(hosts)
@@ -60,9 +79,7 @@ RSpec.describe "Search pages", type: :request do
         last_downlink_packets: 8,
         last_delta_at: now,
         anomaly_score: 0,
-        anomaly_reasons_json: "[]",
-        created_at: now,
-        updated_at: now
+        anomaly_reasons_json: "[]"
       }
     end
     Connection.insert_all!(rows)

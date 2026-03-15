@@ -112,6 +112,7 @@
       <th class="px-2 py-1.5 text-left">rDNS</th>
       <th class="px-2 py-1.5 text-left"><%= sortable_th("WHOIS", "whois_name") %></th>
       <th class="px-2 py-1.5 text-left">ASN</th>
+      <th class="px-2 py-1.5 text-left">Domains</th>
       <th class="px-2 py-1.5 text-left"><%= sortable_th("First Seen", "first_seen_at") %></th>
       <th class="px-2 py-1.5 text-left"><%= sortable_th("Last Seen", "last_seen_at") %></th>
       <th class="px-2 py-1.5 text-left">Ports Seen</th>
@@ -120,6 +121,7 @@
   <tbody>
     <% @hosts.each do |host| %>
       <% ports = (@ports_by_host[host.id] || []).sort_by { |row| -row.seen_count.to_i } %>
+      <% domains = (@domains_by_host[host.id] || []).first(3) %>
       <% top_ports = ports.first(3).map(&:dst_port) %>
       <% port_summary = top_ports.join(", ") %>
       <% port_suffix = ports.size > top_ports.size ? " (+#{ports.size - top_ports.size})" : "" %>
@@ -129,6 +131,15 @@
         <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.rdns_name.to_s %>"><%= host.rdns_name || "--" %></td>
         <td class="px-2 py-1.5 max-w-[260px] truncate" title="<%= host.whois_name.to_s %>"><%= host.whois_name || "--" %></td>
         <td class="px-2 py-1.5"><%= host.whois_asn || "--" %></td>
+        <td class="px-2 py-1.5 max-w-[320px] truncate" title="<%= domains.map(&:domain).join(', ') %>">
+          <% if domains.any? %>
+            <% domains.each_with_index do |domain, idx| %>
+              <a href="/search/hosts?domain=<%= CGI.escape(domain.domain) %>"><%= domain.domain %></a><%= ", " unless idx == domains.length - 1 %>
+            <% end %>
+          <% else %>
+            --
+          <% end %>
+        </td>
         <td class="px-2 py-1.5"><%= host.first_seen_at %></td>
         <td class="px-2 py-1.5"><%= host.last_seen_at %></td>
         <td class="px-2 py-1.5"><a href="/remote_hosts/<%= host.ip %>"><%= port_summary.presence || "--" %><%= port_suffix %></a></td>

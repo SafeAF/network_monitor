@@ -21,6 +21,9 @@ class SearchController < ApplicationController
     port_rows = RemoteHostPort.where(remote_host_id: @hosts.map(&:id))
                               .order(seen_count: :desc)
     @ports_by_host = port_rows.group_by(&:remote_host_id)
+    domain_rows = RemoteHostDomain.where(remote_host_id: @hosts.map(&:id))
+                                  .order(last_seen_at: :desc)
+    @domains_by_host = domain_rows.group_by(&:remote_host_id)
 
     @saved_query_kind = "hosts"
     @saved_queries = SavedQuery.where(kind: @saved_query_kind).order(created_at: :desc)
