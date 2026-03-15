@@ -21,9 +21,18 @@ module Netmon
 
         {
           domain: answer.qname,
-          observed_at: answer.observed_at
+          observed_at: normalize_time(answer.observed_at)
         }
       end
+
+      def self.normalize_time(value)
+        return value if value.is_a?(Time) || value.is_a?(ActiveSupport::TimeWithZone)
+
+        Time.zone.parse(value.to_s)
+      rescue ArgumentError, TypeError
+        nil
+      end
+      private_class_method :normalize_time
     end
   end
 end
