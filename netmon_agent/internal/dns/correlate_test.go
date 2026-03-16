@@ -75,15 +75,15 @@ func TestCorrelatorCarriesCNAMEChainBackToOriginalQName(t *testing.T) {
 
 	go corr.Start(ctx, lines, out)
 
-	lines <- "Mar 16 10:49:46 dnsmasq[3328]: query[A] news.ycombinator.com from 10.0.0.20"
-	lines <- "Mar 16 10:49:46 dnsmasq[3328]: reply news.ycombinator.com is ycombinator.map.fastly.net"
-	lines <- "Mar 16 10:49:46 dnsmasq[3328]: reply ycombinator.map.fastly.net is 151.101.1.164"
+	lines <- "Mar 16 10:49:46 dnsmasq[3328]: query[A] tosmediaserver.schwab.com from 10.0.0.20"
+	lines <- "Mar 16 10:49:46 dnsmasq[3328]: reply tosmediaserver.schwab.com is <CNAME>"
+	lines <- "Mar 16 10:49:46 dnsmasq[3328]: reply tosmediaserver.gslb.schwab.com is 162.93.118.3"
 
 	payload := assertDNSResponse(t, waitForEvent(t, out))
-	if payload.QName != "news.ycombinator.com" {
-		t.Fatalf("expected original qname news.ycombinator.com, got %s", payload.QName)
+	if payload.QName != "tosmediaserver.schwab.com" {
+		t.Fatalf("expected original qname tosmediaserver.schwab.com, got %s", payload.QName)
 	}
-	if len(payload.Answers) != 1 || payload.Answers[0].Data != "151.101.1.164" {
+	if len(payload.Answers) != 1 || payload.Answers[0].Data != "162.93.118.3" {
 		t.Fatalf("expected final A answer to be attached to original query, got %#v", payload.Answers)
 	}
 }

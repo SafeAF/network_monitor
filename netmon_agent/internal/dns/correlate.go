@@ -27,16 +27,17 @@ type cacheEntry struct {
 }
 
 type pendingQuery struct {
-	clientIP   string
-	qname      string
-	qtype      string
-	resolver   string
-	rcode      string
-	answers    []event.DNSAnswer
-	aliases    map[string]struct{}
-	ts         time.Time
-	lastUpdate time.Time
-	responded  bool
+	clientIP      string
+	qname         string
+	qtype         string
+	resolver      string
+	rcode         string
+	answers       []event.DNSAnswer
+	aliases       map[string]struct{}
+	awaitingAlias bool
+	ts            time.Time
+	lastUpdate    time.Time
+	responded     bool
 }
 
 type Correlator struct {
@@ -96,12 +97,17 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 					if parsed.NXDomain {
 						pq.rcode = "NXDOMAIN"
 						pq.answers = nil
+						pq.awaitingAlias = false
 					} else {
 						pq.rcode = "NOERROR"
 						if answer := normalizeAnswer(parsed.QName, parsed.Answer); answer != nil {
 							pq.answers = appendUniqueAnswer(pq.answers, *answer)
+							pq.awaitingAlias = false
 						} else if aliasKey := normalizeAlias(parsed.Answer); aliasKey != "" {
 							c.registerAlias(aliases, aliasKey, pq)
+							pq.awaitingAlias = true
+						} else if cnameMarker(parsed.Answer) {
+							pq.awaitingAlias = true
 						}
 					}
 				}
@@ -117,6 +123,12 @@ func (c *Correlator) lookupPending(pending map[string][]*pendingQuery, aliases m
 	queries := pending[key]
 	if len(queries) == 0 {
 		queries = aliases[key]
+	}
+	if len(queries) == 0 {
+		if fallback := c.lookupAwaitingAlias(pending, ts, answerType); fallback != nil {
+			c.registerAlias(aliases, key, fallback)
+			return fallback
+		}
 	}
 	if len(queries) == 0 {
 		return nil
@@ -142,6 +154,27 @@ func (c *Correlator) lookupPending(pending map[string][]*pendingQuery, aliases m
 		return matched
 	}
 	return live[len(live)-1]
+}
+
+func (c *Correlator) lookupAwaitingAlias(pending map[string][]*pendingQuery, ts time.Time, answerType string) *pendingQuery {
+	var matched *pendingQuery
+	for _, queries := range pending {
+		for _, pq := range queries {
+			if !pq.awaitingAlias {
+				continue
+			}
+			if ts.UTC().Sub(pq.ts) > pendingQueryTTL {
+				continue
+			}
+			if answerType != "" && pq.qtype != answerType {
+				continue
+			}
+			if matched == nil || pq.lastUpdate.After(matched.lastUpdate) {
+				matched = pq
+			}
+		}
+	}
+	return matched
 }
 
 func (c *Correlator) flushReady(now time.Time, pending map[string][]*pendingQuery, aliases map[string][]*pendingQuery, out chan<- event.Event) {
@@ -216,10 +249,14 @@ func normalizeAnswer(qname, raw string) *event.DNSAnswer {
 
 func normalizeAlias(raw string) string {
 	value := strings.ToLower(strings.TrimSpace(strings.TrimSuffix(raw, ".")))
-	if value == "" || net.ParseIP(value) != nil {
+	if value == "" || net.ParseIP(value) != nil || cnameMarker(value) {
 		return ""
 	}
 	return value
+}
+
+func cnameMarker(raw string) bool {
+	return strings.EqualFold(strings.TrimSpace(raw), "<CNAME>")
 }
 
 func answerTypeForRaw(raw string) string {

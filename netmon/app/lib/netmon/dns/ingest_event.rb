@@ -49,6 +49,8 @@ module Netmon
             )
           end
 
+          Netmon::Dns::BackfillConnections.call(dns_event: dns_event)
+
           dns_event
         rescue ActiveRecord::RecordNotUnique
           DnsEvent.find_by(dedupe_key: dedupe_key)
