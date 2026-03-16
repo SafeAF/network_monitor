@@ -8,4 +8,4 @@ could be turbo open browser dev tools network tab and look for request stuck in:
 
 could also be live RDNS/whois lookups in controller. needs to be background job if it isnt
 
-not showing any domains fingerprints
+not showing all domains fingerprints
