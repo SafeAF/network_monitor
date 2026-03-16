@@ -33,6 +33,7 @@ type pendingQuery struct {
 	resolver   string
 	rcode      string
 	answers    []event.DNSAnswer
+	aliases    map[string]struct{}
 	ts         time.Time
 	lastUpdate time.Time
 	responded  bool
@@ -51,13 +52,14 @@ func NewCorrelator(cfg *config.Config, metrics *metrics.Metrics) *Correlator {
 
 func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- event.Event) {
 	pending := make(map[string][]*pendingQuery)
+	aliases := make(map[string][]*pendingQuery)
 	ticker := time.NewTicker(pendingFlushInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			c.flushReady(time.Now().UTC().Add(pendingFlushInterval), pending, out)
+			c.flushReady(time.Now().UTC().Add(pendingFlushInterval), pending, aliases, out)
 			return
 		case line := <-lines:
 			c.incDNSLines()
@@ -79,15 +81,16 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 					ts:         parsed.TS.UTC(),
 					lastUpdate: parsed.TS.UTC(),
 					rcode:      "NOERROR",
+					aliases:    make(map[string]struct{}),
 				})
 			case "forwarded":
-				if pq := c.lookupPending(pending, key, parsed.TS, ""); pq != nil {
+				if pq := c.lookupPending(pending, aliases, key, parsed.TS, ""); pq != nil {
 					pq.resolver = parsed.Resolver
 					pq.lastUpdate = parsed.TS.UTC()
 				}
 			case "reply", "cached":
 				answerType := answerTypeForRaw(parsed.Answer)
-				if pq := c.lookupPending(pending, key, parsed.TS, answerType); pq != nil {
+				if pq := c.lookupPending(pending, aliases, key, parsed.TS, answerType); pq != nil {
 					pq.responded = true
 					pq.lastUpdate = parsed.TS.UTC()
 					if parsed.NXDomain {
@@ -97,24 +100,29 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 						pq.rcode = "NOERROR"
 						if answer := normalizeAnswer(parsed.QName, parsed.Answer); answer != nil {
 							pq.answers = appendUniqueAnswer(pq.answers, *answer)
+						} else if aliasKey := normalizeAlias(parsed.Answer); aliasKey != "" {
+							c.registerAlias(aliases, aliasKey, pq)
 						}
 					}
 				}
 			}
 		case <-ticker.C:
-			c.flushReady(time.Now().UTC(), pending, out)
-			c.pruneExpired(time.Now().UTC(), pending)
+			c.flushReady(time.Now().UTC(), pending, aliases, out)
+			c.pruneExpired(time.Now().UTC(), pending, aliases)
 		}
 	}
 }
 
-func (c *Correlator) lookupPending(pending map[string][]*pendingQuery, key string, ts time.Time, answerType string) *pendingQuery {
+func (c *Correlator) lookupPending(pending map[string][]*pendingQuery, aliases map[string][]*pendingQuery, key string, ts time.Time, answerType string) *pendingQuery {
 	queries := pending[key]
+	if len(queries) == 0 {
+		queries = aliases[key]
+	}
 	if len(queries) == 0 {
 		return nil
 	}
 
-	live := queries[:0]
+	live := make([]*pendingQuery, 0, len(queries))
 	var matched *pendingQuery
 	for _, pq := range queries {
 		if ts.UTC().Sub(pq.ts) > pendingQueryTTL {
@@ -127,16 +135,16 @@ func (c *Correlator) lookupPending(pending map[string][]*pendingQuery, key strin
 	}
 	if len(live) == 0 {
 		delete(pending, key)
+		delete(aliases, key)
 		return nil
 	}
-	pending[key] = live
 	if matched != nil {
 		return matched
 	}
 	return live[len(live)-1]
 }
 
-func (c *Correlator) flushReady(now time.Time, pending map[string][]*pendingQuery, out chan<- event.Event) {
+func (c *Correlator) flushReady(now time.Time, pending map[string][]*pendingQuery, aliases map[string][]*pendingQuery, out chan<- event.Event) {
 	for key, queries := range pending {
 		remaining := queries[:0]
 		for _, pq := range queries {
@@ -159,6 +167,7 @@ func (c *Correlator) flushReady(now time.Time, pending map[string][]*pendingQuer
 			})
 
 			c.incDNSResponsesEmitted()
+			c.unregisterAliases(aliases, pq)
 		}
 		if len(remaining) == 0 {
 			delete(pending, key)
@@ -168,12 +177,13 @@ func (c *Correlator) flushReady(now time.Time, pending map[string][]*pendingQuer
 	}
 }
 
-func (c *Correlator) pruneExpired(now time.Time, pending map[string][]*pendingQuery) {
+func (c *Correlator) pruneExpired(now time.Time, pending map[string][]*pendingQuery, aliases map[string][]*pendingQuery) {
 	cutoff := now.Add(-pendingQueryMaxAge)
 	for key, queries := range pending {
 		remaining := queries[:0]
 		for _, pq := range queries {
 			if pq.lastUpdate.Before(cutoff) {
+				c.unregisterAliases(aliases, pq)
 				continue
 			}
 			remaining = append(remaining, pq)
@@ -204,6 +214,14 @@ func normalizeAnswer(qname, raw string) *event.DNSAnswer {
 	}
 }
 
+func normalizeAlias(raw string) string {
+	value := strings.ToLower(strings.TrimSpace(strings.TrimSuffix(raw, ".")))
+	if value == "" || net.ParseIP(value) != nil {
+		return ""
+	}
+	return value
+}
+
 func answerTypeForRaw(raw string) string {
 	ip := net.ParseIP(strings.TrimSpace(raw))
 	return answerTypeForIP(ip)
@@ -228,6 +246,49 @@ func appendUniqueAnswer(answers []event.DNSAnswer, answer event.DNSAnswer) []eve
 		}
 	}
 	return append(answers, answer)
+}
+
+func (c *Correlator) registerAlias(aliases map[string][]*pendingQuery, alias string, pq *pendingQuery) {
+	if alias == "" {
+		return
+	}
+	if _, exists := pq.aliases[alias]; exists {
+		return
+	}
+	pq.aliases[alias] = struct{}{}
+	aliases[alias] = appendUniquePendingQuery(aliases[alias], pq)
+}
+
+func (c *Correlator) unregisterAliases(aliases map[string][]*pendingQuery, pq *pendingQuery) {
+	for alias := range pq.aliases {
+		queries := aliases[alias]
+		if len(queries) == 0 {
+			delete(aliases, alias)
+			continue
+		}
+
+		remaining := queries[:0]
+		for _, candidate := range queries {
+			if candidate != pq {
+				remaining = append(remaining, candidate)
+			}
+		}
+
+		if len(remaining) == 0 {
+			delete(aliases, alias)
+			continue
+		}
+		aliases[alias] = remaining
+	}
+}
+
+func appendUniquePendingQuery(queries []*pendingQuery, candidate *pendingQuery) []*pendingQuery {
+	for _, existing := range queries {
+		if existing == candidate {
+			return queries
+		}
+	}
+	return append(queries, candidate)
 }
 
 func (c *Correlator) trackClient(clientIP, qname string) {

@@ -9,3 +9,13 @@ could be turbo open browser dev tools network tab and look for request stuck in:
 could also be live RDNS/whois lookups in controller. needs to be background job if it isnt
 
 not showing all domains fingerprints
+
+hide time_wait is broken on index.html.erb, in fact none of the filters seem to work
+
+
+
+still slow to load
+
+is load avg, uplink downlink coming from router?
+
+set time stamp to localtime in app 
