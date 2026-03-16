@@ -19,3 +19,7 @@ still slow to load
 is load avg, uplink downlink coming from router?
 
 set time stamp to localtime in app 
+
+new conntrack events were missing, ask what else is missing
+
+filter for new connections only

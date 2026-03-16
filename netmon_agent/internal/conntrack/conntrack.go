@@ -3,257 +3,261 @@
 package conntrack
 
 import (
-  "context"
-  "fmt"
-  "log"
-  "time"
+	"context"
+	"fmt"
+	"log"
+	"time"
 
-  ct "github.com/ti-mo/conntrack"
-  "github.com/ti-mo/netfilter"
+	ct "github.com/ti-mo/conntrack"
+	"github.com/ti-mo/netfilter"
 
-  "netmon_agent/internal/config"
-  "netmon_agent/internal/dns"
-  "netmon_agent/internal/event"
-  "netmon_agent/internal/metrics"
-  "netmon_agent/internal/util"
+	"netmon_agent/internal/config"
+	"netmon_agent/internal/dns"
+	"netmon_agent/internal/event"
+	"netmon_agent/internal/metrics"
+	"netmon_agent/internal/util"
 )
 
 type Collector struct {
-  cfg     *config.Config
-  metrics *metrics.Metrics
-  dns     *dns.Correlator
+	cfg     *config.Config
+	metrics *metrics.Metrics
+	dns     *dns.Correlator
 }
 
 func New(cfg *config.Config, metrics *metrics.Metrics, dns *dns.Correlator) *Collector {
-  return &Collector{cfg: cfg, metrics: metrics, dns: dns}
+	return &Collector{cfg: cfg, metrics: metrics, dns: dns}
 }
 
 func (c *Collector) Start(ctx context.Context, out chan<- event.Event) error {
-  go c.run(ctx, out)
-  return nil
+	go c.run(ctx, out)
+	return nil
 }
 
 func (c *Collector) handleEvent(ev ct.Event, out chan<- event.Event) {
-  if ev.Flow == nil {
-    c.metrics.ConntrackParseErrors.Inc()
-    return
-  }
-  if ev.Type == ct.EventDestroy {
-    c.metrics.ConntrackDestroy.Inc()
-  }
+	if ev.Flow == nil {
+		c.metrics.ConntrackParseErrors.Inc()
+		return
+	}
+	if ev.Type == ct.EventDestroy {
+		c.metrics.ConntrackDestroy.Inc()
+	}
 
-  srcIP := ev.Flow.TupleOrig.IP.SourceAddress.String()
-  dstIP := ev.Flow.TupleOrig.IP.DestinationAddress.String()
-  srcPort := int(ev.Flow.TupleOrig.Proto.SourcePort)
-  dstPort := int(ev.Flow.TupleOrig.Proto.DestinationPort)
-  l4proto := int(ev.Flow.TupleOrig.Proto.Protocol)
+	srcIP := ev.Flow.TupleOrig.IP.SourceAddress.String()
+	dstIP := ev.Flow.TupleOrig.IP.DestinationAddress.String()
+	srcPort := int(ev.Flow.TupleOrig.Proto.SourcePort)
+	dstPort := int(ev.Flow.TupleOrig.Proto.DestinationPort)
+	l4proto := int(ev.Flow.TupleOrig.Proto.Protocol)
 
-  firstSeen := time.Now().UTC()
-  lastSeen := time.Now().UTC()
-  // conntrack v0.6.0 doesn't expose per-flow first/last seen timestamps; keep now.
+	firstSeen := time.Now().UTC()
+	lastSeen := time.Now().UTC()
+	// conntrack v0.6.0 doesn't expose per-flow first/last seen timestamps; keep now.
 
-  flow := event.Flow{
-    Event:       ev.Type.String(),
-    State:       conntrackState(ev),
-    Flags:       conntrackFlags(ev),
-    SrcIP:       srcIP,
-    DstIP:       dstIP,
-    SrcPort:     srcPort,
-    DstPort:     dstPort,
-    L4Proto:     l4proto,
-    Dir:         "OUT",
-    BytesOrig:   ev.Flow.CountersOrig.Bytes,
-    BytesReply:  ev.Flow.CountersReply.Bytes,
-    PacketsOrig: ev.Flow.CountersOrig.Packets,
-    PacketsReply: ev.Flow.CountersReply.Packets,
-    FirstSeen:   firstSeen,
-    LastSeen:    lastSeen,
-  }
+	flow := event.Flow{
+		Event:        ev.Type.String(),
+		State:        conntrackState(ev),
+		Flags:        conntrackFlags(ev),
+		SrcIP:        srcIP,
+		DstIP:        dstIP,
+		SrcPort:      srcPort,
+		DstPort:      dstPort,
+		L4Proto:      l4proto,
+		Dir:          "OUT",
+		BytesOrig:    ev.Flow.CountersOrig.Bytes,
+		BytesReply:   ev.Flow.CountersReply.Bytes,
+		PacketsOrig:  ev.Flow.CountersOrig.Packets,
+		PacketsReply: ev.Flow.CountersReply.Packets,
+		FirstSeen:    firstSeen,
+		LastSeen:     lastSeen,
+	}
 
-  if c.dns != nil {
-    flow.DNSContext = c.dns.DNSContextForIP(srcIP)
-  }
+	if c.dns != nil {
+		flow.DNSContext = c.dns.DNSContextForIP(srcIP)
+	}
 
-  util.TrySend(out, c.metrics, "flow", event.Event{Type: "flow", TS: time.Now().UTC(), Data: flow})
+	util.TrySend(out, c.metrics, "flow", event.Event{Type: "flow", TS: time.Now().UTC(), Data: flow})
 }
 
 func (c *Collector) run(ctx context.Context, out chan<- event.Event) {
-  backoff := 1 * time.Second
-  maxBackoff := 30 * time.Second
+	backoff := 1 * time.Second
+	maxBackoff := 30 * time.Second
 
-  for {
-    if ctx.Err() != nil {
-      return
-    }
+	for {
+		if ctx.Err() != nil {
+			return
+		}
 
-    conn, err := ct.Dial(nil)
-    if err != nil {
-      log.Printf("conntrack dial failed: %v", err)
-      time.Sleep(backoff)
-      backoff = nextBackoff(backoff, maxBackoff)
-      continue
-    }
-    if c.cfg.ConntrackReadBuffer > 0 {
-      if err := conn.SetReadBuffer(c.cfg.ConntrackReadBuffer); err != nil {
-        log.Printf("conntrack SetReadBuffer failed: %v", err)
-      }
-    }
+		conn, err := ct.Dial(nil)
+		if err != nil {
+			log.Printf("conntrack dial failed: %v", err)
+			time.Sleep(backoff)
+			backoff = nextBackoff(backoff, maxBackoff)
+			continue
+		}
+		if c.cfg.ConntrackReadBuffer > 0 {
+			if err := conn.SetReadBuffer(c.cfg.ConntrackReadBuffer); err != nil {
+				log.Printf("conntrack SetReadBuffer failed: %v", err)
+			}
+		}
 
-    evCh := make(chan ct.Event, c.cfg.ConntrackEventBuffer)
-    workers := uint8(1)
-    if c.cfg.ConntrackWorkers > 0 {
-      if c.cfg.ConntrackWorkers > 8 {
-        workers = 8
-      } else {
-        workers = uint8(c.cfg.ConntrackWorkers)
-      }
-    }
-    errCh, err := conn.Listen(evCh, workers, netfilter.GroupsCT)
-    if err != nil {
-      _ = conn.Close()
-      log.Printf("conntrack listen failed: %v", err)
-      time.Sleep(backoff)
-      backoff = nextBackoff(backoff, maxBackoff)
-      continue
-    }
+		evCh := make(chan ct.Event, c.cfg.ConntrackEventBuffer)
+		workers := uint8(1)
+		if c.cfg.ConntrackWorkers > 0 {
+			if c.cfg.ConntrackWorkers > 8 {
+				workers = 8
+			} else {
+				workers = uint8(c.cfg.ConntrackWorkers)
+			}
+		}
+		errCh, err := conn.Listen(evCh, workers, netfilter.GroupsCT)
+		if err != nil {
+			_ = conn.Close()
+			log.Printf("conntrack listen failed: %v", err)
+			time.Sleep(backoff)
+			backoff = nextBackoff(backoff, maxBackoff)
+			continue
+		}
 
-    backoff = 1 * time.Second
+		backoff = 1 * time.Second
 
-    done := make(chan struct{})
-    go func() {
-      defer close(done)
-      for ev := range evCh {
-        if ev.Type == ct.EventDestroy || (ev.Type == ct.EventNew && c.cfg.EmitConntrackNew) {
-          c.handleEvent(ev, out)
-        }
-      }
-    }()
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			for ev := range evCh {
+				if c.shouldEmitEvent(ev) {
+					c.handleEvent(ev, out)
+				}
+			}
+		}()
 
-    select {
-    case <-ctx.Done():
-      _ = conn.Close()
-      return
-    case err, ok := <-errCh:
-      _ = conn.Close()
-      if !ok {
-        log.Printf("conntrack stream error: channel closed")
-      } else {
-        log.Printf("conntrack stream error: %v", err)
-      }
-      // Avoid hanging forever if evCh never closes after error.
-      select {
-      case <-done:
-      case <-time.After(1 * time.Second):
-      case <-ctx.Done():
-        return
-      }
-    }
-  }
+		select {
+		case <-ctx.Done():
+			_ = conn.Close()
+			return
+		case err, ok := <-errCh:
+			_ = conn.Close()
+			if !ok {
+				log.Printf("conntrack stream error: channel closed")
+			} else {
+				log.Printf("conntrack stream error: %v", err)
+			}
+			// Avoid hanging forever if evCh never closes after error.
+			select {
+			case <-done:
+			case <-time.After(1 * time.Second):
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+}
+
+func (c *Collector) shouldEmitEvent(ev ct.Event) bool {
+	return ev.Type == ct.EventDestroy || ev.Type == ct.EventNew
 }
 
 func nextBackoff(cur, max time.Duration) time.Duration {
-  next := cur * 2
-  if next > max {
-    return max
-  }
-  return next
+	next := cur * 2
+	if next > max {
+		return max
+	}
+	return next
 }
 
 func conntrackState(ev ct.Event) string {
-  if ev.Flow != nil && ev.Flow.ProtoInfo.TCP != nil {
-    return tcpStateName(ev.Flow.ProtoInfo.TCP.State)
-  }
-  switch ev.Type {
-  case ct.EventNew:
-    return "NEW"
-  case ct.EventDestroy:
-    return "DESTROY"
-  default:
-    return ev.Type.String()
-  }
+	if ev.Flow != nil && ev.Flow.ProtoInfo.TCP != nil {
+		return tcpStateName(ev.Flow.ProtoInfo.TCP.State)
+	}
+	switch ev.Type {
+	case ct.EventNew:
+		return "NEW"
+	case ct.EventDestroy:
+		return "DESTROY"
+	default:
+		return ev.Type.String()
+	}
 }
 
 func conntrackFlags(ev ct.Event) string {
-  parts := []string{}
-  if ev.Flow != nil {
-    if s := ev.Flow.Status.String(); s != "" && s != "NONE" {
-      parts = append(parts, s)
-    }
-    if ev.Flow.ProtoInfo.TCP != nil {
-      of := ev.Flow.ProtoInfo.TCP.OriginalFlags
-      rf := ev.Flow.ProtoInfo.TCP.ReplyFlags
-      if of != 0 || rf != 0 {
-        parts = append(parts, fmt.Sprintf("TCP_FLAGS=%s/%s", tcpFlagNames(of), tcpFlagNames(rf)))
-      }
-    }
-  }
-  if len(parts) == 0 {
-    return ""
-  }
-  return joinParts(parts)
+	parts := []string{}
+	if ev.Flow != nil {
+		if s := ev.Flow.Status.String(); s != "" && s != "NONE" {
+			parts = append(parts, s)
+		}
+		if ev.Flow.ProtoInfo.TCP != nil {
+			of := ev.Flow.ProtoInfo.TCP.OriginalFlags
+			rf := ev.Flow.ProtoInfo.TCP.ReplyFlags
+			if of != 0 || rf != 0 {
+				parts = append(parts, fmt.Sprintf("TCP_FLAGS=%s/%s", tcpFlagNames(of), tcpFlagNames(rf)))
+			}
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return joinParts(parts)
 }
 
 func joinParts(parts []string) string {
-  if len(parts) == 1 {
-    return parts[0]
-  }
-  out := parts[0]
-  for i := 1; i < len(parts); i++ {
-    out += "|" + parts[i]
-  }
-  return out
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	out := parts[0]
+	for i := 1; i < len(parts); i++ {
+		out += "|" + parts[i]
+	}
+	return out
 }
 
 func tcpStateName(state uint8) string {
-  switch state {
-  case 1:
-    return "SYN_SENT"
-  case 2:
-    return "SYN_RECV"
-  case 3:
-    return "ESTABLISHED"
-  case 4:
-    return "FIN_WAIT"
-  case 5:
-    return "CLOSE_WAIT"
-  case 6:
-    return "LAST_ACK"
-  case 7:
-    return "TIME_WAIT"
-  case 8:
-    return "CLOSE"
-  case 9:
-    return "LISTEN"
-  default:
-    return fmt.Sprintf("TCP_STATE_%d", state)
-  }
+	switch state {
+	case 1:
+		return "SYN_SENT"
+	case 2:
+		return "SYN_RECV"
+	case 3:
+		return "ESTABLISHED"
+	case 4:
+		return "FIN_WAIT"
+	case 5:
+		return "CLOSE_WAIT"
+	case 6:
+		return "LAST_ACK"
+	case 7:
+		return "TIME_WAIT"
+	case 8:
+		return "CLOSE"
+	case 9:
+		return "LISTEN"
+	default:
+		return fmt.Sprintf("TCP_STATE_%d", state)
+	}
 }
 
 func tcpFlagNames(flags uint16) string {
-  if flags == 0 {
-    return "NONE"
-  }
-  names := []struct {
-    bit  uint16
-    name string
-  }{
-    {0x01, "FIN"},
-    {0x02, "SYN"},
-    {0x04, "RST"},
-    {0x08, "PSH"},
-    {0x10, "ACK"},
-    {0x20, "URG"},
-    {0x40, "ECE"},
-    {0x80, "CWR"},
-  }
-  out := []string{}
-  for _, n := range names {
-    if flags&n.bit != 0 {
-      out = append(out, n.name)
-    }
-  }
-  if len(out) == 0 {
-    return fmt.Sprintf("0x%x", flags)
-  }
-  return joinParts(out)
+	if flags == 0 {
+		return "NONE"
+	}
+	names := []struct {
+		bit  uint16
+		name string
+	}{
+		{0x01, "FIN"},
+		{0x02, "SYN"},
+		{0x04, "RST"},
+		{0x08, "PSH"},
+		{0x10, "ACK"},
+		{0x20, "URG"},
+		{0x40, "ECE"},
+		{0x80, "CWR"},
+	}
+	out := []string{}
+	for _, n := range names {
+		if flags&n.bit != 0 {
+			out = append(out, n.name)
+		}
+	}
+	if len(out) == 0 {
+		return fmt.Sprintf("0x%x", flags)
+	}
+	return joinParts(out)
 }
