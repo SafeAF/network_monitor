@@ -91,4 +91,44 @@ RSpec.describe Netmon::AgentIngest do
     expect(connection.last_domain).to be_nil
     expect(RemoteHostDomain.count).to eq(0)
   end
+
+  it "uses a recent PTR mapping as a fallback when correlating a flow" do
+    now = Time.zone.parse("2026-03-15 12:00:00 UTC")
+    dns_event = DnsEvent.create!(
+      router_id: "router-1",
+      observed_at: now - 30.seconds,
+      client_ip: "10.0.0.10",
+      qname: "stackoverflow.com",
+      qtype: "PTR",
+      answers_json: [{ type: "A", data: "198.252.206.17" }].to_json,
+      dedupe_key: "ptr-flow-match"
+    )
+    DnsEventAnswer.create!(dns_event: dns_event, answer_ip: "198.252.206.17", answer_type: "A")
+
+    described_class.ingest_event!(
+      event_type: "flow",
+      router_id: "router-1",
+      ts: now,
+      data: {
+        src_ip: "10.0.0.20",
+        dst_ip: "198.252.206.17",
+        src_port: 55_000,
+        dst_port: 443,
+        l4proto: 6,
+        bytes_orig: 100,
+        bytes_reply: 200,
+        packets_orig: 1,
+        packets_reply: 2
+      }
+    )
+
+    remote_host = RemoteHost.find_by!(ip: "198.252.206.17")
+    connection = Connection.find_by!(src_ip: "10.0.0.20", dst_ip: "198.252.206.17")
+    linked_domain = RemoteHostDomain.find_by!(remote_host_id: remote_host.id)
+
+    expect(connection.last_domain).to eq("stackoverflow.com")
+    expect(connection.last_domain_observed_at).to eq(dns_event.observed_at)
+    expect(linked_domain.domain).to eq("stackoverflow.com")
+    expect(linked_domain.last_device_ip).to eq("10.0.0.20")
+  end
 end

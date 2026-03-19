@@ -36,4 +36,27 @@ RSpec.describe Netmon::Dns::CorrelateConnection do
       observed_at: recent_event.observed_at
     )
   end
+
+  it "falls back to a recent PTR mapping when there is no same-client forward dns event" do
+    now = Time.zone.parse("2026-03-15 12:00:00 UTC")
+    connection = Connection.new(src_ip: "10.0.0.20", dst_ip: "198.252.206.17")
+
+    ptr_event = DnsEvent.create!(
+      router_id: "router-1",
+      observed_at: now - 30.seconds,
+      client_ip: "10.0.0.10",
+      qname: "stackoverflow.com",
+      qtype: "PTR",
+      answers_json: [{ type: "A", data: "198.252.206.17" }].to_json,
+      dedupe_key: "ptr-match"
+    )
+    DnsEventAnswer.create!(dns_event: ptr_event, answer_ip: "198.252.206.17", answer_type: "A")
+
+    result = described_class.call(connection: connection, now: now)
+
+    expect(result).to eq(
+      domain: "stackoverflow.com",
+      observed_at: ptr_event.observed_at
+    )
+  end
 end

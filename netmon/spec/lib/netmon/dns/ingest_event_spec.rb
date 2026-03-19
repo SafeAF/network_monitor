@@ -73,7 +73,7 @@ RSpec.describe Netmon::Dns::IngestEvent do
     remote_host = RemoteHost.create!(
       ip: "198.252.206.17",
       first_seen_at: ts - 5.minutes,
-      last_seen_at: ts + 20.seconds
+      last_seen_at: ts - 5.seconds
     )
     Connection.create!(
       proto: "udp",
@@ -81,8 +81,8 @@ RSpec.describe Netmon::Dns::IngestEvent do
       src_port: 57_000,
       dst_ip: remote_host.ip,
       dst_port: 443,
-      first_seen_at: ts + 20.seconds,
-      last_seen_at: ts + 20.seconds
+      first_seen_at: ts - 5.seconds,
+      last_seen_at: ts - 5.seconds
     )
 
     dns_event = described_class.call(
@@ -92,6 +92,42 @@ RSpec.describe Netmon::Dns::IngestEvent do
         client_ip: "10.0.0.20",
         qname: "stackoverflow.com",
         qtype: "A",
+        answers: [{ type: "A", data: remote_host.ip }]
+      }
+    )
+
+    connection = Connection.find_by!(src_ip: "10.0.0.20", dst_ip: remote_host.ip)
+    remote_host_domain = RemoteHostDomain.find_by!(remote_host_id: remote_host.id, domain: "stackoverflow.com")
+
+    expect(dns_event).not_to be_nil
+    expect(connection.last_domain).to eq("stackoverflow.com")
+    expect(connection.last_domain_observed_at).to eq(ts)
+    expect(remote_host_domain.last_device_ip).to eq("10.0.0.20")
+  end
+
+  it "backfills PTR-derived hostnames even when the PTR lookup came from the netmon host" do
+    remote_host = RemoteHost.create!(
+      ip: "198.252.206.17",
+      first_seen_at: ts - 5.minutes,
+      last_seen_at: ts + 10.seconds
+    )
+    Connection.create!(
+      proto: "udp",
+      src_ip: "10.0.0.20",
+      src_port: 57_001,
+      dst_ip: remote_host.ip,
+      dst_port: 443,
+      first_seen_at: ts + 10.seconds,
+      last_seen_at: ts + 10.seconds
+    )
+
+    dns_event = described_class.call(
+      router_id: router_id,
+      ts: ts,
+      data: {
+        client_ip: "10.0.0.10",
+        qname: "stackoverflow.com",
+        qtype: "PTR",
         answers: [{ type: "A", data: remote_host.ip }]
       }
     )

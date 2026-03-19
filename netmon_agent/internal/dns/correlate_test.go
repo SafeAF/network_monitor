@@ -88,6 +88,83 @@ func TestCorrelatorCarriesCNAMEChainBackToOriginalQName(t *testing.T) {
 	}
 }
 
+func TestCorrelatorTransformsPTRRepliesIntoHostToIPMappings(t *testing.T) {
+	corr := NewCorrelator(&config.Config{QnameHashCap: 8}, nil)
+	lines := make(chan string, 8)
+	out := make(chan event.Event, 4)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go corr.Start(ctx, lines, out)
+
+	lines <- "Mar 15 16:05:38 dnsmasq[3328]: query[PTR] 207.230.216.209.in-addr.arpa from 10.0.0.10"
+	lines <- "Mar 15 16:05:38 dnsmasq[3328]: forwarded 207.230.216.209.in-addr.arpa to 1.1.1.1"
+	lines <- "Mar 15 16:05:38 dnsmasq[3328]: reply 209.216.230.207 is news.ycombinator.com"
+
+	payload := assertDNSResponse(t, waitForEvent(t, out))
+	if payload.ClientIP != "10.0.0.10" {
+		t.Fatalf("expected client ip 10.0.0.10, got %s", payload.ClientIP)
+	}
+	if payload.QName != "news.ycombinator.com" {
+		t.Fatalf("expected PTR hostname news.ycombinator.com, got %s", payload.QName)
+	}
+	if payload.QType != "PTR" {
+		t.Fatalf("expected qtype PTR, got %s", payload.QType)
+	}
+	if len(payload.Answers) != 1 {
+		t.Fatalf("expected one PTR-derived answer, got %#v", payload.Answers)
+	}
+	if payload.Answers[0].Data != "209.216.230.207" || payload.Answers[0].Type != "A" {
+		t.Fatalf("expected PTR-derived IP answer, got %#v", payload.Answers[0])
+	}
+}
+
+func TestCorrelatorHandlesIPv6PTRQueries(t *testing.T) {
+	corr := NewCorrelator(&config.Config{QnameHashCap: 8}, nil)
+	lines := make(chan string, 8)
+	out := make(chan event.Event, 4)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go corr.Start(ctx, lines, out)
+
+	lines <- "Feb 18 00:00:01 dnsmasq[3328]: query[PTR] c.3.9.0.d.9.e.f.f.f.8.b.b.e.e.e.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa from 10.0.0.19"
+	lines <- "Feb 18 00:00:01 dnsmasq[3328]: reply fe80::eeeb:b8ff:fe9d:93c is router.example"
+
+	payload := assertDNSResponse(t, waitForEvent(t, out))
+	if payload.QName != "router.example" {
+		t.Fatalf("expected PTR hostname router.example, got %s", payload.QName)
+	}
+	if payload.QType != "PTR" {
+		t.Fatalf("expected qtype PTR, got %s", payload.QType)
+	}
+	if len(payload.Answers) != 1 || payload.Answers[0].Data != "fe80::eeeb:b8ff:fe9d:93c" || payload.Answers[0].Type != "AAAA" {
+		t.Fatalf("expected IPv6 PTR-derived answer, got %#v", payload.Answers)
+	}
+}
+
+func TestCorrelatorDoesNotTreatNODATAAsAnAlias(t *testing.T) {
+	corr := NewCorrelator(&config.Config{QnameHashCap: 8}, nil)
+	lines := make(chan string, 8)
+	out := make(chan event.Event, 4)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go corr.Start(ctx, lines, out)
+
+	lines <- "Feb 18 18:51:08 dnsmasq[3328]: query[A] api.github.com from 10.0.0.25"
+	lines <- "Feb 18 18:51:08 dnsmasq[3328]: reply api.github.com is NODATA"
+	lines <- "Feb 18 18:51:08 dnsmasq[3328]: reply api.github.com is 140.82.116.5"
+
+	payload := assertDNSResponse(t, waitForEvent(t, out))
+	if payload.QName != "api.github.com" {
+		t.Fatalf("expected qname api.github.com, got %s", payload.QName)
+	}
+	if len(payload.Answers) != 1 || payload.Answers[0].Data != "140.82.116.5" {
+		t.Fatalf("expected final A answer after NODATA marker, got %#v", payload.Answers)
+	}
+}
+
 func TestCorrelatorEmitsNXDomainDNSResponse(t *testing.T) {
 	corr := NewCorrelator(&config.Config{QnameHashCap: 8}, nil)
 	lines := make(chan string, 4)

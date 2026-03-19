@@ -1,0 +1,4 @@
+
+# local logs
+netmon_agent/*.log
+*.log

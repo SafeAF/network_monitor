@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -75,7 +76,7 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 			switch parsed.Action {
 			case "query":
 				c.trackClient(parsed.ClientIP, parsed.QName)
-				pending[key] = append(pending[key], &pendingQuery{
+				pq := &pendingQuery{
 					clientIP:   parsed.ClientIP,
 					qname:      parsed.QName,
 					qtype:      strings.ToUpper(parsed.QType),
@@ -83,7 +84,11 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 					lastUpdate: parsed.TS.UTC(),
 					rcode:      "NOERROR",
 					aliases:    make(map[string]struct{}),
-				})
+				}
+				pending[key] = append(pending[key], pq)
+				if strings.EqualFold(parsed.QType, "PTR") {
+					c.registerAlias(aliases, normalizePTRTarget(parsed.QName), pq)
+				}
 			case "forwarded":
 				if pq := c.lookupPending(pending, aliases, key, parsed.TS, ""); pq != nil {
 					pq.resolver = parsed.Resolver
@@ -97,6 +102,14 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 					if parsed.NXDomain {
 						pq.rcode = "NXDOMAIN"
 						pq.answers = nil
+						pq.awaitingAlias = false
+					} else if nodataMarker(parsed.Answer) {
+						pq.rcode = "NOERROR"
+						pq.awaitingAlias = false
+					} else if answer := normalizePTRAnswer(pq.qtype, parsed.QName, parsed.Answer); answer != nil {
+						pq.rcode = "NOERROR"
+						pq.qname = answer.Name
+						pq.answers = appendUniqueAnswer(pq.answers, *answer)
 						pq.awaitingAlias = false
 					} else {
 						pq.rcode = "NOERROR"
@@ -247,9 +260,36 @@ func normalizeAnswer(qname, raw string) *event.DNSAnswer {
 	}
 }
 
+func normalizePTRAnswer(qtype, qname, raw string) *event.DNSAnswer {
+	if !strings.EqualFold(qtype, "PTR") {
+		return nil
+	}
+
+	targetIP := normalizePTRTarget(qname)
+	if targetIP == "" {
+		return nil
+	}
+
+	answerType := answerTypeForRaw(targetIP)
+	if answerType == "" {
+		return nil
+	}
+
+	name := normalizeHostname(raw)
+	if name == "" {
+		return nil
+	}
+
+	return &event.DNSAnswer{
+		Name: name,
+		Type: answerType,
+		Data: targetIP,
+	}
+}
+
 func normalizeAlias(raw string) string {
 	value := strings.ToLower(strings.TrimSpace(strings.TrimSuffix(raw, ".")))
-	if value == "" || net.ParseIP(value) != nil || cnameMarker(value) {
+	if value == "" || net.ParseIP(value) != nil || cnameMarker(value) || nodataMarker(value) {
 		return ""
 	}
 	return value
@@ -257,6 +297,11 @@ func normalizeAlias(raw string) string {
 
 func cnameMarker(raw string) bool {
 	return strings.EqualFold(strings.TrimSpace(raw), "<CNAME>")
+}
+
+func nodataMarker(raw string) bool {
+	value := strings.ToUpper(strings.TrimSpace(raw))
+	return value == "NODATA" || value == "NODATA-IPV6"
 }
 
 func answerTypeForRaw(raw string) string {
@@ -326,6 +371,86 @@ func appendUniquePendingQuery(queries []*pendingQuery, candidate *pendingQuery) 
 		}
 	}
 	return append(queries, candidate)
+}
+
+func normalizePTRTarget(raw string) string {
+	value := strings.TrimSpace(strings.TrimSuffix(raw, "."))
+	if ip := net.ParseIP(value); ip != nil {
+		return ip.String()
+	}
+
+	if ip := parseIPv4PTR(value); ip != "" {
+		return ip
+	}
+
+	return parseIPv6PTR(value)
+}
+
+func parseIPv4PTR(value string) string {
+	const suffix = ".in-addr.arpa"
+	value = strings.ToLower(value)
+	if !strings.HasSuffix(value, suffix) {
+		return ""
+	}
+
+	labels := strings.Split(strings.TrimSuffix(value, suffix), ".")
+	if len(labels) != 4 {
+		return ""
+	}
+
+	octets := make([]string, 0, 4)
+	for i := len(labels) - 1; i >= 0; i-- {
+		octet, err := strconv.Atoi(labels[i])
+		if err != nil || octet < 0 || octet > 255 {
+			return ""
+		}
+		octets = append(octets, labels[i])
+	}
+
+	ip := net.ParseIP(strings.Join(octets, "."))
+	if ip == nil || ip.To4() == nil {
+		return ""
+	}
+
+	return ip.String()
+}
+
+func parseIPv6PTR(value string) string {
+	const suffix = ".ip6.arpa"
+	value = strings.ToLower(value)
+	if !strings.HasSuffix(value, suffix) {
+		return ""
+	}
+
+	labels := strings.Split(strings.TrimSuffix(value, suffix), ".")
+	if len(labels) != 32 {
+		return ""
+	}
+
+	nibbles := make([]byte, 0, 32)
+	for i := len(labels) - 1; i >= 0; i-- {
+		label := labels[i]
+		if len(label) != 1 || strings.IndexByte("0123456789abcdef", label[0]) == -1 {
+			return ""
+		}
+		nibbles = append(nibbles, label[0])
+	}
+
+	groups := make([]string, 0, 8)
+	for i := 0; i < len(nibbles); i += 4 {
+		groups = append(groups, string(nibbles[i:i+4]))
+	}
+
+	ip := net.ParseIP(strings.Join(groups, ":"))
+	if ip == nil || ip.To4() != nil {
+		return ""
+	}
+
+	return ip.String()
+}
+
+func normalizeHostname(raw string) string {
+	return strings.TrimSpace(strings.TrimSuffix(raw, "."))
 }
 
 func (c *Correlator) trackClient(clientIP, qname string) {
