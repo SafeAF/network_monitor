@@ -47,7 +47,7 @@ RSpec.describe "Connections JSON", type: :request do
     get "/connections.json"
 
     expect(response).to have_http_status(:ok)
-    payload = JSON.parse(response.body)
+    payload = JSON.parse(response.body).fetch("data")
     expect(payload.length).to eq(1)
     expect(payload[0]["seen_before"]).to eq(true)
     expect(payload[0]["total_bytes"]).to eq(300)
@@ -77,7 +77,7 @@ RSpec.describe "Connections JSON", type: :request do
 
     get "/connections.json"
 
-    payload = JSON.parse(response.body)
+    payload = JSON.parse(response.body).fetch("data")
     expect(payload[0]["seen_before"]).to eq(false)
   end
 
@@ -114,9 +114,39 @@ RSpec.describe "Connections JSON", type: :request do
 
     get "/connections.json", params: { hide_time_wait: "true" }
 
-    payload = JSON.parse(response.body)
+    payload = JSON.parse(response.body).fetch("data")
     expect(payload.length).to eq(1)
     expect(payload[0]["state"]).to eq("ESTABLISHED")
+  end
+
+  it "filters out selectively hidden states" do
+    RemoteHost.create!(ip: "203.0.113.50", first_seen_at: Time.current - 120, last_seen_at: Time.current)
+    [
+      { src_port: 2222, dst_ip: "203.0.113.50", state: "DESTROY" },
+      { src_port: 3333, dst_ip: "203.0.113.51", state: "SYN_SENT" },
+      { src_port: 4444, dst_ip: "203.0.113.52", state: "NEW" }
+    ].each do |row|
+      Connection.create!(
+        proto: "tcp",
+        src_ip: "10.0.0.24",
+        src_port: row[:src_port],
+        dst_ip: row[:dst_ip],
+        dst_port: 443,
+        state: row[:state],
+        uplink_packets: 1,
+        uplink_bytes: 10,
+        downlink_packets: 1,
+        downlink_bytes: 20,
+        first_seen_at: Time.current - 30,
+        last_seen_at: Time.current
+      )
+    end
+
+    get "/connections.json", params: { hide_states: %w[DESTROY SYN_SENT] }
+
+    payload = JSON.parse(response.body).fetch("data")
+    expect(payload.length).to eq(1)
+    expect(payload[0]["state"]).to eq("NEW")
   end
 
   it "filters to only new hosts" do
@@ -152,7 +182,8 @@ RSpec.describe "Connections JSON", type: :request do
 
     get "/connections.json", params: { only_new: "true" }
 
-    payload = JSON.parse(response.body)
+    expect(response).to have_http_status(:ok)
+    payload = JSON.parse(response.body).fetch("data")
     expect(payload.length).to eq(1)
     expect(payload[0]["dst_ip"]).to eq("198.51.100.7")
     expect(payload[0]["is_new"]).to eq(true)

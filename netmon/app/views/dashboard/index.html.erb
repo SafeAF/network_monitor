@@ -3,6 +3,10 @@
 <% button_primary = "bg-emerald-600/20 text-emerald-200 border border-emerald-700/40 hover:bg-emerald-600/30 rounded-lg px-3 py-1 text-sm" %>
 <% button_secondary = "bg-cyan-600/15 text-cyan-200 border border-cyan-700/40 hover:bg-cyan-600/25 rounded-lg px-3 py-1 text-sm" %>
 <% button_neutral = "bg-zinc-900/50 text-zinc-200 border border-zinc-800 hover:bg-zinc-900/80 rounded-lg px-3 py-1 text-sm" %>
+<% hideable_states = %w[TIME_WAIT DESTROY SYN_SENT CLOSE] %>
+<% hidden_states = Array(params[:hide_states]).map { |state| state.to_s.strip.upcase } %>
+<% hidden_states << "TIME_WAIT" if params[:hide_time_wait].present? %>
+<% hidden_states = hidden_states.uniq %>
 
 <h1 class="text-xl text-emerald-300 font-semibold tracking-wide mb-3">Active Connections</h1>
 
@@ -24,10 +28,23 @@
       Proto
       <input class="<%= input_class %>" name="proto" value="<%= params[:proto].to_s %>">
     </label>
-    <label class="flex items-center gap-2 text-xs uppercase tracking-wider text-zinc-400 mt-4">
-      <input type="checkbox" class="<%= checkbox_class %>" name="hide_time_wait" value="true" <%= "checked" if params[:hide_time_wait].present? %>>
-      Hide TIME_WAIT
-    </label>
+    <div class="flex flex-col gap-2 text-xs uppercase tracking-wider text-zinc-400 mt-4">
+      <span>Hide States</span>
+      <div class="flex flex-wrap items-center gap-3 normal-case tracking-normal text-zinc-300">
+        <% hideable_states.each do |state| %>
+          <label class="flex items-center gap-2">
+            <input
+              type="checkbox"
+              class="<%= checkbox_class %>"
+              name="hide_states[]"
+              value="<%= state %>"
+              <%= "checked" if hidden_states.include?(state) %>
+            >
+            <span><%= state %></span>
+          </label>
+        <% end %>
+      </div>
+    </div>
     <label class="flex items-center gap-2 text-xs uppercase tracking-wider text-zinc-400 mt-4">
       <input type="checkbox" class="<%= checkbox_class %>" name="only_new" value="true" <%= "checked" if params[:only_new].present? %>>
       Only NEW
@@ -60,7 +77,7 @@
       <button type="submit" class="<%= button_primary %>">Apply</button>
       <a href="/" class="<%= button_neutral %>">Clear</a>
       <a href="?only_new=true" class="<%= button_secondary %>">Only NEW</a>
-      <a href="?hide_time_wait=true" class="<%= button_secondary %>">Hide TIME_WAIT</a>
+      <a href="?hide_states%5B%5D=TIME_WAIT" class="<%= button_secondary %>">Hide TIME_WAIT</a>
       <a href="?min_score=0" class="<%= button_neutral %>">Score 0+</a>
       <a href="?min_score=20" class="<%= button_neutral %>">Score 20+</a>
       <a href="?min_score=50" class="<%= button_neutral %>">Score 50+</a>
@@ -632,7 +649,7 @@
       const dst = form.querySelector("input[name='dst_ip']")?.value.trim();
       const dport = form.querySelector("input[name='dport']")?.value.trim();
       const proto = form.querySelector("input[name='proto']")?.value.trim();
-      const hide = form.querySelector("input[name='hide_time_wait']")?.checked;
+      const hiddenStates = Array.from(form.querySelectorAll("input[name='hide_states[]']:checked")).map((input) => input.value);
       const onlyNew = form.querySelector("input[name='only_new']")?.checked;
       const includeStale = form.querySelector("input[name='include_stale']")?.checked;
       const minScore = form.querySelector("select[name='min_score']")?.value;
@@ -643,7 +660,7 @@
       if (dst) params.set("dst_ip", dst);
       if (dport) params.set("dport", dport);
       if (proto) params.set("proto", proto);
-      if (hide) params.set("hide_time_wait", "true");
+      hiddenStates.forEach((state) => params.append("hide_states[]", state));
       if (onlyNew) params.set("only_new", "true");
       if (includeStale) params.set("include_stale", "true");
       if (minScore) params.set("min_score", minScore);
