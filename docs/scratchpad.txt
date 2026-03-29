@@ -25,3 +25,28 @@ new conntrack events were missing, ask what else is missing
 filter for new connections only test
 
 add domain to hosts and remote_hosts
+
+rule to denois local traffic on port 3000-3010
+
+domain page so i can see what ips are tied to a domain.
+remote_hosts index displaying all associated domains with ip
+search page for domains
+
+CODEX PROMPTS
+
+-Before changing code or config, tell me your top 3 likely root causes in rank order, with confidence levels, and what one test best distinguishes among them. Then wait for my approval unless the next step is purely read-only.
+
+
+When debugging, do not just make changes. For each step, show:
+
+current hypothesis
+
+evidence for and against it
+
+exact command or file inspection you want to run
+
+what result would confirm or falsify the hypothesis
+
+what broader Rails/debugging principle this illustrates
+
+Do not batch many changes at once unless I ask. Keep the loop explicit so I can learn the method, not just get the fix.

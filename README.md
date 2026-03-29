@@ -1,8 +1,9 @@
 # network_monitor
-monitor the local network
+Monitor conntrack and do dns fingerprinting on a router. Go agent. rails webui.
 
 
-test conntrack component with bin/rails conntrack:print_outbound after its ready
+
+
 
 # Run with test file
 CONNTRACK_INPUT_FILE=spec/fixtures/conntrack/router_extended.txt rake conntrack:print_outbound
