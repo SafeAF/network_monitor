@@ -6,9 +6,10 @@ module Netmon
   module Anomaly
     class Scorer
       Reason = Struct.new(:code, :weight, :detail, keyword_init: true)
+      CONFIG_CACHE_KEY = "netmon/anomaly/scorer/config".freeze
 
       def self.score_connection(connection:, device:, remote_host:, baseline:, device_stats:, now: Time.current, config: nil)
-        config ||= load_config
+        config ||= cached_config
         common_ports = Array(config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
         common_protos = Array(config["common_protos"].presence || %w[tcp udp]).map(&:downcase)
         new_window_seconds = (config["new_window_seconds"].presence || 600).to_i
@@ -180,6 +181,11 @@ module Netmon
         {}
       end
       private_class_method :load_config
+
+      def self.cached_config
+        Rails.cache.fetch(CONFIG_CACHE_KEY, expires_in: 5.minutes) { load_config }
+      end
+      private_class_method :cached_config
     end
   end
 end

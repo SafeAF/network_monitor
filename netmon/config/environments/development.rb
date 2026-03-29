@@ -12,8 +12,8 @@ Rails.application.configure do
   # Show full error reports.
   config.consider_all_requests_local = true
 
-  # Enable server timing.
-  config.server_timing = true
+  # Enable server timing only when explicitly requested.
+  config.server_timing = ENV["RAILS_SERVER_TIMING"] == "true"
 
   # Enable/disable Action Controller caching. By default Action Controller caching is disabled.
   # Run rails dev:cache to toggle Action Controller caching.
@@ -40,26 +40,29 @@ Rails.application.configure do
   # Set localhost to be used by links generated in mailer templates.
   config.action_mailer.default_url_options = { host: "localhost", port: 3000 }
 
+  # Keep development usable for long-running servers unless verbose logging is requested.
+  config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "info")
+
   # Print deprecation notices to the Rails logger.
   config.active_support.deprecation = :log
 
   # Raise an error on page load if there are pending migrations.
   config.active_record.migration_error = :page_load
 
-  # Highlight code that triggered database queries in logs.
-  config.active_record.verbose_query_logs = true
+  # Only enable verbose SQL annotations when actively debugging.
+  config.active_record.verbose_query_logs = ENV["RAILS_VERBOSE_QUERY_LOGS"] == "true"
 
   # Append comments with runtime information tags to SQL queries in logs.
   config.active_record.query_log_tags_enabled = true
 
-  # Highlight code that enqueued background job in logs.
-  config.active_job.verbose_enqueue_logs = true
+  # Background job enqueue logging is useful locally, but too noisy for a live server.
+  config.active_job.verbose_enqueue_logs = ENV["RAILS_VERBOSE_ENQUEUE_LOGS"] == "true"
 
   # Raises error for missing translations.
   # config.i18n.raise_on_missing_translations = true
 
-  # Annotate rendered view with file names.
-  config.action_view.annotate_rendered_view_with_filenames = true
+  # Template annotations add response size and render overhead.
+  config.action_view.annotate_rendered_view_with_filenames = ENV["RAILS_VIEW_ANNOTATIONS"] == "true"
 
   # Uncomment if you wish to allow Action Cable access from any origin.
   # config.action_cable.disable_request_forgery_protection = true

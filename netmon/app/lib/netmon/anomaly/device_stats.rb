@@ -14,14 +14,16 @@ module Netmon
 
       WINDOW_MINUTES = 10
 
-      def self.current(device_id, now: Time.current)
+      def self.current(device_id, device_ip: nil, now: Time.current)
         window_start = now - WINDOW_MINUTES.minutes
         minutes = DeviceMinute.where(device_id:)
                               .where("bucket_ts >= ?", window_start)
                               .order(:bucket_ts)
+        src_ip = device_ip.presence || Device.where(id: device_id).pick(:ip)
+        return Result.new if src_ip.blank?
 
         conn_scope = Connection.where("last_seen_at >= ?", window_start)
-                               .where(src_ip: Device.where(id: device_id).select(:ip))
+                               .where(src_ip: src_ip)
 
         unique_ports = conn_scope.where.not(dst_port: nil).distinct.count(:dst_port)
         unique_ips = conn_scope.distinct.count(:dst_ip)

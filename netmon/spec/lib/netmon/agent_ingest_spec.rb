@@ -131,4 +131,51 @@ RSpec.describe Netmon::AgentIngest do
     expect(linked_domain.domain).to eq("stackoverflow.com")
     expect(linked_domain.last_device_ip).to eq("10.0.0.20")
   end
+
+  it "does not rescore an existing connection on a destroy update" do
+    now = Time.zone.parse("2026-03-15 12:00:00 UTC")
+    allow(Netmon::Anomaly::Scorer).to receive(:score_connection).and_return(score: 7, reasons: [{ code: "NEW_DST" }])
+
+    described_class.ingest_event!(
+      event_type: "flow",
+      router_id: "router-1",
+      ts: now,
+      data: {
+        src_ip: "10.0.0.20",
+        dst_ip: "203.0.113.10",
+        src_port: 55_000,
+        dst_port: 443,
+        l4proto: 6,
+        state: "NEW",
+        bytes_orig: 100,
+        bytes_reply: 200,
+        packets_orig: 1,
+        packets_reply: 2
+      }
+    )
+
+    described_class.ingest_event!(
+      event_type: "flow",
+      router_id: "router-1",
+      ts: now + 5.seconds,
+      data: {
+        src_ip: "10.0.0.20",
+        dst_ip: "203.0.113.10",
+        src_port: 55_000,
+        dst_port: 443,
+        l4proto: 6,
+        state: "DESTROY",
+        bytes_orig: 150,
+        bytes_reply: 260,
+        packets_orig: 2,
+        packets_reply: 3
+      }
+    )
+
+    connection = Connection.find_by!(src_ip: "10.0.0.20", dst_ip: "203.0.113.10", dst_port: 443)
+
+    expect(Netmon::Anomaly::Scorer).to have_received(:score_connection).once
+    expect(connection.state).to eq("DESTROY")
+    expect(connection.anomaly_score).to eq(7)
+  end
 end

@@ -49,8 +49,9 @@ module Netmon
         dst_ip: dst_ip,
         dst_port: dst_port
       )
+      new_connection = connection.new_record?
 
-      if connection.new_record?
+      if new_connection
         connection.first_seen_at = parse_time(data["first_seen"]) || now
       end
 
@@ -77,22 +78,27 @@ module Netmon
       connection.state = state if state
       connection.flags = flags if flags
 
-      dns_match = Netmon::Dns::CorrelateConnection.call(connection: connection, now: now)
-      connection.last_domain = dns_match&.dig(:domain)
-      connection.last_domain_observed_at = dns_match&.dig(:observed_at)
+      dns_match = nil
+      if refresh_dns_match?(connection)
+        dns_match = Netmon::Dns::CorrelateConnection.call(connection: connection, now: now)
+        connection.last_domain = dns_match&.dig(:domain)
+        connection.last_domain_observed_at = dns_match&.dig(:observed_at)
+      end
 
-      baseline = DeviceBaseline.find_by(device_id: device.id)
-      stats = Netmon::Anomaly::DeviceStats.current(device.id, now: now)
-      anomaly = Netmon::Anomaly::Scorer.score_connection(
-        connection: connection,
-        device: device,
-        remote_host: remote_host,
-        baseline: baseline,
-        device_stats: stats,
-        now: now
-      )
-      connection.anomaly_score = anomaly[:score]
-      connection.anomaly_reasons_json = anomaly[:reasons].to_json
+      if rescore_connection?(connection: connection, new_connection: new_connection, state: state)
+        baseline = DeviceBaseline.find_by(device_id: device.id)
+        stats = Netmon::Anomaly::DeviceStats.current(device.id, device_ip: device.ip, now: now)
+        anomaly = Netmon::Anomaly::Scorer.score_connection(
+          connection: connection,
+          device: device,
+          remote_host: remote_host,
+          baseline: baseline,
+          device_stats: stats,
+          now: now
+        )
+        connection.anomaly_score = anomaly[:score]
+        connection.anomaly_reasons_json = anomaly[:reasons].to_json
+      end
       connection.save!
 
       if dns_match
@@ -210,5 +216,18 @@ module Netmon
       }
     end
     private_class_method :compute_deltas
+
+    def self.refresh_dns_match?(connection)
+      connection.last_domain.to_s.strip.empty? || connection.last_domain_observed_at.nil?
+    end
+    private_class_method :refresh_dns_match?
+
+    def self.rescore_connection?(connection:, new_connection:, state:)
+      return true if new_connection
+      return true if connection.anomaly_score.nil? || connection.anomaly_reasons_json.to_s.strip.empty?
+
+      %w[NEW SYN_SENT].include?(state.to_s)
+    end
+    private_class_method :rescore_connection?
   end
 end
