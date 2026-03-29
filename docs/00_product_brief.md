@@ -1,3 +1,6 @@
+# Planning-era document: this file captures the original design intent.
+# For current product documentation, see `docs/current/00_product_brief.md`.
+
 # NetMon (router conntrack monitor)
 
 ## Goal

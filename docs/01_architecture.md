@@ -1,3 +1,6 @@
+# Planning-era document: this file captures the original design intent.
+# For current product documentation, see `docs/current/01_architecture.md`.
+
 # Architecture (NetMon)
 
 ## Purpose

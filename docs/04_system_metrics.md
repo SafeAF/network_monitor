@@ -1,3 +1,6 @@
+# Planning-era document: this file captures the original design intent.
+# For current product documentation, see `docs/current/04_metrics_and_rollups.md`.
+
 # System metrics spec
 
 We display:

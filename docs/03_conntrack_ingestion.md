@@ -1,3 +1,6 @@
+# Planning-era document: this file captures the original design intent.
+# For current product documentation, see `docs/current/03_ingestion.md`.
+
 # Conntrack ingestion spec (router)
 
 ## Observed conntrack version

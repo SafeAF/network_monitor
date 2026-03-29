@@ -1,3 +1,6 @@
+# Planning-era document: this file captures the original deployment intent.
+# For current product documentation, see `docs/current/07_agent_deployment.md`.
+
 # systemd units (recommended)
 
 Goal: run collector with CAP_NET_ADMIN without running entire Rails server as root.

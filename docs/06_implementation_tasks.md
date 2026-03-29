@@ -1,3 +1,6 @@
+# Planning-era document: this file captures the original implementation checklist.
+# For current product documentation, see `docs/current/06_operations.md`.
+
 # Implementation tasks (Codex checklist)
 
 ## 0) Rails app skeleton

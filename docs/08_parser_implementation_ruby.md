@@ -1,3 +1,6 @@
+# Planning-era document: this file captures the original parser plan.
+# For current product documentation, see `docs/current/03_ingestion.md`.
+
 # Conntrack parser implementation (Ruby)
 
 ## Goal
