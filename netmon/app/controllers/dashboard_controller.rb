@@ -3,128 +3,28 @@
 require "yaml"
 
 class DashboardController < ApplicationController
+  TOP_PANELS_CACHE_TTL = 15.seconds
+  TOP_PANELS_DEFAULT_WINDOWS = {
+    top_remote_window: "10m",
+    newest_window: "10m",
+    rare_window: "24h",
+    top_devices_window: "10m"
+  }.freeze
+
   def index
     @connections, @new_threshold = Netmon::ConnectionsQuery.call(params)
-    @hosts_by_ip = RemoteHost.where(ip: @connections.map(&:dst_ip)).index_by(&:ip)
-    @devices_by_ip = Device.where(ip: @connections.map(&:src_ip)).index_by(&:ip)
-    now = Time.current
-    common_ports = Array(load_config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
+    @hosts_by_ip = RemoteHost.where(ip: @connections.map(&:dst_ip).uniq).index_by(&:ip)
+    @devices_by_ip = Device.where(ip: @connections.map(&:src_ip).uniq).index_by(&:ip)
 
-    @top_remote_hosts = RemoteHostMinute
-                         .where("bucket_ts >= ?", now - 10.minutes)
-                         .group(:remote_host_id)
-                         .select("remote_host_id, SUM(uplink_bytes + downlink_bytes) AS total_bytes")
-                         .order(Arel.sql("total_bytes DESC"))
-                         .limit(5)
-                         .map do |row|
-                           host = RemoteHost.find_by(id: row.remote_host_id)
-                          { ip: host&.ip || row.remote_host_id, total_bytes: row.total_bytes }
-                         end
-
-    @newest_remote_hosts = newest_remote_hosts(now:, window: "10m")
-
-    @rare_ports = Connection.where("last_seen_at >= ?", now - 24.hours)
-                            .where.not(dst_port: nil)
-                            .where.not(dst_port: common_ports)
-                            .group(:dst_port)
-                            .order(Arel.sql("COUNT(*) DESC"))
-                            .limit(5)
-                            .count
-                            .map do |port, count|
-                              ips = Connection.where("last_seen_at >= ?", now - 24.hours)
-                                              .where(dst_port: port)
-                                              .distinct
-                                              .limit(3)
-                                              .pluck(:dst_ip)
-                              { port: port, count: count, ips: ips }
-                            end
-
-    @top_devices_egress = DeviceMinute.where("bucket_ts >= ?", now - 10.minutes)
-                                      .group(:device_id)
-                                      .select("device_id, SUM(uplink_bytes) AS total_uplink")
-                                      .order(Arel.sql("total_uplink DESC"))
-                                      .limit(5)
-                                      .map do |row|
-                                        device = Device.find_by(id: row.device_id)
-                                        label = device&.name.presence || device&.ip || row.device_id
-                                        { label: label, total_uplink: row.total_uplink }
-                                      end
+    top_panels = top_panels_payload(now: Time.current, windows: panel_windows)
+    @top_remote_hosts = top_panels[:top_remote_hosts]
+    @newest_remote_hosts = top_panels[:newest_remote_hosts]
+    @rare_ports = top_panels[:rare_ports]
+    @top_devices_egress = top_panels[:top_devices_egress]
   end
 
   def top_panels
-    now = Time.current
-    common_ports = Array(load_config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
-    top_remote_window = params[:top_remote_window].presence || "10m"
-    newest_window = params[:newest_window].presence || "10m"
-    rare_window = params[:rare_window].presence || "24h"
-    top_devices_window = params[:top_devices_window].presence || "10m"
-
-    top_remote_hosts = RemoteHostMinute
-                        .where("bucket_ts >= ?", window_start(top_remote_window, now))
-                        .group(:remote_host_id)
-                        .select("remote_host_id, SUM(uplink_bytes + downlink_bytes) AS total_bytes")
-                        .order(Arel.sql("total_bytes DESC"))
-                        .limit(5)
-                        .map do |row|
-                          host = RemoteHost.find_by(id: row.remote_host_id)
-                          { ip: host&.ip || row.remote_host_id, total_bytes: row.total_bytes.to_i }
-                        end
-
-    newest_remote_hosts = newest_remote_hosts(now:, window: newest_window)
-
-    rare_ports = Connection.where("last_seen_at >= ?", window_start(rare_window, now))
-                           .where.not(dst_port: nil)
-                           .where.not(dst_port: common_ports)
-                           .group(:dst_port)
-                           .order(Arel.sql("COUNT(*) DESC"))
-                           .limit(5)
-                           .count
-                           .map do |port, count|
-                             ips = Connection.where("last_seen_at >= ?", window_start(rare_window, now))
-                                             .where(dst_port: port)
-                                             .distinct
-                                             .limit(3)
-                                             .pluck(:dst_ip)
-                             { port: port, count: count, ips: ips }
-                           end
-
-    top_devices_egress = DeviceMinute.where("bucket_ts >= ?", window_start(top_devices_window, now))
-                                      .group(:device_id)
-                                      .select("device_id, SUM(uplink_bytes) AS total_uplink")
-                                      .order(Arel.sql("total_uplink DESC"))
-                                      .limit(5)
-                                      .map do |row|
-                                        device = Device.find_by(id: row.device_id)
-                                        label = device&.name.presence || device&.ip || row.device_id
-                                        { label: label, total_uplink: row.total_uplink.to_i }
-                                      end
-
-    recent_incidents = Incident.where("last_seen_at >= ?", now - 1.hour)
-                               .where(acknowledged_at: nil)
-                               .order(last_seen_at: :desc)
-                               .limit(10)
-                               .includes(:device)
-                               .map do |incident|
-                                 device_label = incident.device&.name.presence || incident.device&.ip
-                                 {
-                                   id: incident.id,
-                                   device: device_label,
-                                   dst_ip: incident.dst_ip,
-                                   dst_port: incident.dst_port,
-                                   max_score: incident.max_score,
-                                   codes: incident.codes_csv,
-                                   count: incident.count,
-                                   last_seen_at: incident.last_seen_at.iso8601
-                                 }
-                               end
-
-    render json: {
-      top_remote_hosts: top_remote_hosts,
-      newest_remote_hosts: newest_remote_hosts,
-      rare_ports: rare_ports,
-      top_devices_egress: top_devices_egress,
-      recent_incidents: recent_incidents
-    }
+    render json: top_panels_payload(now: Time.current, windows: panel_windows)
   end
 
   def load_config
@@ -134,6 +34,116 @@ class DashboardController < ApplicationController
     {}
   end
   private :load_config
+
+  def panel_windows
+    TOP_PANELS_DEFAULT_WINDOWS.each_with_object({}) do |(key, default), windows|
+      windows[key] = params[key].presence || default
+    end
+  end
+  private :panel_windows
+
+  def top_panels_payload(now:, windows:)
+    Rails.cache.fetch(top_panels_cache_key(windows), expires_in: TOP_PANELS_CACHE_TTL) do
+      {
+        top_remote_hosts: top_remote_hosts(window: windows[:top_remote_window], now:),
+        newest_remote_hosts: newest_remote_hosts(now:, window: windows[:newest_window]),
+        rare_ports: rare_ports(window: windows[:rare_window], now:),
+        top_devices_egress: top_devices_egress(window: windows[:top_devices_window], now:),
+        recent_incidents: recent_incidents(now:)
+      }
+    end
+  end
+  private :top_panels_payload
+
+  def top_panels_cache_key(windows)
+    [
+      "dashboard",
+      "top_panels",
+      windows[:top_remote_window],
+      windows[:newest_window],
+      windows[:rare_window],
+      windows[:top_devices_window]
+    ].join(":")
+  end
+  private :top_panels_cache_key
+
+  def top_remote_hosts(window:, now:)
+    total_bytes_sql = "SUM(remote_host_minutes.uplink_bytes + remote_host_minutes.downlink_bytes)"
+
+    RemoteHostMinute.joins(:remote_host)
+                    .where("remote_host_minutes.bucket_ts >= ?", window_start(window, now))
+                    .group("remote_host_minutes.remote_host_id", "remote_hosts.ip")
+                    .order(Arel.sql("#{total_bytes_sql} DESC"))
+                    .limit(5)
+                    .pluck("remote_hosts.ip", Arel.sql(total_bytes_sql))
+                    .map do |ip, total_bytes|
+                      { ip: ip, total_bytes: total_bytes.to_i }
+                    end
+  end
+  private :top_remote_hosts
+
+  def rare_ports(window:, now:)
+    start_time = window_start(window, now)
+
+    Connection.where("last_seen_at >= ?", start_time)
+              .where.not(dst_port: nil)
+              .where.not(dst_port: common_ports)
+              .group(:dst_port)
+              .order(Arel.sql("COUNT(*) DESC"))
+              .limit(5)
+              .count
+              .map do |port, count|
+                ips = Connection.where("last_seen_at >= ?", start_time)
+                                .where(dst_port: port)
+                                .distinct
+                                .limit(3)
+                                .pluck(:dst_ip)
+                { port: port, count: count, ips: ips }
+              end
+  end
+  private :rare_ports
+
+  def top_devices_egress(window:, now:)
+    total_uplink_sql = "SUM(device_minutes.uplink_bytes)"
+
+    DeviceMinute.joins(:device)
+                .where("device_minutes.bucket_ts >= ?", window_start(window, now))
+                .group("device_minutes.device_id", "devices.name", "devices.ip")
+                .order(Arel.sql("#{total_uplink_sql} DESC"))
+                .limit(5)
+                .pluck("devices.name", "devices.ip", "device_minutes.device_id", Arel.sql(total_uplink_sql))
+                .map do |name, ip, device_id, total_uplink|
+                  { label: name.presence || ip || device_id, total_uplink: total_uplink.to_i }
+                end
+  end
+  private :top_devices_egress
+
+  def recent_incidents(now:)
+    Incident.where("last_seen_at >= ?", now - 1.hour)
+            .where(acknowledged_at: nil)
+            .order(last_seen_at: :desc)
+            .limit(10)
+            .includes(:device)
+            .map do |incident|
+              device_label = incident.device&.name.presence || incident.device&.ip
+              {
+                id: incident.id,
+                device: device_label,
+                dst_ip: incident.dst_ip,
+                dst_port: incident.dst_port,
+                max_score: incident.max_score,
+                codes: incident.codes_csv,
+                count: incident.count,
+                last_seen_at: incident.last_seen_at.iso8601
+              }
+            end
+  end
+  private :recent_incidents
+
+  def common_ports
+    @common_ports ||= Array(load_config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
+  end
+  private :common_ports
 
   def newest_remote_hosts(now:, window:)
     start_time = window_start(window, now)

@@ -23,3 +23,5 @@ set time stamp to localtime in app
 new conntrack events were missing, ask what else is missing
 
 filter for new connections only test
+
+add domain to hosts and remote_hosts

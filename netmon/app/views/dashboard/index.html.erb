@@ -1595,7 +1595,7 @@
     }
 
     refreshTopPanels(true);
-    const topPanelsPollTimer = setInterval(() => refreshTopPanels(), 4000);
+    const topPanelsPollTimer = setInterval(() => refreshTopPanels(), 15000);
 
     document.querySelectorAll(".panel-window").forEach((select) => {
       select.addEventListener("change", () => refreshTopPanels(true));
