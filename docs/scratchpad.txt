@@ -12,7 +12,7 @@ not showing all domains fingerprints
 
 hide time_wait is broken on index.html.erb, in fact none of the filters seem to work
 
-
+ the index page is faster but still kinda slow. and remote_host/ip is painfully slow
 
 still slow to load
 
@@ -31,6 +31,8 @@ rule to denois local traffic on port 3000-3010
 domain page so i can see what ips are tied to a domain.
 remote_hosts index displaying all associated domains with ip
 search page for domains
+
+devices page slow to load
 
 CODEX PROMPTS
 
