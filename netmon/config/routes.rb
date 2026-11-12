@@ -33,6 +33,8 @@ Rails.application.routes.draw do
   get "remote_hosts/:ip" => "remote_hosts#show", constraints: { ip: /[^\/]+/ }
   patch "remote_hosts/:ip" => "remote_hosts#update", constraints: { ip: /[^\/]+/ }
   get "remote_hosts/:ip/traceroute" => "remote_hosts#traceroute", constraints: { ip: /[^\/]+/ }, defaults: { format: :json }
+  post "remote_hosts/:ip/traceroute" => "remote_hosts#start_traceroute", constraints: { ip: /[^\/]+/ }, defaults: { format: :json }
+  delete "remote_hosts/:ip/traceroute" => "remote_hosts#cancel_traceroute", constraints: { ip: /[^\/]+/ }, defaults: { format: :json }
   get "search" => "search#index"
   get "search/hosts" => "search#hosts"
   get "search/connections" => "search#connections"

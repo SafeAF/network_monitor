@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: bundler
+    directory: /netmon
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /netmon
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /netmon_agent
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

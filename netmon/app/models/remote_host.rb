@@ -4,6 +4,7 @@ class RemoteHost < ApplicationRecord
   NEW_WINDOW = 60.seconds
 
   validates :ip, presence: true, uniqueness: true
+  validates :notes, length: { maximum: 10_000 }
   validates :tag, inclusion: { in: %w[unknown known_good cloud cdn microsoft google suspicious trusted] }
 
   has_many :remote_host_ports, dependent: :destroy

@@ -1,4 +1,6 @@
 class Api::V1::Netmon::EventsController < ApplicationController
+  skip_before_action :authenticate_operator!, :authorize_operator!
+  skip_after_action :audit_operator_change
   skip_before_action :verify_authenticity_token
   before_action :authenticate!
 
@@ -40,9 +42,10 @@ class Api::V1::Netmon::EventsController < ApplicationController
   private
 
   def authenticate!
-    token = request.authorization.to_s.sub(/^Bearer\s+/i, "").strip
+    token = request.authorization.to_s.match(/\ABearer[ \t]+([^\s]+)\z/i)&.[](1).to_s
     expected = ENV.fetch("NETMON_API_TOKEN", "")
-    head :unauthorized and return if expected.empty? || token != expected
+    head :unauthorized and return if expected.empty? || (Rails.env.production? && expected.bytesize < 32) ||
+      !ActiveSupport::SecurityUtils.secure_compare(token, expected)
   end
 
   def parse_time(value)

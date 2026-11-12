@@ -8,6 +8,9 @@ class SuppressionRule < ApplicationRecord
   validates :code, presence: true
   validates :kind, inclusion: { in: KINDS }
   validates :value, presence: true
+  validates :code, length: { maximum: 100 }
+  validates :value, length: { maximum: 255 }
+  validates :notes, length: { maximum: 10_000 }
 
   def self.match?(code:, kind:, value:, device_id: nil)
     scope = where(code: code, kind: kind, value: value)

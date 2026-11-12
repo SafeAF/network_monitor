@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  rails:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: netmon
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          working-directory: netmon
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: netmon/yarn.lock
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile
+      - run: yarn build && yarn build:css
+      - name: Test security utilities without Rails
+        run: ruby test/security_utilities_test.rb
+      - name: Test dashboard rendering in Chrome
+        run: node test/javascript/rendering_test.mjs
+      - name: Prepare test database
+        env:
+          RAILS_ENV: test
+        run: bin/rails db:test:prepare
+      - name: Run RSpec suite
+        env:
+          RAILS_ENV: test
+        run: bundle exec rspec
+      - name: Rails security analysis
+        run: bundle exec brakeman --no-pager
+      - name: Lint Ruby
+        run: bin/rubocop -f github
+
+  agent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: netmon_agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: netmon_agent/go.sum
+      - run: go test -race ./...
+      - run: go vet ./...
+      - name: Build Linux agent
+        run: go build -o /tmp/netmon-agent ./cmd/netmon_agent

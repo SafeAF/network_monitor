@@ -2,6 +2,7 @@
 
 class RemoteHostsController < ApplicationController
   PER_PAGE = 50
+  before_action :validate_probe_target!, only: [:traceroute, :start_traceroute, :cancel_traceroute]
 
   def index
     @window = params[:window].presence || "10m"
@@ -55,7 +56,7 @@ class RemoteHostsController < ApplicationController
                       else
                         []
                       end
-    @geo = geo_lookup(@ip)
+    @geo = geo_lookup(@ip) if Netmon::ProbeTarget.parse(@ip)
   end
 
   def update
@@ -65,22 +66,44 @@ class RemoteHostsController < ApplicationController
   end
 
   def traceroute
-    ip = params[:ip]
-    key = traceroute_cache_key(ip)
-    payload = Rails.cache.read(key)
+    render json: Rails.cache.read(traceroute_cache_key(@probe_ip)) || { status: "idle", output: nil, updated_at: nil }
+  end
 
-    if params[:cancel].present?
-      Rails.cache.write(key, { status: "cancelled", output: nil, updated_at: Time.current.to_i })
-    elsif params[:start].present? && (payload.nil? || payload[:status] == "error" || payload[:status] == "done")
-      Rails.cache.write(key, { status: "queued", output: nil, updated_at: Time.current.to_i })
-      TracerouteJob.perform_later(ip)
+  def start_traceroute
+    key = traceroute_cache_key(@probe_ip)
+    payload = Rails.cache.read(key)
+    if payload && %w[queued running].include?(payload[:status])
+      render json: payload, status: :conflict
+      return
     end
 
-    payload = Rails.cache.read(key) || { status: "idle", output: nil, updated_at: nil }
-    render json: payload
+    run_id = SecureRandom.uuid
+    payload = { status: "queued", run_id: run_id, output: nil, updated_at: Time.current.to_i }
+    Rails.cache.write(key, payload, expires_in: 5.minutes)
+    TracerouteJob.perform_later(@probe_ip, run_id)
+    render json: payload, status: :accepted
+  end
+
+  def cancel_traceroute
+    key = traceroute_cache_key(@probe_ip)
+    payload = Rails.cache.read(key)
+    if payload && %w[queued running].include?(payload[:status])
+      Rails.cache.write("traceroute:cancelled:#{payload[:run_id]}", true, expires_in: 5.minutes)
+      payload = payload.merge(status: "cancelled", updated_at: Time.current.to_i)
+      Rails.cache.write(key, payload, expires_in: 5.minutes)
+    end
+    render json: payload || { status: "idle", output: nil, updated_at: nil }
   end
 
   private
+
+  def validate_probe_target!
+    @probe_ip = Netmon::ProbeTarget.parse(params[:ip])
+    head :unprocessable_entity and return unless @probe_ip
+    # Probe only literal addresses already observed by the monitor. Private LAN
+    # addresses are intentional; arbitrary hostnames and local metadata are not.
+    head :not_found unless RemoteHost.exists?(ip: @probe_ip)
+  end
 
   def host_params
     params.require(:remote_host).permit(:notes, :tag)
@@ -104,17 +127,7 @@ class RemoteHostsController < ApplicationController
   end
 
   def run_cmd(command, timeout:)
-    require "open3"
-    require "timeout"
-
-    output = nil
-    Timeout.timeout(timeout) do
-      stdout, status = Open3.capture2e(*command)
-      output = status.success? ? stdout : stdout
-    end
-    output
-  rescue Errno::ENOENT, Timeout::Error
-    nil
+    Netmon::BoundedCommand.capture(*command, timeout: timeout)
   end
 
   def traceroute_cache_key(ip)

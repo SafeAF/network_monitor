@@ -7,6 +7,8 @@ class AllowlistRule < ApplicationRecord
 
   validates :kind, inclusion: { in: KINDS }
   validates :value, presence: true
+  validates :value, length: { maximum: 255 }
+  validates :notes, length: { maximum: 10_000 }
 
   def self.match?(kind:, value:, device_id: nil)
     scope = where(kind: kind, value: value)

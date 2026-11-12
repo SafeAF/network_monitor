@@ -1,7 +1,9 @@
 # /etc/netmon-agent/config.yaml
 router_id: "router-01"
-rails_base_url: "http://10.0.0.10:3000"
-auth_token: "secret"
+rails_base_url: "https://netmon.example"
+auth_token: "" # Set a random token of at least 32 characters, matching NETMON_API_TOKEN.
+# Local development only; certificate verification is never disabled:
+development_allow_insecure_http: false
 
 nflog_groups: [10, 11]
 dnsmasq_log_path: "/var/log/dnsmasq.log"
