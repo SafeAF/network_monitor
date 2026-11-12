@@ -3,7 +3,7 @@
 module Netmon
   module Anomaly
     class Detection
-      def self.call(connection:, device:, remote_host:, now:, config: Scorer.configuration)
+      def self.call(connection:, device:, remote_host:, now:, config: Scorer.configuration, persist_score: true)
         Connection.transaction do
           stats = DeviceStats.current(device.id, device_ip: device.ip, now: now)
           anomaly = Scorer.score_connection(
@@ -11,7 +11,8 @@ module Netmon
             baseline: DeviceBaseline.find_by(device_id: device.id), device_stats: stats,
             now: now, config: config
           )
-          connection.update!(anomaly_score: anomaly[:score], anomaly_reasons_json: anomaly[:reasons].to_json)
+          connection.assign_attributes(anomaly_score: anomaly[:score], anomaly_reasons_json: anomaly[:reasons].to_json)
+          connection.save! if persist_score
           Recorder.call(connection: connection, device: device, remote_host: remote_host,
             reasons: anomaly[:reasons], now: now, config: config)
           anomaly

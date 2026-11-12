@@ -7,7 +7,7 @@ module Netmon
       data = normalize_data(data)
       case event_type
       when "flow"
-        ingest_flow!(router_id:, data:, ts:)
+        Connection.transaction { ingest_flow!(router_id:, data:, ts:) }
       when "dns_response"
         Netmon::Dns::IngestEvent.call(router_id:, data:, ts:, strict: true)
       when "heartbeat", "firewall_drop"
@@ -19,6 +19,8 @@ module Netmon
 
     def self.ingest_flow!(router_id:, data:, ts:)
       now = ts || Time.current
+      # Match database timestamp precision when comparing reordered events.
+      now = now.change(usec: now.usec)
       src_ip = data["src_ip"].to_s
       dst_ip = data["dst_ip"].to_s
       return if src_ip.empty? || dst_ip.empty?
@@ -26,17 +28,28 @@ module Netmon
       # Out-of-scope observations remain raw receipts, matching the snapshot
       # path's LAN-source/excluded-destination policy for normalized detections.
       return unless Filter.outbound_addresses?(src_ip, dst_ip, config: config)
+      RouterScope.bind_flow_collector!(router_id, "agent")
 
       proto = normalize_proto(data["l4proto"])
       src_port = parse_nullable_int(data["src_port"])
       dst_port = parse_nullable_int(data["dst_port"])
 
-      connection = Connection.find_or_initialize_by(
-        proto: proto, src_ip: src_ip, src_port: src_port, dst_ip: dst_ip, dst_port: dst_port
-      )
-      # Live traffic can overtake spool replay. Preserve the raw receipt, but
-      # never regress counters or timestamps with an older flow observation.
-      return if connection.last_delta_at && now < connection.last_delta_at
+      tuple = { proto: proto, src_ip: src_ip, src_port: src_port, dst_ip: dst_ip, dst_port: dst_port }
+      connection = Connection.find_or_initialize_by(tuple)
+      result = FlowLifetimes.apply!(router_id: router_id, tuple: tuple, data: data, now: now, connection: connection)
+      return if result.accounting.stale
+      lifetime = result.lifetime
+      deltas = result.accounting.deltas
+      count_delta = result.accounting.count_delta
+      persist_projection = connection.new_record? || connection.last_delta_at.nil? || now > connection.last_delta_at ||
+        (now == connection.last_delta_at && [nil, lifetime.flow_uid].include?(connection.agent_flow_uid))
+      connection = Connection.new(tuple) unless persist_projection
+      if connection.agent_flow_uid != lifetime.flow_uid
+        connection.first_seen_at = lifetime.first_observed_at
+        connection.last_domain = nil
+        connection.last_domain_observed_at = nil
+      end
+      connection.agent_flow_uid = lifetime.flow_uid
 
       device = Device.find_or_initialize_by(ip: src_ip)
       if device.new_record?
@@ -59,29 +72,19 @@ module Netmon
       remote_host.save!
       HostEnrichmentJob.perform_later(remote_host.id) if enqueue_enrichment
 
-      if connection.new_record?
-        connection.first_seen_at = parse_time(data["first_seen"]) || now
-      end
-
-      cur_up_b = parse_int(data["bytes_orig"])
-      cur_dn_b = parse_int(data["bytes_reply"])
-      cur_up_p = parse_int(data["packets_orig"])
-      cur_dn_p = parse_int(data["packets_reply"])
-
-      deltas = compute_deltas(connection, cur_up_b:, cur_dn_b:, cur_up_p:, cur_dn_p:)
-
-      connection.uplink_packets = cur_up_p
-      connection.uplink_bytes = cur_up_b
-      connection.downlink_packets = cur_dn_p
-      connection.downlink_bytes = cur_dn_b
-      connection.last_uplink_packets = cur_up_p
-      connection.last_uplink_bytes = cur_up_b
-      connection.last_downlink_packets = cur_dn_p
-      connection.last_downlink_bytes = cur_dn_b
+      connection.first_seen_at ||= lifetime.first_observed_at
+      connection.uplink_packets = lifetime.packets_orig
+      connection.uplink_bytes = lifetime.bytes_orig
+      connection.downlink_packets = lifetime.packets_reply
+      connection.downlink_bytes = lifetime.bytes_reply
+      connection.last_uplink_packets = lifetime.packets_orig
+      connection.last_uplink_bytes = lifetime.bytes_orig
+      connection.last_downlink_packets = lifetime.packets_reply
+      connection.last_downlink_bytes = lifetime.bytes_reply
       connection.last_delta_at = now
-      connection.last_seen_at = [connection.last_seen_at, parse_time(data["last_seen"]) || now].compact.max
+      connection.last_seen_at = now
 
-      state = normalize_state(data["state"] || data["event"])
+      state = lifetime.closed_at ? "DESTROY" : normalize_state(data["state"] || data["event"])
       flags = normalize_flags(data["flags"] || data["dir"])
       connection.state = state if state
       connection.flags = flags if flags
@@ -93,7 +96,7 @@ module Netmon
         connection.last_domain_observed_at = dns_match&.dig(:observed_at)
       end
 
-      connection.save!
+      connection.save! if persist_projection
 
       if dns_match
         Netmon::Dns::LinkRemoteHostDomain.call(
@@ -107,31 +110,30 @@ module Netmon
 
       bucket_ts = now.utc.change(sec: 0)
       device_minute = DeviceMinute.find_or_initialize_by(device_id: device.id, bucket_ts: bucket_ts)
-      device_minute.conn_count += 1
-      device_minute.uplink_bytes += deltas[:d_up_b]
-      device_minute.downlink_bytes += deltas[:d_dn_b]
-      device_minute.uplink_packets += deltas[:d_up_p]
-      device_minute.downlink_packets += deltas[:d_dn_p]
+      device_minute.conn_count += count_delta
+      device_minute.uplink_bytes += deltas.fetch("bytes_orig")
+      device_minute.downlink_bytes += deltas.fetch("bytes_reply")
+      device_minute.uplink_packets += deltas.fetch("packets_orig")
+      device_minute.downlink_packets += deltas.fetch("packets_reply")
       device_minute.save!
 
       remote_minute = RemoteHostMinute.find_or_initialize_by(remote_host_id: remote_host.id, bucket_ts: bucket_ts)
-      remote_minute.conn_count += 1
-      remote_minute.uplink_bytes += deltas[:d_up_b]
-      remote_minute.downlink_bytes += deltas[:d_dn_b]
-      remote_minute.uplink_packets += deltas[:d_up_p]
-      remote_minute.downlink_packets += deltas[:d_dn_p]
+      remote_minute.conn_count += count_delta
+      remote_minute.uplink_bytes += deltas.fetch("bytes_orig")
+      remote_minute.downlink_bytes += deltas.fetch("bytes_reply")
+      remote_minute.uplink_packets += deltas.fetch("packets_orig")
+      remote_minute.downlink_packets += deltas.fetch("packets_reply")
       remote_minute.save!
 
       if dst_port
         host_port = RemoteHostPort.find_or_initialize_by(remote_host_id: remote_host.id, dst_port: dst_port)
         host_port.first_seen_at ||= now
         host_port.last_seen_at = [host_port.last_seen_at, now].compact.max
-        if connection.previous_changes.key?("id") || deltas.values.any?(&:positive?)
-          host_port.seen_count = host_port.seen_count.to_i + 1
-        end
+        host_port.seen_count = host_port.seen_count.to_i + count_delta
         host_port.save!
       end
-      Anomaly::Detection.call(connection: connection, device: device, remote_host: remote_host, now: now, config: config)
+      Anomaly::Detection.call(connection: connection, device: device, remote_host: remote_host, now: now, config: config,
+        persist_score: persist_projection)
     end
 
     def self.normalize_proto(value)
@@ -160,13 +162,6 @@ module Netmon
     end
     private_class_method :normalize_flags
 
-    def self.parse_int(value)
-      Integer(value)
-    rescue ArgumentError, TypeError
-      0
-    end
-    private_class_method :parse_int
-
     def self.parse_nullable_int(value)
       return nil if value.nil? || value == ""
 
@@ -175,15 +170,6 @@ module Netmon
       nil
     end
     private_class_method :parse_nullable_int
-
-    def self.parse_time(value)
-      return nil if value.blank?
-
-      Time.parse(value.to_s)
-    rescue ArgumentError, TypeError
-      nil
-    end
-    private_class_method :parse_time
 
     def self.normalize_data(data)
       return {} if data.nil?
@@ -198,20 +184,6 @@ module Netmon
       {}
     end
     private_class_method :normalize_data
-
-    def self.compute_deltas(connection, cur_up_b:, cur_dn_b:, cur_up_p:, cur_dn_p:)
-      if connection.new_record?
-        return { d_up_b: 0, d_dn_b: 0, d_up_p: 0, d_dn_p: 0 }
-      end
-
-      {
-        d_up_b: [cur_up_b - connection.last_uplink_bytes.to_i, 0].max,
-        d_dn_b: [cur_dn_b - connection.last_downlink_bytes.to_i, 0].max,
-        d_up_p: [cur_up_p - connection.last_uplink_packets.to_i, 0].max,
-        d_dn_p: [cur_dn_p - connection.last_downlink_packets.to_i, 0].max
-      }
-    end
-    private_class_method :compute_deltas
 
     def self.refresh_dns_match?(connection, now:)
       observed = connection.last_domain_observed_at

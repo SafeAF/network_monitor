@@ -10,7 +10,31 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_11_12_130000) do
+ActiveRecord::Schema[8.0].define(version: 2026_11_12_140000) do
+  create_table "agent_flow_lifetimes", force: :cascade do |t|
+    t.string "router_id", null: false
+    t.string "flow_uid", null: false
+    t.string "tuple_key", null: false
+    t.string "legacy_key"
+    t.datetime "first_observed_at", null: false
+    t.datetime "last_observed_at", null: false
+    t.datetime "closed_at"
+    t.boolean "opening_seen", default: false, null: false
+    t.bigint "bytes_orig", default: 0, null: false
+    t.bigint "bytes_reply", default: 0, null: false
+    t.bigint "packets_orig", default: 0, null: false
+    t.bigint "packets_reply", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["last_observed_at"], name: "index_agent_flows_closed_retention", where: "closed_at IS NOT NULL"
+    t.index ["router_id", "flow_uid"], name: "index_agent_flow_lifetimes_on_router_id_and_flow_uid", unique: true
+    t.index ["router_id", "legacy_key", "first_observed_at"], name: "index_agent_flows_legacy_lookup"
+    t.check_constraint "bytes_orig >= 0", name: "agent_flow_bytes_orig_nonnegative"
+    t.check_constraint "bytes_reply >= 0", name: "agent_flow_bytes_reply_nonnegative"
+    t.check_constraint "packets_orig >= 0", name: "agent_flow_packets_orig_nonnegative"
+    t.check_constraint "packets_reply >= 0", name: "agent_flow_packets_reply_nonnegative"
+  end
+
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -78,6 +102,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_12_130000) do
     t.text "anomaly_reasons_json", default: "[]", null: false
     t.string "last_domain"
     t.datetime "last_domain_observed_at"
+    t.string "agent_flow_uid"
     t.index ["anomaly_score"], name: "index_connections_on_anomaly_score"
     t.index ["dst_ip", "last_seen_at"], name: "index_connections_on_dst_ip_and_last_seen_at"
     t.index ["dst_ip"], name: "index_connections_on_dst_ip"
@@ -166,6 +191,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_12_130000) do
     t.string "router_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "flow_collector"
+    t.check_constraint "flow_collector IS NULL OR flow_collector IN ('agent', 'snapshot')", name: "ingest_sources_flow_collector"
     t.check_constraint "id = 1", name: "ingest_sources_singleton"
     t.check_constraint "length(router_id) BETWEEN 1 AND 64", name: "ingest_sources_router_length"
   end

@@ -42,6 +42,13 @@ class EventContractTest < Minitest::Test
     end
   end
 
+  def test_flow_lifetime_identity_is_optional_but_strict_when_supplied
+    assert_equal "flow-A", validate(@event.merge("data" => @event["data"].merge("flow_id" => "flow-A")))[:data]["flow_id"]
+    [nil, "", 42, "a" * 129, "bad/id", "bad\nid"].each do |id|
+      assert_raises(Netmon::EventContract::Invalid) { validate(@event.merge("data" => @event["data"].merge("flow_id" => id))) }
+    end
+  end
+
   def test_rejects_bad_shapes_types_ips_ports_and_counters
     [nil, [], "x", { "type" => "unknown" }, @event.merge("data" => [])].each do |event|
       assert_raises(Netmon::EventContract::Invalid) { validate(event) }

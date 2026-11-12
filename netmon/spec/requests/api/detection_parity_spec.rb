@@ -61,17 +61,20 @@ RSpec.describe "Agent detection and snapshot parity", type: :request do
   it "detects high egress on the terminal update using the just-written delta" do
     config["alert"]["required_codes"] = ["HIGH_EGRESS"]
     device = Device.create!(ip: "10.0.0.20", name: "client", first_seen_at: 1.day.ago, last_seen_at: Time.current)
-    DeviceBaseline.create!(device_id: device.id, p95_uplink_bytes_per_min: 1)
+    DeviceBaseline.create!(device_id: device.id, p95_uplink_bytes_per_min: 10)
     ingest
     expect(Incident.count).to eq(0)
     travel 5.seconds
     ingest(id: "terminal-event", bytes: 10000, state: "DESTROY")
     expect(Incident.count).to eq(1)
     expect(AnomalyHit.where(alertable: true).first.reason_codes).to include("HIGH_EGRESS")
-    expect(DeviceMinute.sum(:uplink_bytes)).to eq(9900)
+    expect(DeviceMinute.sum(:uplink_bytes)).to eq(10000)
   end
 
   it "uses the same score, hit and incident policy in snapshot ingestion" do
+    # Isolate detection parity from the collector exclusivity policy; that
+    # policy has separate coverage and forbids mixing production rollups.
+    allow(Netmon::RouterScope).to receive(:bind_flow_collector!)
     orig = Conntrack::Tuple.new(src: "10.0.0.21", dst: host.ip, sport: 50000, dport: 4444, bytes: 100, packets: 2)
     reply = Conntrack::Tuple.new(src: host.ip, dst: "10.0.0.21", sport: 4444, dport: 50000, bytes: 50, packets: 1)
     entry = Conntrack::Entry.new(family: "ipv4", proto: "tcp", state: "NEW", orig: orig, reply: reply, flags: [])

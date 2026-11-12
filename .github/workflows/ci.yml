@@ -34,6 +34,7 @@ jobs:
           ruby test/security_utilities_test.rb
           ruby test/event_contract_test.rb
           ruby test/router_policy_test.rb
+          ruby test/flow_accounting_test.rb
       - name: Test dashboard rendering in Chrome
         run: node test/javascript/rendering_test.mjs
       - name: Prepare test database

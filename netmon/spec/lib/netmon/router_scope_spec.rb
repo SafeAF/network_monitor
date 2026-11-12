@@ -20,4 +20,12 @@ RSpec.describe Netmon::RouterScope do
     end.to raise_error(ActiveRecord::StatementInvalid)
     expect(IngestSource.count).to eq(1)
   end
+
+  it "prevents two flow collectors from applying counters to the same installation" do
+    described_class.bind_flow_collector!("router-1", "agent")
+    described_class.bind_flow_collector!("router-1", "agent")
+    expect { described_class.bind_flow_collector!("router-1", "snapshot") }
+      .to raise_error(Netmon::RouterPolicy::Unavailable, "flow_collector_conflict")
+    expect(IngestSource.find(1).flow_collector).to eq("agent")
+  end
 end

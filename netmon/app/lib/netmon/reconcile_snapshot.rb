@@ -18,7 +18,7 @@ module Netmon
       bucket_ts = now.utc.change(sec: 0)
 
       entries = Conntrack::Snapshot.read(input_file:)
-      RouterScope.bind!(router_id)
+      RouterScope.bind_flow_collector!(router_id, "snapshot")
       outbound = entries.select { |entry| Netmon::Filter.outbound?(entry, config: config) }
 
       seen_connection_ids = []

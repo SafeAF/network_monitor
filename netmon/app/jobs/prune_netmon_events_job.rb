@@ -11,5 +11,13 @@ class PruneNetmonEventsJob < ApplicationJob
       break if ids.empty?
       NetmonEvent.where(id: ids).delete_all
     end
+    # Closed lifetimes retain high-water marks beyond the replay window.
+    # Open flows may be long lived and cannot safely be expired by age alone.
+    10.times do
+      ids = AgentFlowLifetime.where.not(closed_at: nil).where("last_observed_at < ?", 35.days.ago)
+        .order(:last_observed_at).limit(1000).pluck(:id)
+      break if ids.empty?
+      AgentFlowLifetime.where(id: ids).delete_all
+    end
   end
 end

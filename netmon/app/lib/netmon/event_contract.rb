@@ -38,6 +38,9 @@ module Netmon
 
       case type
       when "flow", "firewall_drop"
+        if data.key?("flow_id")
+          fail_with("invalid_flow_id") unless data["flow_id"].is_a?(String) && data["flow_id"].match?(/\A[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\z/)
+        end
         %w[src_ip dst_ip].each { |key| fail_with("invalid_ip") unless ip?(data[key]) }
         %w[src_port dst_port].each { |key| integer!(data[key], 65_535) unless data[key].nil? }
         proto = data["l4proto"]
