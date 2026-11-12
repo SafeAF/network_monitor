@@ -15,7 +15,7 @@ jobs:
       run:
         working-directory: netmon
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           working-directory: netmon
@@ -52,7 +52,7 @@ jobs:
       run:
         working-directory: netmon_agent
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version: stable
