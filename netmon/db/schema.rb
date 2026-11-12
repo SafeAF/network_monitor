@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_11_12_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_11_12_130000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -160,6 +160,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_12_120000) do
     t.index ["dedupe_key"], name: "index_dns_events_on_dedupe_key", unique: true
     t.index ["observed_at"], name: "index_dns_events_on_observed_at"
     t.index ["qname", "observed_at"], name: "index_dns_events_on_qname_and_observed_at"
+  end
+
+  create_table "ingest_sources", force: :cascade do |t|
+    t.string "router_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.check_constraint "id = 1", name: "ingest_sources_singleton"
+    t.check_constraint "length(router_id) BETWEEN 1 AND 64", name: "ingest_sources_router_length"
   end
 
   create_table "incidents", force: :cascade do |t|

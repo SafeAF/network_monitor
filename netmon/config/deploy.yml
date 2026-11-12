@@ -36,6 +36,7 @@ env:
   secret:
     - RAILS_MASTER_KEY
     - NETMON_API_TOKEN
+    - NETMON_ROUTER_ID
     - NETMON_ADMIN_USERNAME
     - NETMON_ADMIN_PASSWORD
   clear:

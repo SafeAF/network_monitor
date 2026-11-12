@@ -10,6 +10,7 @@ module Netmon
       ANSWER_TYPES = %w[A AAAA].freeze
 
       def self.call(router_id:, data:, ts:, strict: false)
+        RouterScope.authorize!(router_id)
         payload = normalize_hash(data)
         unless valid_payload?(payload)
           raise ArgumentError, "invalid_dns_payload" if strict
@@ -37,7 +38,7 @@ module Netmon
             client_ip: payload["client_ip"].to_s,
             qname: payload["qname"].to_s,
             qtype: payload["qtype"].to_s.upcase,
-            rcode: payload["rcode"].presence,
+            rcode: payload["rcode"].to_s.upcase.presence,
             resolver: payload["resolver"].presence,
             answers_json: JSON.generate(payload["answers"] || []),
             dedupe_key: dedupe_key

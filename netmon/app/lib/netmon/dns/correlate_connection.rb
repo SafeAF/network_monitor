@@ -5,11 +5,11 @@ module Netmon
     class CorrelateConnection
       DEFAULT_WINDOW = 10.minutes
 
-      def self.call(connection:, now: Time.current, window: DEFAULT_WINDOW)
+      def self.call(connection:, router_id:, now: Time.current, window: DEFAULT_WINDOW)
         return nil if connection.src_ip.blank? || connection.dst_ip.blank?
+        RouterScope.authorize!(router_id)
 
-        answer = direct_answer_for(connection:, now:, window:) ||
-                 ptr_answer_for(connection:, now:, window:)
+        answer = direct_answer_for(connection: connection, router_id: router_id, now: now, window: window)
 
         return nil unless answer
 
@@ -28,29 +28,17 @@ module Netmon
       end
       private_class_method :normalize_time
 
-      def self.direct_answer_for(connection:, now:, window:)
+      def self.direct_answer_for(connection:, router_id:, now:, window:)
         DnsEventAnswer
           .joins(:dns_event)
           .where(answer_ip: connection.dst_ip)
-          .where(dns_events: { client_ip: connection.src_ip })
-          .where("dns_events.observed_at >= ?", now - window)
+          .where(dns_events: { router_id: router_id, client_ip: connection.src_ip, qtype: %w[A AAAA], rcode: [nil, "", "NOERROR"] })
+          .where("dns_events.observed_at >= ? AND dns_events.observed_at <= ?", now - window, now)
           .order("dns_events.observed_at DESC")
           .select("dns_event_answers.id, dns_events.qname, dns_events.observed_at")
           .first
       end
       private_class_method :direct_answer_for
-
-      def self.ptr_answer_for(connection:, now:, window:)
-        DnsEventAnswer
-          .joins(:dns_event)
-          .where(answer_ip: connection.dst_ip)
-          .where(dns_events: { qtype: "PTR" })
-          .where("dns_events.observed_at >= ?", now - window)
-          .order("dns_events.observed_at DESC")
-          .select("dns_event_answers.id, dns_events.qname, dns_events.observed_at")
-          .first
-      end
-      private_class_method :ptr_answer_for
     end
   end
 end

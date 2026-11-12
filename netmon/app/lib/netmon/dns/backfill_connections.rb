@@ -4,9 +4,11 @@ module Netmon
   module Dns
     class BackfillConnections
       DEFAULT_WINDOW = 10.minutes
-      FLOW_LEAD_TOLERANCE = 30.seconds
 
       def self.call(dns_event:, window: DEFAULT_WINDOW, strict: false)
+        RouterScope.authorize!(dns_event.router_id)
+        return 0 unless %w[A AAAA].include?(dns_event.qtype.to_s.upcase)
+        return 0 unless ["", "NOERROR"].include?(dns_event.rcode.to_s.upcase)
         answer_ips = dns_event.dns_event_answers.pluck(:answer_ip).uniq
         return 0 if answer_ips.empty?
 
@@ -43,14 +45,10 @@ module Netmon
       end
 
       def self.scope_for(dns_event:, answer_ips:, window:)
-        scope = Connection.where(dst_ip: answer_ips)
+        Connection.where(dst_ip: answer_ips, src_ip: dns_event.client_ip)
                           .where("last_seen_at >= ? AND last_seen_at <= ?",
-                                 dns_event.observed_at - FLOW_LEAD_TOLERANCE,
+                                 dns_event.observed_at,
                                  dns_event.observed_at + window)
-
-        return scope.where(src_ip: dns_event.client_ip) unless dns_event.qtype.to_s.upcase == "PTR"
-
-        scope
       end
       private_class_method :scope_for
     end

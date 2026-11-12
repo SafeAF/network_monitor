@@ -69,7 +69,7 @@ RSpec.describe Netmon::Dns::IngestEvent do
     expect(Rails.logger).to have_received(:warn).with(/dns_ingest/)
   end
 
-  it "backfills a recent matching connection when dns arrives after flow ingest" do
+  it "backfills a matching flow when an earlier DNS observation is delivered late" do
     remote_host = RemoteHost.create!(
       ip: "198.252.206.17",
       first_seen_at: ts - 5.minutes,
@@ -81,8 +81,8 @@ RSpec.describe Netmon::Dns::IngestEvent do
       src_port: 57_000,
       dst_ip: remote_host.ip,
       dst_port: 443,
-      first_seen_at: ts - 5.seconds,
-      last_seen_at: ts - 5.seconds
+      first_seen_at: ts + 5.seconds,
+      last_seen_at: ts + 5.seconds
     )
 
     dns_event = described_class.call(
@@ -97,7 +97,7 @@ RSpec.describe Netmon::Dns::IngestEvent do
     )
 
     connection = Connection.find_by!(src_ip: "10.0.0.20", dst_ip: remote_host.ip)
-    remote_host_domain = RemoteHostDomain.find_by!(remote_host_id: remote_host.id, domain: "stackoverflow.com")
+    remote_host_domain = RemoteHostDomain.find_by(remote_host_id: remote_host.id, domain: "stackoverflow.com")
 
     expect(dns_event).not_to be_nil
     expect(connection.last_domain).to eq("stackoverflow.com")
@@ -105,7 +105,7 @@ RSpec.describe Netmon::Dns::IngestEvent do
     expect(remote_host_domain.last_device_ip).to eq("10.0.0.20")
   end
 
-  it "backfills PTR-derived hostnames even when the PTR lookup came from the netmon host" do
+  it "preserves PTR data without attributing its hostname to another client flow" do
     remote_host = RemoteHost.create!(
       ip: "198.252.206.17",
       first_seen_at: ts - 5.minutes,
@@ -133,11 +133,12 @@ RSpec.describe Netmon::Dns::IngestEvent do
     )
 
     connection = Connection.find_by!(src_ip: "10.0.0.20", dst_ip: remote_host.ip)
-    remote_host_domain = RemoteHostDomain.find_by!(remote_host_id: remote_host.id, domain: "stackoverflow.com")
+    remote_host_domain = RemoteHostDomain.find_by(remote_host_id: remote_host.id, domain: "stackoverflow.com")
 
     expect(dns_event).not_to be_nil
-    expect(connection.last_domain).to eq("stackoverflow.com")
-    expect(connection.last_domain_observed_at).to eq(ts)
-    expect(remote_host_domain.last_device_ip).to eq("10.0.0.20")
+    expect(dns_event.dns_event_answers.count).to eq(1)
+    expect(connection.last_domain).to be_nil
+    expect(connection.last_domain_observed_at).to be_nil
+    expect(remote_host_domain).to be_nil
   end
 end

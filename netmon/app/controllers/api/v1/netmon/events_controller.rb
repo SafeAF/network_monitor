@@ -11,6 +11,8 @@ class Api::V1::Netmon::EventsController < ApplicationController
     legacy_failure = request.headers["X-Netmon-Protocol-Version"] != "1" &&
       (result[:rejected].positive? || result[:retryable].positive?)
     render json: result, status: legacy_failure ? :service_unavailable : :ok
+  rescue Netmon::RouterPolicy::Unavailable => e
+    render json: { protocol_version: 1, error: "router_unavailable", code: e.message, retryable: true }, status: :service_unavailable
   rescue Netmon::EventContract::Invalid => e
     render json: { protocol_version: 1, error: "invalid_batch", code: e.message, retryable: false }, status: :bad_request
   end

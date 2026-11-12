@@ -90,11 +90,34 @@ RSpec.describe "Ingest reliability", type: :request do
     expect(NetmonEvent.count).to eq(1)
   end
 
-  it "scopes event identities to the router" do
+  it "binds this installation to one router before normalizing any traffic" do
     heartbeat = { id: "same-id", type: "heartbeat", ts: Time.current.iso8601, data: {} }
     expect(send_batch([heartbeat], router_id: "router-1")["accepted"]).to eq(1)
-    expect(send_batch([heartbeat], router_id: "router-2")["accepted"]).to eq(1)
-    expect(NetmonEvent.count).to eq(2)
+    expect(IngestSource.find(1).router_id).to eq("router-1")
+    expect(send_batch([heartbeat], router_id: "router-2")["code"]).to eq("router_mismatch")
+    expect(response).to have_http_status(:bad_request)
+    expect(NetmonEvent.count).to eq(1)
+  end
+
+  it "retains incoming batches when router configuration is missing or conflicts with the database" do
+    send_batch([flow])
+    allow(ENV).to receive(:fetch).with("NETMON_ROUTER_ID", "").and_return("")
+    expect(send_batch([flow("missing-config")])).to include("code" => "router_not_configured", "retryable" => true)
+    expect(response).to have_http_status(:service_unavailable)
+    allow(ENV).to receive(:fetch).with("NETMON_ROUTER_ID", "").and_return("router-2")
+    expect(send_batch([flow("conflicting-config")], router_id: "router-2")).to include("code" => "router_binding_conflict", "retryable" => true)
+    expect(response).to have_http_status(:service_unavailable)
+    expect(NetmonEvent.count).to eq(1)
+    expect(IngestSource.find(1).router_id).to eq("router-1")
+  end
+
+  it "does not claim a router for invalid or rolled back events" do
+    send_batch([{ type: "unsupported", data: {} }])
+    expect(IngestSource.count).to eq(0)
+    allow(Netmon::Anomaly::Scorer).to receive(:score_connection).and_raise("simulated failure")
+    expect(send_batch([flow])["retryable"]).to eq(1)
+    expect(IngestSource.count).to eq(0)
+    expect(NetmonEvent.count).to eq(0)
   end
 
   it "keeps newer normalized flow counters when older spool events arrive" do

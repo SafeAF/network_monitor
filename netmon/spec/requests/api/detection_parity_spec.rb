@@ -128,7 +128,7 @@ RSpec.describe "Agent detection and snapshot parity", type: :request do
 
   it "rolls back a receipt and all normalized state if incident persistence fails" do
     allow(Incident).to receive(:create!).and_raise("simulated incident failure")
-    post "/api/v1/netmon/events/batch", params: { router_id: "r", events: [{ id: "failed-event", type: "flow",
+    post "/api/v1/netmon/events/batch", params: { router_id: "router-1", events: [{ id: "failed-event", type: "flow",
       ts: Time.current.iso8601, data: { src_ip: "10.0.0.20", dst_ip: host.ip, src_port: 50000, dst_port: 4444, l4proto: 6 } }] },
       as: :json, headers: { "Authorization" => "Bearer test-token", "X-Netmon-Protocol-Version" => "1" }
     expect(JSON.parse(response.body)["retryable"]).to eq(1)

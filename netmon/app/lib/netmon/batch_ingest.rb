@@ -4,6 +4,7 @@ module Netmon
   class BatchIngest
     def self.call(payload, now: Time.current)
       router_id, events = EventContract.batch!(payload)
+      RouterScope.authorize!(router_id)
       results = events.each_with_index.map do |raw, index|
         process(raw, router_id: router_id, sent_at: payload["sent_at"], now: now).merge(index: index)
       end
@@ -24,6 +25,7 @@ module Netmon
       # Rescue outside this boundary: a failed event must leave neither its raw
       # receipt nor any partial normalized records behind.
       completed = NetmonEvent.transaction(requires_new: true) do
+        RouterScope.bind!(router_id)
         NetmonEvent.create!(attributes)
         AgentIngest.ingest_event!(event_type: attributes[:event_type], router_id: router_id,
           data: attributes[:data], ts: attributes[:ts])

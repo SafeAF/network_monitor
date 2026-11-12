@@ -3,6 +3,7 @@
 module Netmon
   class AgentIngest
     def self.ingest_event!(event_type:, router_id:, data:, ts:)
+      RouterScope.authorize!(router_id)
       data = normalize_data(data)
       case event_type
       when "flow"
@@ -86,8 +87,8 @@ module Netmon
       connection.flags = flags if flags
 
       dns_match = nil
-      if refresh_dns_match?(connection)
-        dns_match = Netmon::Dns::CorrelateConnection.call(connection: connection, now: now)
+      if refresh_dns_match?(connection, now: now)
+        dns_match = Netmon::Dns::CorrelateConnection.call(connection: connection, router_id: router_id, now: now)
         connection.last_domain = dns_match&.dig(:domain)
         connection.last_domain_observed_at = dns_match&.dig(:observed_at)
       end
@@ -212,8 +213,10 @@ module Netmon
     end
     private_class_method :compute_deltas
 
-    def self.refresh_dns_match?(connection)
-      connection.last_domain.to_s.strip.empty? || connection.last_domain_observed_at.nil?
+    def self.refresh_dns_match?(connection, now:)
+      observed = connection.last_domain_observed_at
+      connection.last_domain.to_s.strip.empty? || observed.nil? ||
+        !observed.between?(now - Dns::CorrelateConnection::DEFAULT_WINDOW, now)
     end
     private_class_method :refresh_dns_match?
 

@@ -92,7 +92,7 @@ RSpec.describe Netmon::AgentIngest do
     expect(RemoteHostDomain.count).to eq(0)
   end
 
-  it "uses a recent PTR mapping as a fallback when correlating a flow" do
+  it "does not attribute a flow to a PTR lookup from another client" do
     now = Time.zone.parse("2026-03-15 12:00:00 UTC")
     dns_event = DnsEvent.create!(
       router_id: "router-1",
@@ -124,12 +124,25 @@ RSpec.describe Netmon::AgentIngest do
 
     remote_host = RemoteHost.find_by!(ip: "198.252.206.17")
     connection = Connection.find_by!(src_ip: "10.0.0.20", dst_ip: "198.252.206.17")
-    linked_domain = RemoteHostDomain.find_by!(remote_host_id: remote_host.id)
+    linked_domain = RemoteHostDomain.find_by(remote_host_id: remote_host.id)
 
-    expect(connection.last_domain).to eq("stackoverflow.com")
-    expect(connection.last_domain_observed_at).to eq(dns_event.observed_at)
-    expect(linked_domain.domain).to eq("stackoverflow.com")
-    expect(linked_domain.last_device_ip).to eq("10.0.0.20")
+    expect(connection.last_domain).to be_nil
+    expect(connection.last_domain_observed_at).to be_nil
+    expect(linked_domain).to be_nil
+  end
+
+  it "clears a cached domain after its DNS correlation window expires" do
+    now = Time.current
+    connection = Connection.create!(proto: "tcp", src_ip: "10.0.0.20", src_port: 55000,
+      dst_ip: "203.0.113.10", dst_port: 443, first_seen_at: now - 1.hour, last_seen_at: now - 1.minute,
+      last_domain: "expired.example", last_domain_observed_at: now - 11.minutes)
+
+    described_class.ingest_event!(event_type: "flow", router_id: "router-1", ts: now,
+      data: { src_ip: connection.src_ip, dst_ip: connection.dst_ip, src_port: 55000, dst_port: 443,
+        l4proto: 6, bytes_orig: 100, bytes_reply: 100 })
+
+    expect(connection.reload.last_domain).to be_nil
+    expect(connection.last_domain_observed_at).to be_nil
   end
 
   it "rescores an existing connection on a destroy update" do

@@ -8,7 +8,9 @@ module Netmon
   class ReconcileSnapshot
     Result = Struct.new(:remote_hosts_upserted, :connections_upserted, :connections_deleted, keyword_init: true)
 
-    def self.run(input_file: ENV["CONNTRACK_INPUT_FILE"], now: Time.current, enricher: Netmon::HostEnricher)
+    def self.run(input_file: ENV["CONNTRACK_INPUT_FILE"], now: Time.current, enricher: Netmon::HostEnricher,
+      router_id: ENV.fetch("NETMON_ROUTER_ID", ""))
+      RouterScope.authorize!(router_id)
       config = load_config
       Rails.cache.write("netmon:last_ingest_at", now.to_i)
       common_ports = Array(config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
@@ -16,6 +18,7 @@ module Netmon
       bucket_ts = now.utc.change(sec: 0)
 
       entries = Conntrack::Snapshot.read(input_file:)
+      RouterScope.bind!(router_id)
       outbound = entries.select { |entry| Netmon::Filter.outbound?(entry, config: config) }
 
       seen_connection_ids = []

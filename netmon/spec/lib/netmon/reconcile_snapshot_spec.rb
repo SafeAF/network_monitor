@@ -6,6 +6,13 @@ RSpec.describe Netmon::ReconcileSnapshot do
   let(:fixture_path) { "spec/fixtures/conntrack/router_extended.txt" }
   let(:entry_proto) { "tcp" }
 
+  it "rejects a snapshot declared for a different router before reading or changing data" do
+    allow(Conntrack::Snapshot).to receive(:read)
+    expect { described_class.run(router_id: "router-2") }.to raise_error(Netmon::RouterPolicy::Mismatch)
+    expect(Conntrack::Snapshot).not_to have_received(:read)
+    expect(IngestSource.count).to eq(0)
+  end
+
   def build_entry(src:, dst:, sport:, dport:, up_bytes:, up_packets:, dn_bytes:, dn_packets:)
     orig = Conntrack::Tuple.new(src:, dst:, sport:, dport:, bytes: up_bytes, packets: up_packets)
     reply = Conntrack::Tuple.new(src: dst, dst: src, sport: dport, dport: sport, bytes: dn_bytes, packets: dn_packets)

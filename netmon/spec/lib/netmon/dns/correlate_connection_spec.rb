@@ -29,7 +29,7 @@ RSpec.describe Netmon::Dns::CorrelateConnection do
     )
     DnsEventAnswer.create!(dns_event: recent_event, answer_ip: "203.0.113.10", answer_type: "A")
 
-    result = described_class.call(connection: connection, now: now)
+    result = described_class.call(connection: connection, router_id: "router-1", now: now)
 
     expect(result).to eq(
       domain: "api.github.com",
@@ -37,7 +37,7 @@ RSpec.describe Netmon::Dns::CorrelateConnection do
     )
   end
 
-  it "falls back to a recent PTR mapping when there is no same-client forward dns event" do
+  it "keeps another client's PTR result out of flow domain attribution" do
     now = Time.zone.parse("2026-03-15 12:00:00 UTC")
     connection = Connection.new(src_ip: "10.0.0.20", dst_ip: "198.252.206.17")
 
@@ -52,11 +52,29 @@ RSpec.describe Netmon::Dns::CorrelateConnection do
     )
     DnsEventAnswer.create!(dns_event: ptr_event, answer_ip: "198.252.206.17", answer_type: "A")
 
-    result = described_class.call(connection: connection, now: now)
+    result = described_class.call(connection: connection, router_id: "router-1", now: now)
 
-    expect(result).to eq(
-      domain: "stackoverflow.com",
-      observed_at: ptr_event.observed_at
-    )
+    expect(result).to be_nil
+  end
+
+  it "ignores future, expired, foreign-router, other-client, PTR and failed answers" do
+    now = Time.current
+    connection = Connection.new(src_ip: "10.0.0.20", dst_ip: "203.0.113.10")
+    candidates = [
+      { observed_at: now + 1.second },
+      { observed_at: now - 11.minutes },
+      { router_id: "router-2" },
+      { client_ip: "10.0.0.21" },
+      { qtype: "PTR" },
+      { rcode: "NXDOMAIN" }
+    ]
+    candidates.each_with_index do |override, index|
+      event = DnsEvent.create!({ router_id: "router-1", observed_at: now - 1.second,
+        client_ip: connection.src_ip, qname: "unrelated#{index}.example", qtype: "A",
+        answers_json: "[]", dedupe_key: "excluded-#{index}" }.merge(override))
+      DnsEventAnswer.create!(dns_event: event, answer_ip: connection.dst_ip, answer_type: "A")
+    end
+
+    expect(described_class.call(connection: connection, router_id: "router-1", now: now)).to be_nil
   end
 end
