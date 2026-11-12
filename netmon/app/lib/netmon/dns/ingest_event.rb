@@ -9,15 +9,17 @@ module Netmon
     class IngestEvent
       ANSWER_TYPES = %w[A AAAA].freeze
 
-      def self.call(router_id:, data:, ts:)
+      def self.call(router_id:, data:, ts:, strict: false)
         payload = normalize_hash(data)
         unless valid_payload?(payload)
+          raise ArgumentError, "invalid_dns_payload" if strict
           Rails.logger.warn("[dns_ingest] invalid dns_response payload router_id=#{router_id}")
           return nil
         end
 
         answers = normalize_answers(payload["answers"])
         if answers.nil?
+          raise ArgumentError, "invalid_dns_answers" if strict
           Rails.logger.warn("[dns_ingest] invalid answers payload router_id=#{router_id}")
           return nil
         end
@@ -49,12 +51,14 @@ module Netmon
             )
           end
 
-          Netmon::Dns::BackfillConnections.call(dns_event: dns_event)
+          Netmon::Dns::BackfillConnections.call(dns_event: dns_event, strict: strict)
 
           dns_event
         rescue ActiveRecord::RecordNotUnique
+          raise if strict
           DnsEvent.find_by(dedupe_key: dedupe_key)
         rescue StandardError => e
+          raise if strict
           Rails.logger.error(
             "[dns_ingest] failed router_id=#{router_id} error=#{e.class}: #{e.message}"
           )

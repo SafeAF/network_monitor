@@ -37,9 +37,9 @@ RSpec.describe "Operator security", type: :request, operator_auth: false do
     begin
       get "/connections.json", headers: { "Authorization" => "Bearer test-agent-token" }
       expect(response).to have_http_status(:unauthorized)
-      post "/api/v1/netmon/events/batch", headers: authorization, params: { router_id: "router-1", events: [] }
+      post "/api/v1/netmon/events/batch", headers: authorization, params: { router_id: "router-1", events: [] }, as: :json
       expect(response).to have_http_status(:unauthorized)
-      post "/api/v1/netmon/events/batch", headers: { "Authorization" => "Bearer test-agent-token" }, params: { router_id: "router-1", events: [] }
+      post "/api/v1/netmon/events/batch", headers: { "Authorization" => "Bearer test-agent-token" }, params: { router_id: "router-1", events: [] }, as: :json
       expect(response).to have_http_status(:ok)
     ensure
       previous.nil? ? ENV.delete("NETMON_API_TOKEN") : ENV["NETMON_API_TOKEN"] = previous

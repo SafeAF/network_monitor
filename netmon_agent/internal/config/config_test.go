@@ -27,6 +27,7 @@ func TestTransportValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := Config{RouterID: "router-1", RailsBaseURL: tt.endpoint, AuthToken: tt.token, NFLogGroups: []int{10}, DevelopmentAllowInsecureHTTP: tt.insecure}
+			cfg.applyDefaults()
 			err := cfg.validate()
 			if (err == nil) != tt.valid {
 				t.Fatalf("valid=%v, error=%v", tt.valid, err)

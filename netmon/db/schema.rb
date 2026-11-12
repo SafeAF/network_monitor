@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_03_14_130000) do
+ActiveRecord::Schema[8.0].define(version: 2026_11_12_120000) do
   create_table "allowlist_rules", force: :cascade do |t|
     t.string "kind", null: false
     t.string "value", null: false
@@ -201,8 +201,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_03_14_130000) do
     t.json "data", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "event_uid"
+    t.string "payload_digest"
+    t.index ["created_at"], name: "index_netmon_events_on_created_at"
     t.index ["event_type"], name: "index_netmon_events_on_event_type"
     t.index ["router_id"], name: "index_netmon_events_on_router_id"
+    t.index ["router_id", "event_uid"], name: "index_netmon_events_on_router_id_and_event_uid", unique: true
     t.index ["ts"], name: "index_netmon_events_on_ts"
   end
 
@@ -258,6 +262,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_03_14_130000) do
     t.string "whois_asn"
     t.text "notes"
     t.string "tag", default: "unknown", null: false
+    t.datetime "enrichment_requested_at"
     t.index ["first_seen_at"], name: "index_remote_hosts_on_first_seen_at"
     t.index ["ip"], name: "index_remote_hosts_on_ip", unique: true
     t.index ["last_seen_at"], name: "index_remote_hosts_on_last_seen_at"

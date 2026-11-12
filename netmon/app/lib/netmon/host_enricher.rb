@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require "open3"
 require "resolv"
+require "timeout"
 
 module Netmon
   class HostEnricher
@@ -29,7 +29,11 @@ module Netmon
       "ASName"
     ].freeze
 
-    def self.apply(remote_host, now: Time.current, resolver: Resolv, runner: Open3)
+    def self.due?(remote_host, now: Time.current)
+      needs_rdns?(remote_host, now) || needs_whois?(remote_host, now)
+    end
+
+    def self.apply(remote_host, now: Time.current, resolver: Resolv, runner: Netmon::BoundedCommand)
       if needs_rdns?(remote_host, now)
         remote_host.rdns_name = reverse_dns(remote_host.ip, resolver)
         remote_host.rdns_checked_at = now
@@ -59,15 +63,16 @@ module Netmon
     private_class_method :needs_whois?
 
     def self.reverse_dns(ip, resolver)
-      resolver.getname(ip)
-    rescue Resolv::ResolvError, ArgumentError
+      Timeout.timeout(2) { resolver.getname(ip) }
+    rescue Resolv::ResolvError, ArgumentError, Timeout::Error
       nil
     end
     private_class_method :reverse_dns
 
     def self.whois(ip, runner)
-      stdout, status = runner.capture2e("whois", ip.to_s)
-      return [nil, nil, nil] unless status.success?
+      return [nil, nil, nil] unless Netmon::EventContract.ip?(ip)
+      stdout = runner.capture("whois", ip.to_s, timeout: 3, max_bytes: 65_536)
+      return [nil, nil, nil] unless stdout
 
       parse_whois(stdout)
     rescue Errno::ENOENT

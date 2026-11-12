@@ -135,5 +135,21 @@ func (c *Config) validate() error {
 	if len(c.NFLogGroups) == 0 {
 		return errors.New("nflog_groups required")
 	}
+	if c.BatchMaxEvents < 1 || c.BatchMaxEvents > 500 || c.QueueDepth < 1 || c.QueueDepth > 100000 ||
+		c.HTTPFlushWorkers < 1 || c.HTTPFlushWorkers > 16 || c.QnameHashCap < 1 || c.QnameHashCap > 256 ||
+		c.SpoolMaxBytes < 1024 || c.HttpRetryMax < 1 || c.HttpRetryMax > 10 ||
+		c.ConntrackWorkers < 1 || c.ConntrackWorkers > 8 || c.ConntrackEventBuffer < 1 || c.ConntrackEventBuffer > 100000 {
+		return errors.New("queue, batch, spool, retry or worker setting outside supported bounds")
+	}
+	for _, duration := range []time.Duration{c.BatchMaxWait, c.HttpTimeout, c.HttpRetryBase, c.SpoolReplayInterval, c.HeartbeatInterval} {
+		if duration <= 0 || duration > time.Minute {
+			return errors.New("timing settings must be positive and at most one minute")
+		}
+	}
+	for _, group := range c.NFLogGroups {
+		if group < 0 || group > 65535 {
+			return errors.New("nflog group outside uint16 range")
+		}
+	}
 	return nil
 }

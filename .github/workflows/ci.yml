@@ -30,13 +30,15 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn build && yarn build:css
       - name: Test security utilities without Rails
-        run: ruby test/security_utilities_test.rb
+        run: |
+          ruby test/security_utilities_test.rb
+          ruby test/event_contract_test.rb
       - name: Test dashboard rendering in Chrome
         run: node test/javascript/rendering_test.mjs
       - name: Prepare test database
         env:
           RAILS_ENV: test
-        run: bin/rails db:test:prepare
+        run: bin/rails db:prepare
       - name: Run RSpec suite
         env:
           RAILS_ENV: test

@@ -1,6 +1,10 @@
 package event
 
-import "time"
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"time"
+)
 
 type Batch struct {
 	RouterID string    `json:"router_id"`
@@ -9,9 +13,24 @@ type Batch struct {
 }
 
 type Event struct {
+	ID   string      `json:"id,omitempty"`
 	Type string      `json:"type"`
 	TS   time.Time   `json:"ts"`
 	Data interface{} `json:"data"`
+}
+
+// Assign once before queueing; the same identity survives retries and spool
+// replay. Existing identities are preserved when replaying captured events.
+func (e *Event) EnsureID() error {
+	if e.ID != "" {
+		return nil
+	}
+	var id [16]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return err
+	}
+	e.ID = hex.EncodeToString(id[:])
+	return nil
 }
 
 type DNSAnswer struct {

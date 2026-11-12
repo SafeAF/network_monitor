@@ -3,9 +3,15 @@
 require "rails_helper"
 
 RSpec.describe "Netmon events API", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
+  around do |example|
+    travel_to(Time.zone.parse("2026-03-15T13:00:00Z")) { example.run }
+  end
   let(:headers) do
     {
-      "Authorization" => "Bearer test-token"
+      "Authorization" => "Bearer test-token",
+      "X-Netmon-Protocol-Version" => "1"
     }
   end
 
@@ -37,7 +43,7 @@ RSpec.describe "Netmon events API", type: :request do
          headers: headers
 
     expect(response).to have_http_status(:ok)
-    expect(JSON.parse(response.body)).to eq("accepted" => 1, "rejected" => 0)
+    expect(JSON.parse(response.body)).to include("protocol_version" => 1, "accepted" => 1, "rejected" => 0, "retryable" => 0)
     expect(NetmonEvent.count).to eq(1)
     expect(DnsEvent.count).to eq(1)
     expect(DnsEventAnswer.pluck(:answer_type, :answer_ip)).to eq([["A", "203.0.113.10"]])
@@ -87,7 +93,8 @@ RSpec.describe "Netmon events API", type: :request do
          headers: headers
 
     expect(response).to have_http_status(:ok)
-    expect(JSON.parse(response.body)).to eq("accepted" => 2, "rejected" => 0)
+    expect(JSON.parse(response.body)).to include("accepted" => 1, "rejected" => 1, "retryable" => 0)
+    expect(JSON.parse(response.body)["results"].map { |result| result["status"] }).to eq(%w[rejected accepted])
     expect(DnsEvent.count).to eq(0)
     expect(Connection.count).to eq(1)
   end

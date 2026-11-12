@@ -64,6 +64,10 @@ func New(baseURL, token string, batchMax int, batchWait time.Duration, metrics *
 }
 
 func (c *Client) Ingest(event event.Event) bool {
+	if err := event.EnsureID(); err != nil {
+		log.Printf("event identity allocation failed: %v", err)
+		return false
+	}
 	if c.metrics != nil {
 		c.metrics.HTTPLastEnqueue.Set(float64(time.Now().Unix()))
 	}
@@ -71,7 +75,9 @@ func (c *Client) Ingest(event event.Event) bool {
 	case c.inCh <- event:
 		return true
 	default:
-		c.metrics.DroppedLocalTotal.WithLabelValues("http_batch").Inc()
+		if c.metrics != nil {
+			c.metrics.DroppedLocalTotal.WithLabelValues("http_batch").Inc()
+		}
 		return false
 	}
 }
@@ -93,6 +99,10 @@ func (c *Client) Start(ctx context.Context, routerID string) {
 }
 
 func (c *Client) IngestPriority(event event.Event) bool {
+	if err := event.EnsureID(); err != nil {
+		log.Printf("event identity allocation failed: %v", err)
+		return false
+	}
 	if c.metrics != nil {
 		c.metrics.HTTPLastEnqueue.Set(float64(time.Now().Unix()))
 	}
@@ -100,7 +110,9 @@ func (c *Client) IngestPriority(event event.Event) bool {
 	case c.priorityCh <- event:
 		return true
 	default:
-		c.metrics.DroppedLocalTotal.WithLabelValues("http_priority").Inc()
+		if c.metrics != nil {
+			c.metrics.DroppedLocalTotal.WithLabelValues("http_priority").Inc()
+		}
 		return false
 	}
 }
@@ -172,25 +184,45 @@ func (c *Client) flushLoop(ctx context.Context, routerID string) {
 }
 
 func (c *Client) sendOrSpool(ctx context.Context, routerID string, batch []event.Event) []event.Event {
-	if err := c.flushOnce(ctx, routerID, batch); err != nil {
-		payload, _ := json.Marshal(event.Batch{RouterID: routerID, SentAt: time.Now().UTC(), Events: batch})
+	if len(batch) == 0 {
+		return batch[:0]
+	}
+	payload, err := json.Marshal(event.Batch{RouterID: routerID, SentAt: time.Now().UTC(), Events: batch})
+	if err != nil {
+		log.Printf("event batch encoding failed: %v", err)
+		return batch[:0]
+	}
+	if len(payload) > 4*1024*1024 && len(batch) > 1 {
+		middle := len(batch) / 2
+		c.sendOrSpool(ctx, routerID, batch[:middle])
+		c.sendOrSpool(ctx, routerID, batch[middle:])
+		return batch[:0]
+	}
+	if err := c.post(ctx, payload); err != nil {
+		var rejected *permanentRejection
+		if errors.As(err, &rejected) {
+			if c.quarantine(payload, rejected.reason, rejected.acknowledgement) == nil {
+				return batch[:0]
+			}
+		}
 		if err := c.spool.Enqueue(payload); err != nil {
-			c.metrics.SpoolDroppedTotal.Inc()
+			log.Printf("spool enqueue failed: %v", err)
+			if c.metrics != nil {
+				c.metrics.SpoolDroppedTotal.Inc()
+			}
 		}
 	}
 	return batch[:0]
 }
 
-func (c *Client) flushOnce(ctx context.Context, routerID string, batch []event.Event) error {
-	if len(batch) == 0 {
-		return nil
-	}
-	payload, err := json.Marshal(event.Batch{RouterID: routerID, SentAt: time.Now().UTC(), Events: batch})
+func (c *Client) quarantine(payload []byte, reason string, acknowledgement ...json.RawMessage) error {
+	err := c.spool.Quarantine(payload, reason, acknowledgement...)
 	if err != nil {
-		return err
+		log.Printf("spool quarantine failed reason=%s error=%v", reason, err)
+	} else {
+		log.Printf("spool batch quarantined reason=%s", reason)
 	}
-	// Keep live ingest non-blocking: on any transient error, spool and move on.
-	return c.post(ctx, payload)
+	return err
 }
 
 func (c *Client) postWithRetry(ctx context.Context, payload []byte) error {
@@ -208,6 +240,10 @@ func (c *Client) postWithRetry(ctx context.Context, payload []byte) error {
 			return nil
 		} else {
 			lastErr = err
+			var rejected *permanentRejection
+			if errors.As(err, &rejected) {
+				return err
+			}
 		}
 	}
 	return lastErr
@@ -221,26 +257,37 @@ func (c *Client) post(ctx context.Context, payload []byte) error {
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Netmon-Protocol-Version", "1")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.metrics.HTTPSendErrors.WithLabelValues("net").Inc()
 		if c.metrics != nil {
+			c.metrics.HTTPSendErrors.WithLabelValues("net").Inc()
 			c.metrics.HTTPLastSendError.Set(float64(time.Now().Unix()))
 		}
 		return err
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 512*1024+1))
+	if readErr != nil || len(body) > 512*1024 {
+		return errors.New("unreadable or oversized acknowledgement")
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		c.metrics.HTTPSendErrors.WithLabelValues(fmt.Sprintf("%d", resp.StatusCode)).Inc()
 		if c.metrics != nil {
+			c.metrics.HTTPSendErrors.WithLabelValues(fmt.Sprintf("%d", resp.StatusCode)).Inc()
 			c.metrics.HTTPLastSendError.Set(float64(time.Now().Unix()))
 		}
-		return errors.New("http error")
+		return permanentHTTPRejection(resp.StatusCode, body)
 	}
-	c.metrics.HTTPBatchesSent.Inc()
+	if err := checkAcknowledgement(payload, body); err != nil {
+		if c.metrics != nil {
+			c.metrics.HTTPSendErrors.WithLabelValues("acknowledgement").Inc()
+			c.metrics.HTTPLastSendError.Set(float64(time.Now().Unix()))
+		}
+		return err
+	}
 	if c.metrics != nil {
+		c.metrics.HTTPBatchesSent.Inc()
 		c.metrics.HTTPLastSendSuccess.Set(float64(time.Now().Unix()))
 	}
 	return nil
@@ -259,12 +306,32 @@ func (c *Client) replaySpool(ctx context.Context, routerID string) {
 		}
 		path, payload, err := c.spool.DequeueOldest()
 		if err != nil {
+			if path != "" {
+				log.Printf("spool read failed; original retained: %v", err)
+			}
 			return
+		}
+		if len(payload) > 4*1024*1024 || !json.Valid(payload) {
+			if c.quarantine(payload, "corrupt_spool") != nil {
+				return
+			}
+			if err := c.spool.Ack(path); err != nil {
+				log.Printf("spool acknowledgement failed: %v", err)
+				return
+			}
+			replayed++
+			continue
 		}
 		if err := c.postWithRetry(ctx, payload); err != nil {
+			var rejected *permanentRejection
+			if !errors.As(err, &rejected) || c.quarantine(payload, rejected.reason, rejected.acknowledgement) != nil {
+				return
+			}
+		}
+		if err := c.spool.Ack(path); err != nil {
+			log.Printf("spool acknowledgement failed: %v", err)
 			return
 		}
-		_ = c.spool.Ack(path)
 		replayed++
 	}
 }

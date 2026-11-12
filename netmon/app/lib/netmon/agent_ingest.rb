@@ -8,9 +8,9 @@ module Netmon
       when "flow"
         ingest_flow!(router_id:, data:, ts:)
       when "dns_response"
-        Netmon::Dns::IngestEvent.call(router_id:, data:, ts:)
-      when "heartbeat"
-        # collector heartbeat only
+        Netmon::Dns::IngestEvent.call(router_id:, data:, ts:, strict: true)
+      when "heartbeat", "firewall_drop"
+        # Explicit raw-only types: receipt persistence is the full work.
       else
         # no-op for now
       end
@@ -26,30 +26,34 @@ module Netmon
       src_port = parse_nullable_int(data["src_port"])
       dst_port = parse_nullable_int(data["dst_port"])
 
+      connection = Connection.find_or_initialize_by(
+        proto: proto, src_ip: src_ip, src_port: src_port, dst_ip: dst_ip, dst_port: dst_port
+      )
+      # Live traffic can overtake spool replay. Preserve the raw receipt, but
+      # never regress counters or timestamps with an older flow observation.
+      return if connection.last_delta_at && now < connection.last_delta_at
+      new_connection = connection.new_record?
+
       device = Device.find_or_initialize_by(ip: src_ip)
       if device.new_record?
         device.first_seen_at = now
         device.name = src_ip if device.name.to_s.strip.empty?
       end
-      device.last_seen_at = now
+      device.first_seen_at = [device.first_seen_at, now].compact.min
+      device.last_seen_at = [device.last_seen_at, now].compact.max
       device.save!
 
       remote_host = RemoteHost.find_or_initialize_by(ip: dst_ip)
       if remote_host.new_record?
         remote_host.first_seen_at = now
       end
-      remote_host.last_seen_at = now
-      Netmon::HostEnricher.apply(remote_host, now:)
+      remote_host.first_seen_at = [remote_host.first_seen_at, now].compact.min
+      remote_host.last_seen_at = [remote_host.last_seen_at, now].compact.max
+      enqueue_enrichment = Netmon::HostEnricher.due?(remote_host) &&
+        (remote_host.enrichment_requested_at.nil? || remote_host.enrichment_requested_at < Time.current - 5.minutes)
+      remote_host.enrichment_requested_at = Time.current if enqueue_enrichment
       remote_host.save!
-
-      connection = Connection.find_or_initialize_by(
-        proto: proto,
-        src_ip: src_ip,
-        src_port: src_port,
-        dst_ip: dst_ip,
-        dst_port: dst_port
-      )
-      new_connection = connection.new_record?
+      HostEnrichmentJob.perform_later(remote_host.id) if enqueue_enrichment
 
       if new_connection
         connection.first_seen_at = parse_time(data["first_seen"]) || now
@@ -71,7 +75,7 @@ module Netmon
       connection.last_downlink_packets = cur_dn_p
       connection.last_downlink_bytes = cur_dn_b
       connection.last_delta_at = now
-      connection.last_seen_at = parse_time(data["last_seen"]) || now
+      connection.last_seen_at = [connection.last_seen_at, parse_time(data["last_seen"]) || now].compact.max
 
       state = normalize_state(data["state"] || data["event"])
       flags = normalize_flags(data["flags"] || data["dir"])
@@ -106,7 +110,8 @@ module Netmon
           remote_host: remote_host,
           domain: dns_match[:domain],
           device_ip: src_ip,
-          seen_at: dns_match[:observed_at]
+          seen_at: dns_match[:observed_at],
+          strict: true
         )
       end
 
@@ -130,7 +135,7 @@ module Netmon
       if dst_port
         host_port = RemoteHostPort.find_or_initialize_by(remote_host_id: remote_host.id, dst_port: dst_port)
         host_port.first_seen_at ||= now
-        host_port.last_seen_at = now
+        host_port.last_seen_at = [host_port.last_seen_at, now].compact.max
         if connection.previous_changes.key?("id") || deltas.values.any?(&:positive?)
           host_port.seen_count = host_port.seen_count.to_i + 1
         end

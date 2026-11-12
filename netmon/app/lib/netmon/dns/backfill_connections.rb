@@ -6,7 +6,7 @@ module Netmon
       DEFAULT_WINDOW = 10.minutes
       FLOW_LEAD_TOLERANCE = 30.seconds
 
-      def self.call(dns_event:, window: DEFAULT_WINDOW)
+      def self.call(dns_event:, window: DEFAULT_WINDOW, strict: false)
         answer_ips = dns_event.dns_event_answers.pluck(:answer_ip).uniq
         return 0 if answer_ips.empty?
 
@@ -28,12 +28,14 @@ module Netmon
             remote_host: remote_host,
             domain: dns_event.qname,
             device_ip: connection.src_ip,
-            seen_at: dns_event.observed_at
+            seen_at: dns_event.observed_at,
+            strict: strict
           )
         end
 
         updated
       rescue StandardError => e
+        raise if strict
         Rails.logger.error(
           "[dns_backfill] failed dns_event_id=#{dns_event&.id} error=#{e.class}: #{e.message}"
         )
