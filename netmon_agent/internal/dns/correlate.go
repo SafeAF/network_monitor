@@ -20,6 +20,11 @@ const (
 	pendingQueryTTL      = 2 * time.Minute
 	pendingQueryMaxAge   = 5 * time.Minute
 	pendingFlushInterval = 500 * time.Millisecond
+	maxPendingQueries    = 4096
+	maxClientContexts    = 2048
+	maxQueryAliases      = 16
+	maxQueryAnswers      = 64
+	clientContextTTL     = 30 * time.Minute
 )
 
 type cacheEntry struct {
@@ -39,13 +44,15 @@ type pendingQuery struct {
 	ts            time.Time
 	lastUpdate    time.Time
 	responded     bool
+	overflowed    bool
 }
 
 type Correlator struct {
-	cfg     *config.Config
-	metrics *metrics.Metrics
-	mu      sync.RWMutex
-	cache   map[string]*cacheEntry
+	cfg          *config.Config
+	metrics      *metrics.Metrics
+	mu           sync.RWMutex
+	cache        map[string]*cacheEntry
+	pendingCount int // Owned by Start's goroutine, including flush/prune helpers.
 }
 
 func NewCorrelator(cfg *config.Config, metrics *metrics.Metrics) *Correlator {
@@ -53,6 +60,7 @@ func NewCorrelator(cfg *config.Config, metrics *metrics.Metrics) *Correlator {
 }
 
 func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- event.Event) {
+	c.pendingCount = 0
 	pending := make(map[string][]*pendingQuery)
 	aliases := make(map[string][]*pendingQuery)
 	ticker := time.NewTicker(pendingFlushInterval)
@@ -63,7 +71,11 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 		case <-ctx.Done():
 			c.flushReady(time.Now().UTC().Add(pendingFlushInterval), pending, aliases, out)
 			return
-		case line := <-lines:
+		case line, ok := <-lines:
+			if !ok {
+				c.flushReady(time.Now().UTC().Add(pendingFlushInterval), pending, aliases, out)
+				return
+			}
 			c.incDNSLines()
 
 			parsed, err := Parse(line, time.Now())
@@ -75,6 +87,10 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 			key := strings.ToLower(parsed.QName)
 			switch parsed.Action {
 			case "query":
+				if c.pendingCount >= maxPendingQueries {
+					c.drop("dns_pending_limit")
+					continue
+				}
 				c.trackClient(parsed.ClientIP, parsed.QName)
 				pq := &pendingQuery{
 					clientIP:   parsed.ClientIP,
@@ -86,6 +102,7 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 					aliases:    make(map[string]struct{}),
 				}
 				pending[key] = append(pending[key], pq)
+				c.pendingCount++
 				if strings.EqualFold(parsed.QType, "PTR") {
 					c.registerAlias(aliases, normalizePTRTarget(parsed.QName), pq)
 				}
@@ -109,12 +126,12 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 					} else if answer := normalizePTRAnswer(pq.qtype, parsed.QName, parsed.Answer); answer != nil {
 						pq.rcode = "NOERROR"
 						pq.qname = answer.Name
-						pq.answers = appendUniqueAnswer(pq.answers, *answer)
+						c.appendAnswer(pq, *answer)
 						pq.awaitingAlias = false
 					} else {
 						pq.rcode = "NOERROR"
 						if answer := normalizeAnswer(parsed.QName, parsed.Answer); answer != nil {
-							pq.answers = appendUniqueAnswer(pq.answers, *answer)
+							c.appendAnswer(pq, *answer)
 							pq.awaitingAlias = false
 						} else if aliasKey := normalizeAlias(parsed.Answer); aliasKey != "" {
 							c.registerAlias(aliases, aliasKey, pq)
@@ -128,6 +145,7 @@ func (c *Correlator) Start(ctx context.Context, lines <-chan string, out chan<- 
 		case <-ticker.C:
 			c.flushReady(time.Now().UTC(), pending, aliases, out)
 			c.pruneExpired(time.Now().UTC(), pending, aliases)
+			c.pruneClients(time.Now().UTC())
 		}
 	}
 }
@@ -147,36 +165,31 @@ func (c *Correlator) lookupPending(pending map[string][]*pendingQuery, aliases m
 		return nil
 	}
 
-	live := make([]*pendingQuery, 0, len(queries))
-	var matched *pendingQuery
+	var matched, fallback *pendingQuery
 	for _, pq := range queries {
-		if ts.UTC().Sub(pq.ts) > pendingQueryTTL {
+		age := ts.UTC().Sub(pq.ts)
+		if age < 0 || age > pendingQueryTTL || pq.overflowed {
 			continue
 		}
-		live = append(live, pq)
+		fallback = pq
 		if answerType == "" || pq.qtype == answerType {
 			matched = pq
 		}
 	}
-	if len(live) == 0 {
-		delete(pending, key)
-		delete(aliases, key)
-		return nil
-	}
 	if matched != nil {
 		return matched
 	}
-	return live[len(live)-1]
+	return fallback
 }
 
 func (c *Correlator) lookupAwaitingAlias(pending map[string][]*pendingQuery, ts time.Time, answerType string) *pendingQuery {
 	var matched *pendingQuery
 	for _, queries := range pending {
 		for _, pq := range queries {
-			if !pq.awaitingAlias {
+			if !pq.awaitingAlias || pq.overflowed {
 				continue
 			}
-			if ts.UTC().Sub(pq.ts) > pendingQueryTTL {
+			if age := ts.UTC().Sub(pq.ts); age < 0 || age > pendingQueryTTL {
 				continue
 			}
 			if answerType != "" && pq.qtype != answerType {
@@ -199,7 +212,7 @@ func (c *Correlator) flushReady(now time.Time, pending map[string][]*pendingQuer
 				continue
 			}
 
-			util.TrySend(out, c.metrics, "dns_response", event.Event{
+			if !pq.overflowed && util.TrySend(out, c.metrics, "dns_response", event.Event{
 				Type: "dns_response",
 				TS:   pq.lastUpdate,
 				Data: event.DNSResponse{
@@ -210,16 +223,18 @@ func (c *Correlator) flushReady(now time.Time, pending map[string][]*pendingQuer
 					Resolver: pq.resolver,
 					Answers:  append([]event.DNSAnswer{}, pq.answers...),
 				},
-			})
-
-			c.incDNSResponsesEmitted()
+			}) {
+				c.incDNSResponsesEmitted()
+			}
+			c.pendingCount--
 			c.unregisterAliases(aliases, pq)
 		}
+		clear(queries[len(remaining):])
 		if len(remaining) == 0 {
 			delete(pending, key)
 			continue
 		}
-		pending[key] = remaining
+		pending[key] = compactPending(remaining)
 	}
 }
 
@@ -229,16 +244,19 @@ func (c *Correlator) pruneExpired(now time.Time, pending map[string][]*pendingQu
 		remaining := queries[:0]
 		for _, pq := range queries {
 			if pq.lastUpdate.Before(cutoff) {
+				c.pendingCount--
+				c.drop("dns_pending_expired")
 				c.unregisterAliases(aliases, pq)
 				continue
 			}
 			remaining = append(remaining, pq)
 		}
+		clear(queries[len(remaining):])
 		if len(remaining) == 0 {
 			delete(pending, key)
 			continue
 		}
-		pending[key] = remaining
+		pending[key] = compactPending(remaining)
 	}
 }
 
@@ -321,20 +339,44 @@ func answerTypeForIP(ip net.IP) string {
 	return answerType
 }
 
-func appendUniqueAnswer(answers []event.DNSAnswer, answer event.DNSAnswer) []event.DNSAnswer {
+func (c *Correlator) appendAnswer(pq *pendingQuery, answer event.DNSAnswer) {
+	if pq.overflowed {
+		return
+	}
+	if len(answer.Name) > 253 {
+		pq.overflowed = true
+		c.drop("dns_field_limits")
+		return
+	}
+	answers := pq.answers
 	for _, existing := range answers {
 		if existing.Type == answer.Type && existing.Data == answer.Data {
-			return answers
+			return
 		}
 	}
-	return append(answers, answer)
+	if len(answers) >= maxQueryAnswers {
+		pq.overflowed = true
+		c.drop("dns_answer_limit")
+		return
+	}
+	pq.answers = append(answers, answer)
 }
 
 func (c *Correlator) registerAlias(aliases map[string][]*pendingQuery, alias string, pq *pendingQuery) {
-	if alias == "" {
+	if alias == "" || pq.overflowed {
 		return
 	}
 	if _, exists := pq.aliases[alias]; exists {
+		return
+	}
+	if len(alias) > 253 {
+		pq.overflowed = true
+		c.drop("dns_field_limits")
+		return
+	}
+	if len(pq.aliases) >= maxQueryAliases {
+		pq.overflowed = true
+		c.drop("dns_alias_limit")
 		return
 	}
 	pq.aliases[alias] = struct{}{}
@@ -356,12 +398,20 @@ func (c *Correlator) unregisterAliases(aliases map[string][]*pendingQuery, pq *p
 			}
 		}
 
+		clear(queries[len(remaining):])
 		if len(remaining) == 0 {
 			delete(aliases, alias)
 			continue
 		}
-		aliases[alias] = remaining
+		aliases[alias] = compactPending(remaining)
 	}
+}
+
+func compactPending(queries []*pendingQuery) []*pendingQuery {
+	if cap(queries) > 2*len(queries) {
+		return append([]*pendingQuery(nil), queries...)
+	}
+	return queries
 }
 
 func appendUniquePendingQuery(queries []*pendingQuery, candidate *pendingQuery) []*pendingQuery {
@@ -461,6 +511,10 @@ func (c *Correlator) trackClient(clientIP, qname string) {
 	defer c.mu.Unlock()
 	entry := c.cache[clientIP]
 	if entry == nil {
+		if len(c.cache) >= maxClientContexts {
+			c.drop("dns_client_context_limit")
+			return
+		}
 		entry = &cacheEntry{qnames: util.NewRing[string](c.cfg.QnameHashCap)}
 		c.cache[clientIP] = entry
 	}
@@ -478,7 +532,7 @@ func (c *Correlator) DNSContextForIP(ip string) *event.DNSContext {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	entry := c.cache[ip]
-	if entry == nil {
+	if entry == nil || time.Since(entry.lastSeen) > clientContextTTL {
 		return nil
 	}
 	return &event.DNSContext{RecentQNameHashes: entry.qnames.Values(), LastSeen: entry.lastSeen.Format(time.RFC3339)}
@@ -499,5 +553,21 @@ func (c *Correlator) incDNSParseErrors() {
 func (c *Correlator) incDNSResponsesEmitted() {
 	if c.metrics != nil {
 		c.metrics.DNSBucketsEmitted.Inc()
+	}
+}
+
+func (c *Correlator) pruneClients(now time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for ip, entry := range c.cache {
+		if now.Sub(entry.lastSeen) > clientContextTTL {
+			delete(c.cache, ip)
+		}
+	}
+}
+
+func (c *Correlator) drop(stream string) {
+	if c.metrics != nil {
+		c.metrics.DroppedLocalTotal.WithLabelValues(stream).Inc()
 	}
 }

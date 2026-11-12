@@ -21,6 +21,10 @@ module Netmon
       src_ip = data["src_ip"].to_s
       dst_ip = data["dst_ip"].to_s
       return if src_ip.empty? || dst_ip.empty?
+      config = Anomaly::Scorer.configuration
+      # Out-of-scope observations remain raw receipts, matching the snapshot
+      # path's LAN-source/excluded-destination policy for normalized detections.
+      return unless Filter.outbound_addresses?(src_ip, dst_ip, config: config)
 
       proto = normalize_proto(data["l4proto"])
       src_port = parse_nullable_int(data["src_port"])
@@ -32,7 +36,6 @@ module Netmon
       # Live traffic can overtake spool replay. Preserve the raw receipt, but
       # never regress counters or timestamps with an older flow observation.
       return if connection.last_delta_at && now < connection.last_delta_at
-      new_connection = connection.new_record?
 
       device = Device.find_or_initialize_by(ip: src_ip)
       if device.new_record?
@@ -55,7 +58,7 @@ module Netmon
       remote_host.save!
       HostEnrichmentJob.perform_later(remote_host.id) if enqueue_enrichment
 
-      if new_connection
+      if connection.new_record?
         connection.first_seen_at = parse_time(data["first_seen"]) || now
       end
 
@@ -89,20 +92,6 @@ module Netmon
         connection.last_domain_observed_at = dns_match&.dig(:observed_at)
       end
 
-      if rescore_connection?(connection: connection, new_connection: new_connection, state: state)
-        baseline = DeviceBaseline.find_by(device_id: device.id)
-        stats = Netmon::Anomaly::DeviceStats.current(device.id, device_ip: device.ip, now: now)
-        anomaly = Netmon::Anomaly::Scorer.score_connection(
-          connection: connection,
-          device: device,
-          remote_host: remote_host,
-          baseline: baseline,
-          device_stats: stats,
-          now: now
-        )
-        connection.anomaly_score = anomaly[:score]
-        connection.anomaly_reasons_json = anomaly[:reasons].to_json
-      end
       connection.save!
 
       if dns_match
@@ -141,6 +130,7 @@ module Netmon
         end
         host_port.save!
       end
+      Anomaly::Detection.call(connection: connection, device: device, remote_host: remote_host, now: now, config: config)
     end
 
     def self.normalize_proto(value)
@@ -227,12 +217,5 @@ module Netmon
     end
     private_class_method :refresh_dns_match?
 
-    def self.rescore_connection?(connection:, new_connection:, state:)
-      return true if new_connection
-      return true if connection.anomaly_score.nil? || connection.anomaly_reasons_json.to_s.strip.empty?
-
-      %w[NEW SYN_SENT].include?(state.to_s)
-    end
-    private_class_method :rescore_connection?
   end
 end

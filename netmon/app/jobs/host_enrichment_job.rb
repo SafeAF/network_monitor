@@ -8,10 +8,12 @@ class HostEnrichmentJob < ApplicationJob
   def perform(remote_host_id)
     host = RemoteHost.find_by(id: remote_host_id)
     return unless host && Netmon::EventContract.ip?(host.ip)
-    return unless Netmon::HostEnricher.due?(host)
-
-    # External I/O happens before the short metadata-only save transaction.
-    Netmon::HostEnricher.apply(host)
-    host.save!
+    if Netmon::HostEnricher.due?(host)
+      # External I/O happens before the short metadata-only save transaction.
+      Netmon::HostEnricher.apply(host)
+      host.save!
+    end
+    # Retry dispatch even when metadata was saved before a queue failure.
+    HostScoreRefreshJob.perform_later(host.id)
   end
 end

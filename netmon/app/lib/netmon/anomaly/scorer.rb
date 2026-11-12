@@ -8,6 +8,10 @@ module Netmon
       Reason = Struct.new(:code, :weight, :detail, keyword_init: true)
       CONFIG_CACHE_KEY = "netmon/anomaly/scorer/config".freeze
 
+      def self.configuration
+        cached_config
+      end
+
       def self.score_connection(connection:, device:, remote_host:, baseline:, device_stats:, now: Time.current, config: nil)
         config ||= cached_config
         common_ports = Array(config["common_ports"].presence || [53, 80, 123, 443]).map(&:to_i)
@@ -24,7 +28,7 @@ module Netmon
         allowlisted_asn = allowlisted_asn?(remote_host)
         org_asn_allowlisted = allowlisted_org || allowlisted_asn
 
-        if remote_host&.first_seen_at && remote_host.first_seen_at >= now - new_window_seconds
+        if remote_host&.first_seen_at && remote_host.first_seen_at.between?(now - new_window_seconds, now)
           weight = org_asn_allowlisted ? 10 : 30
           reasons << Reason.new(code: "NEW_DST", weight: weight, detail: remote_host.ip)
         end
@@ -33,7 +37,7 @@ module Netmon
           reasons << Reason.new(code: "DORMANT_DST", weight: 15, detail: remote_host.ip)
         end
 
-        if new_asn?(device, remote_host, now: now)
+        if new_asn?(device, remote_host, connection: connection, now: now)
           reasons << Reason.new(code: "NEW_ASN", weight: 20, detail: remote_host&.whois_asn || remote_host&.whois_name)
         end
 
@@ -87,19 +91,23 @@ module Netmon
         }
       end
 
-      def self.new_asn?(device, remote_host, now: Time.current)
+      def self.new_asn?(device, remote_host, connection:, now: Time.current)
         return false unless device && remote_host
 
         asn = remote_host.whois_asn.presence || remote_host.whois_name.presence
         return false if asn.nil?
 
         window_start = now - 7.days
-        seen = Connection.joins("INNER JOIN remote_hosts ON remote_hosts.ip = connections.dst_ip")
+        scope = Connection.joins("INNER JOIN remote_hosts ON remote_hosts.ip = connections.dst_ip")
                   .where(src_ip: device.ip)
-                  .where("connections.last_seen_at >= ?", window_start)
+                  .where("connections.last_seen_at >= ? AND connections.last_seen_at <= ?", window_start, now)
+                  # Other flows first observed at this event's timestamp are
+                  # peers, rather than prior ASN history. Snapshot saves all
+                  # peers before scoring; agent batches save them sequentially.
+                  .where("connections.first_seen_at < ?", now)
                   .where("remote_hosts.whois_asn = ? OR remote_hosts.whois_name = ?", asn, asn)
-                  .exists?
-        !seen
+        scope = scope.where.not(id: connection.id) if connection.persisted?
+        !scope.exists?
       end
       private_class_method :new_asn?
 

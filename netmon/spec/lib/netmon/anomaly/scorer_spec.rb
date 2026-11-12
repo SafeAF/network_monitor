@@ -45,6 +45,20 @@ RSpec.describe Netmon::Anomaly::Scorer do
     )
   end
 
+  it "distinguishes simultaneous new ASN peers from prior ASN history" do
+    now = Time.current
+    connection.update!(first_seen_at: now, last_seen_at: now)
+    peer = Connection.create!(proto: "tcp", src_ip: device.ip, src_port: 4321,
+      dst_ip: remote_host.ip, dst_port: 4444, first_seen_at: now, last_seen_at: now)
+    stats = Netmon::Anomaly::DeviceStats::Result.new
+    score = -> { described_class.score_connection(connection: connection, device: device,
+      remote_host: remote_host, baseline: nil, device_stats: stats, now: now, config: {}) }
+    expect(score.call[:reasons].map { |reason| reason[:code] }).to include("NEW_ASN")
+
+    peer.update!(first_seen_at: now - 1.minute)
+    expect(score.call[:reasons].map { |reason| reason[:code] }).not_to include("NEW_ASN")
+  end
+
   it "scores multiple rules and clamps to 100" do
     baseline = DeviceBaseline.create!(
       device_id: device.id,

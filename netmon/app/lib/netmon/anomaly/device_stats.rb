@@ -17,12 +17,12 @@ module Netmon
       def self.current(device_id, device_ip: nil, now: Time.current)
         window_start = now - WINDOW_MINUTES.minutes
         minutes = DeviceMinute.where(device_id:)
-                              .where("bucket_ts >= ?", window_start)
+                              .where("bucket_ts >= ? AND bucket_ts <= ?", window_start, now)
                               .order(:bucket_ts)
         src_ip = device_ip.presence || Device.where(id: device_id).pick(:ip)
         return Result.new if src_ip.blank?
 
-        conn_scope = Connection.where("last_seen_at >= ?", window_start)
+        conn_scope = Connection.where("last_seen_at >= ? AND last_seen_at <= ?", window_start, now)
                                .where(src_ip: src_ip)
 
         unique_ports = conn_scope.where.not(dst_port: nil).distinct.count(:dst_port)
@@ -39,7 +39,9 @@ module Netmon
 
         Result.new(
           uplink_bytes_last_10m: minutes.sum(:uplink_bytes),
-          new_dst_ips_last_10m: minutes.sum(:new_dst_ips),
+          new_dst_ips_last_10m: conn_scope.joins("INNER JOIN remote_hosts ON remote_hosts.ip = connections.dst_ip")
+            .where("remote_hosts.first_seen_at >= ? AND remote_hosts.first_seen_at <= ?", window_start, now)
+            .distinct.count(:dst_ip),
           unique_ports_last_10m: unique_ports,
           unique_dst_ips_last_10m: unique_ips,
           top_port_share_10m: top_port_share

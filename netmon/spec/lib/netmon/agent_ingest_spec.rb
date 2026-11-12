@@ -132,7 +132,7 @@ RSpec.describe Netmon::AgentIngest do
     expect(linked_domain.last_device_ip).to eq("10.0.0.20")
   end
 
-  it "does not rescore an existing connection on a destroy update" do
+  it "rescores an existing connection on a destroy update" do
     now = Time.zone.parse("2026-03-15 12:00:00 UTC")
     allow(Netmon::Anomaly::Scorer).to receive(:score_connection).and_return(score: 7, reasons: [{ code: "NEW_DST" }])
 
@@ -174,7 +174,7 @@ RSpec.describe Netmon::AgentIngest do
 
     connection = Connection.find_by!(src_ip: "10.0.0.20", dst_ip: "203.0.113.10", dst_port: 443)
 
-    expect(Netmon::Anomaly::Scorer).to have_received(:score_connection).once
+    expect(Netmon::Anomaly::Scorer).to have_received(:score_connection).twice
     expect(connection.state).to eq("DESTROY")
     expect(connection.anomaly_score).to eq(7)
   end

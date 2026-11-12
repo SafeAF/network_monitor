@@ -18,14 +18,18 @@ module Netmon
       return false if entry.nil? || entry.orig.nil?
 
       orig = entry.orig
-      return false if orig.src.nil? || orig.dst.nil?
+      outbound_addresses?(orig.src, orig.dst, config: config)
+    end
+
+    def self.outbound_addresses?(src_ip, dst_ip, config: nil)
+      return false if src_ip.nil? || dst_ip.nil?
 
       config ||= load_config
       local_subnets = subnet_list(config["local_subnets"], DEFAULT_LOCAL_SUBNETS)
       exclude_subnets = subnet_list(config["exclude_subnets"], DEFAULT_EXCLUDE_SUBNETS)
 
-      src = IPAddr.new(orig.src) rescue nil
-      dst = IPAddr.new(orig.dst) rescue nil
+      src = IPAddr.new(src_ip) rescue nil
+      dst = IPAddr.new(dst_ip) rescue nil
       return false if src.nil? || dst.nil?
 
       local_subnets.any? { |net| net.include?(src) } && exclude_subnets.none? { |net| net.include?(dst) }

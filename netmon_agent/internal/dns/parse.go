@@ -2,6 +2,7 @@ package dns
 
 import (
 	"errors"
+	"net"
 	"regexp"
 	"strings"
 	"time"
@@ -34,6 +35,23 @@ type ParsedLine struct {
 }
 
 func Parse(line string, now time.Time) (*ParsedLine, error) {
+	if len(line) > maxDNSLogLine {
+		return nil, errors.New("line exceeds size limit")
+	}
+	parsed, err := parseLine(line, now)
+	if err != nil {
+		return nil, err
+	}
+	if len(parsed.QName) > 253 || len(parsed.QType) > 16 || len(parsed.Answer) > 1024 || len(parsed.Resolver) > 255 {
+		return nil, errors.New("DNS field exceeds size limit")
+	}
+	if parsed.Action == "query" && net.ParseIP(parsed.ClientIP) == nil {
+		return nil, errors.New("invalid DNS client address")
+	}
+	return parsed, nil
+}
+
+func parseLine(line string, now time.Time) (*ParsedLine, error) {
 	line = strings.TrimSpace(line)
 	if line == "" {
 		return nil, errors.New("empty")
@@ -77,5 +95,14 @@ func parseTS(prefix string, now time.Time) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	return time.Date(now.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.Local), nil
+	stamp := time.Date(now.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.Local)
+	// Following a rotated Dec 31 file after Jan 1 must not put observations
+	// almost a year in the future. Permit at most one day of clock/date skew.
+	if stamp.After(now.Add(24 * time.Hour)) {
+		stamp = time.Date(now.Year()-1, t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.Local)
+	}
+	if stamp.Month() != t.Month() || stamp.Day() != t.Day() {
+		return time.Time{}, errors.New("invalid log date")
+	}
+	return stamp, nil
 }
